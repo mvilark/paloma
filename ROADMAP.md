@@ -18,7 +18,7 @@ _(none yet)_
 
 Scoped and agreed, not started.
 
-- **PAL-001 · Global default theme.** Let an app set one theme at startup with `paloma::theme::set_default_theme(..)` so prompts built with `new()` use it instead of `SimpleTheme`; explicit `with_theme()` still wins. Plan: [docs/plans/PAL-001-global-default-theme.md](docs/plans/PAL-001-global-default-theme.md).
+- **PAL-001 · Global default theme.** Let an app set one theme at startup with `paloma::theme::set_default(..)` so prompts built with `new()` use it instead of `SimpleTheme`; explicit `with_theme()` still wins. Plan: [docs/plans/PAL-001-global-default-theme.md](docs/plans/PAL-001-global-default-theme.md).
 
 ## In progress
 
