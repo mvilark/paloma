@@ -104,16 +104,17 @@ Ordered by how visible the compromise is in the example.
    - `examples/ultraviolet/ui.rs`: non-prompt output listed in the mapping table.
    - `examples/ultraviolet/flows.rs`: one function per command, with fake data.
    - `Cargo.toml`: an `[[example]]` entry `ultraviolet` with `required-features = ["fuzzy-select", "password"]`.
+   - `Cargo.toml`: `ctrlc` as the only new dev-dependency. Its handler restores the cursor, prints `◇ … · cancelled` and exits with code 130, including while a spinner runs. Flags are parsed by hand; spinner and progress are hand-rolled with `console`.
 2. **Tests.** Unit tests inside `theme.rs` for palette selection (depth and dark/light), the ASCII glyph set, and the collapsed-line format (`◇ Label · value`); run with `cargo test --example ultraviolet --all-features`. CI already compiles all examples (`cargo check --examples --all-features`).
 3. **Manual checks**, recorded in the PR: dark and light, `COLORTERM` unset (256 colours), `TERM=xterm` with 16 colours, `NO_COLOR=1`, `--ascii`, piped output, `CI=1`, `--yes`, `^C` during a prompt and during a spinner.
 4. **Docs.** A short "Ultraviolet example" paragraph in `docs/USAGE.md` (Themes section) pointing at the example, and the example listed in `DEVELOPMENT.md`'s layout section.
 
 ## Open questions / risks
 
-- **Dev-dependencies.** Pending your answer on the card in the project thread: none, `ctrlc` only (recommended), or `ctrlc` + `clap` + `indicatif`.
 - **Hand-rolled spinner and progress** add a fair amount of example code. That is deliberate: it shows exactly what Gap 12 would move into paloma.
 - **Icon art** is not in the guide, so the example's Serrallonga icon is our own drawing.
 
 ## Status notes
 
 - 2026-10-10: Plan written. Style guide stored as `docs/design/ultraviolet.md`.
+- 2026-10-10: spideyincrocs chose `ctrlc` as the only new dev-dependency (no `clap`, no `indicatif`).
