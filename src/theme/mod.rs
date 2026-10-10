@@ -60,6 +60,13 @@ pub trait Theme {
         Ok(())
     }
 
+    /// Whether `y` / `n` in a [`Confirm`](crate::Confirm) only select the choice (the user
+    /// then hits `Enter`) instead of answering at once. A prompt can override this with
+    /// [`Confirm::wait_for_newline`](crate::Confirm::wait_for_newline). Defaults to `false`.
+    fn confirm_wait_for_newline(&self) -> bool {
+        false
+    }
+
     /// Whether [`Confirm`](crate::Confirm) draws its choices as buttons on a line under
     /// the question. They are moved with the arrow keys or `Tab`, and the prompt is
     /// redrawn on every change. Defaults to `false`: choices stay inline in

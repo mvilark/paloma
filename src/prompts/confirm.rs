@@ -33,7 +33,7 @@ pub struct Confirm<'a> {
     report: bool,
     default: Option<bool>,
     show_default: bool,
-    wait_for_newline: bool,
+    wait_for_newline: Option<bool>,
     theme: Option<&'a dyn Theme>,
     show_hint: bool,
 }
@@ -77,8 +77,10 @@ impl Confirm<'_> {
     /// When `true`, the user must type their choice and hit the Enter key before
     /// proceeding. Valid inputs can be "yes", "no", "y", "n", or an empty string
     /// to accept the default.
+    ///
+    /// Left unset, the theme decides ([`Theme::confirm_wait_for_newline`]).
     pub fn wait_for_newline(mut self, wait: bool) -> Self {
-        self.wait_for_newline = wait;
+        self.wait_for_newline = Some(wait);
         self
     }
 
@@ -168,8 +170,11 @@ impl Confirm<'_> {
 
         let mut render = TermThemeRenderer::new(term, self.theme);
 
+        let wait_for_newline = self
+            .wait_for_newline
+            .unwrap_or_else(|| render.confirm_wait_for_newline());
         if render.confirm_buttons_enabled() {
-            return self.interact_buttons(term, render, allow_quit);
+            return self.interact_buttons(term, render, allow_quit, wait_for_newline);
         }
 
         let default_if_show = if self.show_default {
@@ -189,7 +194,7 @@ impl Confirm<'_> {
 
         let rv;
 
-        if self.wait_for_newline {
+        if wait_for_newline {
             // Waits for user input and for the user to hit the Enter key
             // before validation.
             let mut value = default_if_show;
@@ -269,6 +274,7 @@ impl Confirm<'_> {
         term: &Term,
         mut render: TermThemeRenderer,
         allow_quit: bool,
+        wait_for_newline: bool,
     ) -> Result<Option<bool>> {
         let mut yes_focused = self.default.unwrap_or(true);
         term.hide_cursor()?;
@@ -280,11 +286,11 @@ impl Confirm<'_> {
                     yes_focused = !yes_focused;
                     None
                 }
-                Key::Char('y') | Key::Char('Y') if self.wait_for_newline => {
+                Key::Char('y') | Key::Char('Y') if wait_for_newline => {
                     yes_focused = true;
                     None
                 }
-                Key::Char('n') | Key::Char('N') if self.wait_for_newline => {
+                Key::Char('n') | Key::Char('N') if wait_for_newline => {
                     yes_focused = false;
                     None
                 }
@@ -329,7 +335,7 @@ impl<'a> Confirm<'a> {
             report: true,
             default: None,
             show_default: true,
-            wait_for_newline: false,
+            wait_for_newline: None,
             theme: Some(theme),
             show_hint: true,
         }

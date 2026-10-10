@@ -310,6 +310,11 @@ impl Theme for UltravioletTheme {
         true
     }
 
+    /// `y` / `n` select a button; `Enter` submits.
+    fn confirm_wait_for_newline(&self) -> bool {
+        true
+    }
+
     fn format_confirm_prompt_no_hint(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
         self.format_prompt(f, prompt)
     }

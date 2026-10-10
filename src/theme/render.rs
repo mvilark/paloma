@@ -118,6 +118,10 @@ impl<'a> TermThemeRenderer<'a> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt(buf, prompt, default))
     }
 
+    pub fn confirm_wait_for_newline(&self) -> bool {
+        self.theme.confirm_wait_for_newline()
+    }
+
     pub fn confirm_buttons_enabled(&self) -> bool {
         self.theme.confirm_buttons()
     }
