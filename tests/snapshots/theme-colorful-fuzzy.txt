@@ -1,0 +1,8 @@
+fuzzy_select_prompt_item(banana, true, true, an) => "\u{1b}[32m❯\u{1b}[0m \u{1b}[36mb\u{1b}[0m\u{1b}[36ma\u{1b}[0m\u{1b}[36mn\u{1b}[0m\u{1b}[36m\u{1b}[1ma\u{1b}[0m\u{1b}[0m\u{1b}[36m\u{1b}[1mn\u{1b}[0m\u{1b}[0m\u{1b}[36ma\u{1b}[0m"
+fuzzy_select_prompt_item(banana, true, false, an) => "\u{1b}[32m❯\u{1b}[0m \u{1b}[36mbanana\u{1b}[0m"
+fuzzy_select_prompt_item(banana, false, true, an) => "  ban\u{1b}[1ma\u{1b}[0m\u{1b}[1mn\u{1b}[0ma"
+fuzzy_select_prompt_item(banana, false, false, an) => "  banana"
+fuzzy_select_prompt(Search, ban, 0) => "\u{1b}[33m?\u{1b}[0m \u{1b}[1mSearch\u{1b}[0m \u{1b}[38;5;8m›\u{1b}[0m \u{1b}[30m\u{1b}[47mb\u{1b}[0man"
+fuzzy_select_prompt(Search, ban, 2) => "\u{1b}[33m?\u{1b}[0m \u{1b}[1mSearch\u{1b}[0m \u{1b}[38;5;8m›\u{1b}[0m ba\u{1b}[30m\u{1b}[47mn\u{1b}[0m"
+fuzzy_select_prompt(Search, ban, 3) => "\u{1b}[33m?\u{1b}[0m \u{1b}[1mSearch\u{1b}[0m \u{1b}[38;5;8m›\u{1b}[0m ban\u{1b}[30m\u{1b}[47m \u{1b}[0m"
+fuzzy_select_prompt(, ban, 3) => "\u{1b}[38;5;8m›\u{1b}[0m ban\u{1b}[30m\u{1b}[47m \u{1b}[0m"

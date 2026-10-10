@@ -1,4 +1,5 @@
-//! Golden output of every `Theme` hook for the built-in themes.
+//! Golden output of every `Theme` hook for the built-in themes, one snapshot per
+//! theme and per optional feature, so the test passes whatever features are on.
 //!
 //! Guards the built-in looks while the theme internals change (PAL-004): any difference
 //! here is a visible change for every app that uses `SimpleTheme` or `ColorfulTheme`.
@@ -65,25 +66,6 @@ fn sheet(theme: &dyn Theme) -> String {
         theme.format_input_prompt_selection(f, "Name", "Ada")
     });
 
-    #[cfg(feature = "password")]
-    {
-        s.line("password_prompt(Password)", |f| {
-            theme.format_password_prompt(f, "Password")
-        });
-        s.line("password_prompt_selection(Password)", |f| {
-            theme.format_password_prompt_selection(f, "Password")
-        });
-        s.line("password_mask_glyph()", |f| {
-            write!(f, "{}", theme.password_mask_glyph())
-        });
-        for len in [8, 3] {
-            s.line(
-                &format!("password_prompt_selection_masked(Password, {len})"),
-                |f| theme.format_password_prompt_selection_masked(f, "Password", len),
-            );
-        }
-    }
-
     s.line("select_prompt(Pick)", |f| {
         theme.format_select_prompt(f, "Pick")
     });
@@ -122,31 +104,53 @@ fn sheet(theme: &dyn Theme) -> String {
         });
     }
 
-    #[cfg(feature = "fuzzy-select")]
-    {
-        use fuzzy_matcher::skim::SkimMatcherV2;
+    s.0
+}
 
-        let matcher = SkimMatcherV2::default();
-        for (active, highlight) in [(true, true), (true, false), (false, true), (false, false)] {
-            s.line(
-                &format!("fuzzy_select_prompt_item(banana, {active}, {highlight}, an)"),
-                |f| {
-                    theme.format_fuzzy_select_prompt_item(
-                        f, "banana", active, highlight, &matcher, "an",
-                    )
-                },
-            );
-        }
-        for pos in [0, 2, 3] {
-            s.line(&format!("fuzzy_select_prompt(Search, ban, {pos})"), |f| {
-                theme.format_fuzzy_select_prompt(f, "Search", "ban", pos)
-            });
-        }
-        s.line("fuzzy_select_prompt(, ban, 3)", |f| {
-            theme.format_fuzzy_select_prompt(f, "", "ban", 3)
+#[cfg(feature = "password")]
+fn password_sheet(theme: &dyn Theme) -> String {
+    let mut s = Sheet(String::new());
+    s.line("password_prompt(Password)", |f| {
+        theme.format_password_prompt(f, "Password")
+    });
+    s.line("password_prompt_selection(Password)", |f| {
+        theme.format_password_prompt_selection(f, "Password")
+    });
+    s.line("password_mask_glyph()", |f| {
+        write!(f, "{}", theme.password_mask_glyph())
+    });
+    for len in [8, 3] {
+        s.line(
+            &format!("password_prompt_selection_masked(Password, {len})"),
+            |f| theme.format_password_prompt_selection_masked(f, "Password", len),
+        );
+    }
+    s.0
+}
+
+#[cfg(feature = "fuzzy-select")]
+fn fuzzy_sheet(theme: &dyn Theme) -> String {
+    use fuzzy_matcher::skim::SkimMatcherV2;
+
+    let mut s = Sheet(String::new());
+    let matcher = SkimMatcherV2::default();
+    for (active, highlight) in [(true, true), (true, false), (false, true), (false, false)] {
+        s.line(
+            &format!("fuzzy_select_prompt_item(banana, {active}, {highlight}, an)"),
+            |f| {
+                theme
+                    .format_fuzzy_select_prompt_item(f, "banana", active, highlight, &matcher, "an")
+            },
+        );
+    }
+    for pos in [0, 2, 3] {
+        s.line(&format!("fuzzy_select_prompt(Search, ban, {pos})"), |f| {
+            theme.format_fuzzy_select_prompt(f, "Search", "ban", pos)
         });
     }
-
+    s.line("fuzzy_select_prompt(, ban, 3)", |f| {
+        theme.format_fuzzy_select_prompt(f, "", "ban", 3)
+    });
     s.0
 }
 
@@ -155,6 +159,17 @@ fn sheet(theme: &dyn Theme) -> String {
 fn built_in_themes_render_unchanged() {
     console::set_colors_enabled(true);
     console::set_colors_enabled_stderr(true);
+    let colorful = ColorfulTheme::default();
     common::assert_snapshot("theme-simple", &sheet(&SimpleTheme));
-    common::assert_snapshot("theme-colorful", &sheet(&ColorfulTheme::default()));
+    common::assert_snapshot("theme-colorful", &sheet(&colorful));
+    #[cfg(feature = "password")]
+    {
+        common::assert_snapshot("theme-simple-password", &password_sheet(&SimpleTheme));
+        common::assert_snapshot("theme-colorful-password", &password_sheet(&colorful));
+    }
+    #[cfg(feature = "fuzzy-select")]
+    {
+        common::assert_snapshot("theme-simple-fuzzy", &fuzzy_sheet(&SimpleTheme));
+        common::assert_snapshot("theme-colorful-fuzzy", &fuzzy_sheet(&colorful));
+    }
 }
