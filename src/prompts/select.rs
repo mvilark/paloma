@@ -23,7 +23,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let selection = Select::new()
-///         .label("What do you choose?")
+///         .prompt("What do you choose?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -113,7 +113,7 @@ impl<'a> Select<'a> {
     ///
     /// By default, when a prompt is set the system also prints out a confirmation after
     /// the selection. You can opt-out of this with [`report`](Self::report).
-    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
@@ -146,7 +146,7 @@ impl<'a> Select<'a> {
     ///     let items = vec!["foo", "bar", "baz"];
     ///
     ///     let selection = Select::new()
-    ///         .label("What do you choose?")
+    ///         .prompt("What do you choose?")
     ///         .items(&items)
     ///         .interact_opt()
     ///         .unwrap();
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let select = Select::new().label("Do you want to continue?");
+        let select = Select::new().prompt("Do you want to continue?");
 
         let _ = select.clone();
     }

@@ -3,7 +3,7 @@ use paloma::{theme::ColorfulTheme, Input};
 fn main() {
     let input: String = Input::new()
         .theme(&ColorfulTheme::default())
-        .label("Your name")
+        .prompt("Your name")
         .interact()
         .unwrap();
 
@@ -11,7 +11,7 @@ fn main() {
 
     let mail: String = Input::new()
         .theme(&ColorfulTheme::default())
-        .label("Your email")
+        .prompt("Your email")
         .validate({
             let mut force = None;
             move |input: &String| -> Result<(), &str> {
@@ -30,7 +30,7 @@ fn main() {
 
     let mail: String = Input::new()
         .theme(&ColorfulTheme::default())
-        .label("Your planet")
+        .prompt("Your planet")
         .default("Earth".to_string())
         .interact()
         .unwrap();
@@ -39,8 +39,8 @@ fn main() {
 
     let mail: String = Input::new()
         .theme(&ColorfulTheme::default())
-        .label("Your galaxy")
-        .initial_text("Milky Way".to_string())
+        .prompt("Your galaxy")
+        .prefill("Milky Way".to_string())
         .interact()
         .unwrap();
 

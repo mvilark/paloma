@@ -20,7 +20,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let selection = MultiSelect::new()
-///         .label("What do you choose?")
+///         .prompt("What do you choose?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -120,7 +120,7 @@ impl<'a> MultiSelect<'a> {
     ///
     /// By default, when a prompt is set the system also prints out a confirmation after
     /// the selection. You can opt-out of this with [`report`](Self::report).
-    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let multi_select = MultiSelect::new().label("Select your favorite(s)");
+        let multi_select = MultiSelect::new().prompt("Select your favorite(s)");
 
         let _ = multi_select.clone();
     }

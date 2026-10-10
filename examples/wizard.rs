@@ -23,7 +23,7 @@ fn init_config() -> Result<Option<Config>, Box<dyn Error>> {
 
     if !Confirm::new()
         .theme(&theme)
-        .label("Do you want to continue?")
+        .prompt("Do you want to continue?")
         .interact()?
     {
         return Ok(None);
@@ -31,15 +31,15 @@ fn init_config() -> Result<Option<Config>, Box<dyn Error>> {
 
     let interface = Input::new()
         .theme(&theme)
-        .label("Interface")
+        .prompt("Interface")
         .default("127.0.0.1".parse().unwrap())
         .interact()?;
 
-    let hostname = Input::new().theme(&theme).label("Hostname").interact()?;
+    let hostname = Input::new().theme(&theme).prompt("Hostname").interact()?;
 
     let tls = Select::new()
         .theme(&theme)
-        .label("Configure TLS")
+        .prompt("Configure TLS")
         .default(0)
         .item("automatic with ACME")
         .item("manual")
@@ -52,13 +52,13 @@ fn init_config() -> Result<Option<Config>, Box<dyn Error>> {
             Some(
                 Input::new()
                     .theme(&theme)
-                    .label("  Path to private key")
+                    .prompt("  Path to private key")
                     .interact()?,
             ),
             Some(
                 Input::new()
                     .theme(&theme)
-                    .label("  Path to certificate")
+                    .prompt("  Path to certificate")
                     .interact()?,
             ),
             false,

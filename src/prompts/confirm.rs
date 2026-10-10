@@ -3,7 +3,6 @@ use std::io;
 use console::{Key, Term};
 
 use crate::{
-    options::ConfirmStyle,
     prompts::base::{base_methods, PromptBase},
     theme::render::TermThemeRenderer,
     Result,
@@ -18,7 +17,7 @@ use crate::{
 ///
 /// fn main() {
 ///     let confirmation = Confirm::new()
-///         .label("Do you want to continue?")
+///         .prompt("Do you want to continue?")
 ///         .interact()
 ///         .unwrap();
 ///
@@ -34,10 +33,9 @@ pub struct Confirm<'a> {
     prompt: String,
     default: Option<bool>,
     show_default: bool,
-    style: Option<ConfirmStyle>,
+    choices_as_buttons: Option<bool>,
     on_shortcut: Option<bool>,
     base: PromptBase<'a>,
-    show_choices: bool,
 }
 
 impl Default for Confirm<'_> {
@@ -48,19 +46,21 @@ impl Default for Confirm<'_> {
 
 impl<'a> Confirm<'a> {
     /// Sets the confirm prompt.
-    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
 
     base_methods!(confirm, |_| true);
 
-    /// Sets how the choices are shown: an inline hint or buttons under the question.
+    /// Shows the choices as `Yes` / `No` buttons on the line under the question
+    /// (`true`), or as the classic `(y/n)` text after it (`false`, the default).
     ///
-    /// Left unset, the app option applies ([`Options::confirm`](crate::Options::confirm)),
-    /// then [`ConfirmStyle::Inline`].
-    pub fn style(mut self, style: ConfirmStyle) -> Self {
-        self.style = Some(style);
+    /// With buttons, `←`, `→` and `Tab` move the focus and `Enter` picks it.
+    ///
+    /// Left unset, the app option applies ([`Options::confirm`](crate::Options::confirm)).
+    pub fn choices_as_buttons(mut self, val: bool) -> Self {
+        self.choices_as_buttons = Some(val);
         self
     }
 
@@ -68,7 +68,7 @@ impl<'a> Confirm<'a> {
     ///
     /// When `true` (the default), the prompt reacts to each keystroke: `y`, `n`, or
     /// `Enter` to accept the default. When `false`, `y` and `n` only select the
-    /// choice and the user hits `Enter` to submit. Works in both styles.
+    /// choice and the user hits `Enter` to submit. Works with and without buttons.
     ///
     /// Left unset, the app option applies.
     pub fn on_shortcut(mut self, val: bool) -> Self {
@@ -91,14 +91,6 @@ impl<'a> Confirm<'a> {
     /// The default is to append the default value to the prompt to tell the user.
     pub fn show_default(mut self, val: bool) -> Self {
         self.show_default = val;
-        self
-    }
-
-    /// Disables or enables the hint display (e.g. `[y/n]`).
-    ///
-    /// The default is to show the hint.
-    pub fn show_choices(mut self, val: bool) -> Self {
-        self.show_choices = val;
         self
     }
 
@@ -167,11 +159,11 @@ impl<'a> Confirm<'a> {
             .on_shortcut
             .or(options.confirm.on_shortcut)
             .unwrap_or(true);
-        let style = self
-            .style
-            .or(options.confirm.style)
-            .unwrap_or(ConfirmStyle::Inline);
-        if style == ConfirmStyle::Buttons {
+        let buttons = self
+            .choices_as_buttons
+            .or(options.confirm.choices_as_buttons)
+            .unwrap_or(false);
+        if buttons {
             return self.interact_buttons(term, render, allow_quit, wait_for_newline);
         }
 
@@ -181,11 +173,7 @@ impl<'a> Confirm<'a> {
             None
         };
 
-        if self.show_choices {
-            render.confirm_prompt(&self.prompt, default_if_show)?;
-        } else {
-            render.confirm_prompt_no_hint(&self.prompt)?;
-        }
+        render.confirm_prompt(&self.prompt, default_if_show)?;
 
         term.hide_cursor()?;
         term.flush()?;
@@ -322,10 +310,9 @@ impl<'a> Confirm<'a> {
             prompt: "".into(),
             default: None,
             show_default: true,
-            style: None,
+            choices_as_buttons: None,
             on_shortcut: None,
             base: PromptBase::new(),
-            show_choices: true,
         }
     }
 }
@@ -336,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let confirm = Confirm::new().label("Do you want to continue?");
+        let confirm = Confirm::new().prompt("Do you want to continue?");
 
         let _ = confirm.clone();
     }

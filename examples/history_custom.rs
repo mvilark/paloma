@@ -12,7 +12,7 @@ fn main() {
     loop {
         if let Ok(cmd) = Input::<String>::new()
             .theme(&ColorfulTheme::default())
-            .label("paloma")
+            .prompt("paloma")
             .history(&mut history)
             .interact()
         {

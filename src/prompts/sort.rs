@@ -22,7 +22,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let ordered = Sort::new()
-///         .label("Which order do you prefer?")
+///         .prompt("Which order do you prefer?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -92,7 +92,7 @@ impl<'a> Sort<'a> {
     ///
     /// By default, when a prompt is set the system also prints out a confirmation after
     /// the selection. You can opt-out of this with [`report`](#method.report).
-    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let sort = Sort::new().label("Which order do you prefer?");
+        let sort = Sort::new().prompt("Which order do you prefer?");
 
         let _ = sort.clone();
     }

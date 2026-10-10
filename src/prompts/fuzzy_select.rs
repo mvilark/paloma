@@ -23,7 +23,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let selection = FuzzySelect::new()
-///         .label("What do you choose?")
+///         .prompt("What do you choose?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -43,7 +43,7 @@ pub struct FuzzySelect<'a> {
     base: PromptBase<'a>,
     /// Search string that a fuzzy search with start with.
     /// Defaults to an empty string.
-    initial_text: String,
+    prefill: String,
 }
 
 impl Default for FuzzySelect<'_> {
@@ -86,8 +86,8 @@ impl<'a> FuzzySelect<'a> {
     }
 
     /// Sets the search text that a fuzzy search starts with.
-    pub fn initial_text<S: Into<String>>(mut self, initial_text: S) -> Self {
-        self.initial_text = initial_text.into();
+    pub fn prefill<S: Into<String>>(mut self, prefill: S) -> Self {
+        self.prefill = prefill.into();
         self
     }
 
@@ -95,7 +95,7 @@ impl<'a> FuzzySelect<'a> {
     ///
     /// When a prompt is set the system also prints out a confirmation after
     /// the fuzzy selection.
-    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
@@ -186,8 +186,8 @@ impl<'a> FuzzySelect<'a> {
 
     fn _interact_on(self, term: &Term, allow_quit: bool) -> Result<Option<usize>> {
         // Place cursor at the end of the search term
-        let mut cursor = self.initial_text.chars().count();
-        let mut search_term = self.initial_text.to_owned();
+        let mut cursor = self.prefill.chars().count();
+        let mut search_term = self.prefill.to_owned();
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = self.default;
@@ -362,7 +362,7 @@ impl<'a> FuzzySelect<'a> {
             enable_vim_mode: false,
             max_length: None,
             base: PromptBase::new(),
-            initial_text: "".into(),
+            prefill: "".into(),
         }
     }
 }
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let fuzzy_select = FuzzySelect::new().label("Do you want to continue?");
+        let fuzzy_select = FuzzySelect::new().prompt("Do you want to continue?");
 
         let _ = fuzzy_select.clone();
     }

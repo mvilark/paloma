@@ -42,7 +42,7 @@ pub use edit::Editor;
 pub use error::{Error, Result};
 #[cfg(feature = "history")]
 pub use history::{BasicHistory, History};
-pub use options::{set_options, ConfirmStyle, Options};
+pub use options::{set_options, Options};
 pub use theme::app::set_theme;
 pub use validate::{InputValidator, PasswordValidator};
 

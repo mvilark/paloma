@@ -9,7 +9,7 @@ fn main() {
     ];
     let sorted = Sort::new()
         .theme(&ColorfulTheme::default())
-        .label("Order your foods by preference")
+        .prompt("Order your foods by preference")
         .items(&list[..])
         .interact()
         .unwrap();
@@ -21,7 +21,7 @@ fn main() {
 
     let sorted = Sort::new()
         .theme(&ColorfulTheme::default())
-        .label("Order your foods by preference")
+        .prompt("Order your foods by preference")
         .items(&list[..])
         .max_length(2)
         .interact()

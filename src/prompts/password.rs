@@ -21,7 +21,7 @@ type PasswordValidatorCallback<'a> = Arc<dyn Fn(&String) -> Option<String> + 'a>
 ///
 /// fn main() {
 ///     let password = Password::new()
-///         .label("New Password")
+///         .prompt("New Password")
 ///         .confirmation("Confirm password", "Passwords mismatching")
 ///         .interact()
 ///         .unwrap();
@@ -49,7 +49,7 @@ impl Default for Password<'_> {
 
 impl<'a> Password<'a> {
     /// Sets the password input prompt.
-    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
@@ -108,7 +108,7 @@ impl<'a> Password<'a> {
     ///
     /// fn main() {
     ///     let password = Password::new()
-    ///         .label("Enter password")
+    ///         .prompt("Enter password")
     ///         .mask_char('*')
     ///         .interact()
     ///         .unwrap();
@@ -240,7 +240,7 @@ impl<'a> Password<'a> {
     ///
     /// fn main() {
     ///     let password: String = Password::new()
-    ///         .label("Enter password")
+    ///         .prompt("Enter password")
     ///         .validate(|input: &String| -> Result<(), &str> {
     ///             if input.chars().count() > 8 {
     ///                 Ok(())
@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let password = Password::new().label("Enter password");
+        let password = Password::new().prompt("Enter password");
 
         let _ = password.clone();
     }

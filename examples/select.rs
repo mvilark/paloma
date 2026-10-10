@@ -10,7 +10,7 @@ fn main() {
 
     let selection = Select::new()
         .theme(&ColorfulTheme::default())
-        .label("Pick your flavor")
+        .prompt("Pick your flavor")
         .default(0)
         .items(&selections[..])
         .interact()
@@ -20,7 +20,7 @@ fn main() {
 
     let selection = Select::new()
         .theme(&ColorfulTheme::default())
-        .label("Optionally pick your flavor")
+        .prompt("Optionally pick your flavor")
         .default(0)
         .items(&selections[..])
         .interact_opt()
@@ -34,7 +34,7 @@ fn main() {
 
     let selection = Select::new()
         .theme(&ColorfulTheme::default())
-        .label("Pick your flavor, hint it might be on the second page")
+        .prompt("Pick your flavor, hint it might be on the second page")
         .default(0)
         .max_length(2)
         .items(&selections[..])

@@ -14,7 +14,7 @@ static APP_THEME: RwLock<Option<Arc<dyn Theme + Send + Sync>>> = RwLock::new(Non
 /// use paloma::{theme::ColorfulTheme, Confirm};
 ///
 /// paloma::set_theme(ColorfulTheme::default());
-/// let ok = Confirm::new().label("Continue?").interact().unwrap();
+/// let ok = Confirm::new().prompt("Continue?").interact().unwrap();
 /// ```
 pub fn set_theme<T: Theme + Send + Sync + 'static>(theme: T) {
     let mut guard = APP_THEME.write().unwrap_or_else(|e| e.into_inner());

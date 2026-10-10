@@ -57,7 +57,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                     email = "ada@example.com".into();
                     ui::answered(&name, &email);
                 } else {
-                    email = Input::new().label(name).validate(valid_email).interact()?;
+                    email = Input::new().prompt(name).validate(valid_email).interact()?;
                 }
                 Some(())
             }
@@ -66,7 +66,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                 if args.yes {
                     ui::answered(&name, &theme::cfg().g.dot.repeat(8));
                 } else {
-                    Password::new().label(name).interact()?;
+                    Password::new().prompt(name).interact()?;
                 }
                 Some(())
             }
@@ -85,7 +85,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                     Some(())
                 } else {
                     Select::new()
-                        .label(name)
+                        .prompt(name)
                         .items(PROTOCOLS)
                         .default(protocol)
                         .interact_opt()?
@@ -101,7 +101,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                 } else {
                     let defaults = [true, false, false, true];
                     MultiSelect::new()
-                        .label(name)
+                        .prompt(name)
                         .items(FEATURES)
                         .defaults(&defaults)
                         .interact_opt()?
@@ -115,7 +115,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                     Some(())
                 } else {
                     Confirm::new()
-                        .label(name)
+                        .prompt(name)
                         .default(true)
                         .interact_opt()?
                         .map(|v| startup = v)
@@ -197,7 +197,7 @@ pub fn connect(args: &Args) -> Result<i32> {
             0
         }
         None => match FuzzySelect::new()
-            .label("Server")
+            .prompt("Server")
             .items(&places)
             .default(0)
             .interact_opt()?
@@ -212,7 +212,7 @@ pub fn connect(args: &Args) -> Result<i32> {
     if !kill_switch {
         let go = args.yes
             || Confirm::new()
-                .label("Kill switch is off. Connect anyway?")
+                .prompt("Kill switch is off. Connect anyway?")
                 .default(false)
                 .interact()?;
         if !go {
@@ -255,7 +255,7 @@ pub fn favorites(args: &Args) -> Result<i32> {
         (0..items.len()).collect()
     } else {
         match Sort::new()
-            .label("Favourite order")
+            .prompt("Favourite order")
             .items(items)
             .interact_opt()?
         {
@@ -272,7 +272,7 @@ pub fn favorites(args: &Args) -> Result<i32> {
 pub fn disconnect(args: &Args) -> Result<i32> {
     let go = args.yes
         || Confirm::new()
-            .label("Disconnect?")
+            .prompt("Disconnect?")
             .default(true)
             .interact()?;
     if !go {

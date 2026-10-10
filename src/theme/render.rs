@@ -139,10 +139,6 @@ impl<'a> TermThemeRenderer<'a> {
         })
     }
 
-    pub fn confirm_prompt_no_hint(&mut self, prompt: &str) -> Result<usize> {
-        self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt_no_hint(buf, prompt))
-    }
-
     pub fn confirm_prompt_selection(&mut self, prompt: &str, sel: Option<bool>) -> Result {
         self.write_formatted_prompt(|this, buf| {
             this.theme.format_confirm_prompt_selection(buf, prompt, sel)

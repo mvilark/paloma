@@ -34,7 +34,7 @@ fn main() {
 
     let selection = Select::new()
         .theme(&ColorfulTheme::default())
-        .label("Pick your flavor")
+        .prompt("Pick your flavor")
         .default(0)
         .items(&selections[..])
         .interact()

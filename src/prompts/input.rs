@@ -29,7 +29,7 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 ///
 /// fn main() {
 ///     let name: String = Input::new()
-///         .label("Your name?")
+///         .prompt("Your name?")
 ///         .interact()
 ///         .unwrap();
 ///
@@ -44,7 +44,7 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 ///
 /// fn main() {
 ///     let name = Input::<String>::new()
-///         .label("Your name?")
+///         .prompt("Your name?")
 ///         .interact()
 ///         .unwrap();
 ///
@@ -57,7 +57,7 @@ pub struct Input<'a, T> {
     post_completion_text: Option<String>,
     default: Option<T>,
     show_default: bool,
-    initial_text: Option<String>,
+    prefill: Option<String>,
     base: PromptBase<'a>,
     permit_empty: bool,
     validator: Option<InputValidatorCallback<'a, T>>,
@@ -75,13 +75,14 @@ impl<T> Default for Input<'_, T> {
 
 impl<'a, T> Input<'a, T> {
     /// Sets the input prompt.
-    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
 
-    /// Changes the prompt text to the post completion text after input is complete
-    pub fn answered_label<S: Into<String>>(mut self, post_completion_text: S) -> Self {
+    /// Sets the text shown in place of the prompt once the input is answered. By
+    /// default the answered line repeats the prompt.
+    pub fn answered_prompt<S: Into<String>>(mut self, post_completion_text: S) -> Self {
         self.post_completion_text = Some(post_completion_text.into());
         self
     }
@@ -93,9 +94,11 @@ impl<'a, T> Input<'a, T> {
 
     base_methods!(input, |_| true);
 
-    /// Sets initial text that user can accept or erase.
-    pub fn initial_text<S: Into<String>>(mut self, val: S) -> Self {
-        self.initial_text = Some(val.into());
+    /// Fills the input with editable text when it opens. The user can change or erase
+    /// it; pressing Enter right away submits it as the answer. (Unlike a placeholder,
+    /// which is only shown while the input is empty and is never the answer.)
+    pub fn prefill<S: Into<String>>(mut self, val: S) -> Self {
+        self.prefill = Some(val.into());
         self
     }
 
@@ -139,7 +142,7 @@ impl<'a, T> Input<'a, T> {
             post_completion_text: None,
             default: None,
             show_default: true,
-            initial_text: None,
+            prefill: None,
             base: PromptBase::new(),
             permit_empty: false,
             validator: None,
@@ -224,7 +227,7 @@ where
     ///
     /// fn main() {
     ///     let mail: String = Input::new()
-    ///         .label("Enter email")
+    ///         .prompt("Enter email")
     ///         .validate(|input: &String| -> Result<(), &str> {
     ///             if input.contains('@') {
     ///                 Ok(())
@@ -299,7 +302,7 @@ where
             #[cfg(feature = "history")]
             let mut hist_pos = 0;
 
-            if let Some(initial) = self.initial_text.as_ref() {
+            if let Some(initial) = self.prefill.as_ref() {
                 term.write_str(initial)?;
                 chars = initial.chars().collect();
                 position = chars.len();
@@ -612,17 +615,17 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let input = Input::<String>::new().label("Your name");
+        let input = Input::<String>::new().prompt("Your name");
 
         let _ = input.clone();
     }
 
     #[test]
     fn test_completion_prompt() {
-        let input = Input::<String>::new().label("Your name");
+        let input = Input::<String>::new().prompt("Your name");
         assert_eq!(input.completion_prompt(), "Your name");
 
-        let input = input.answered_label("Name").default("Alice".to_string());
+        let input = input.answered_prompt("Name").default("Alice".to_string());
         assert_eq!(input.completion_prompt(), "Name");
     }
 }

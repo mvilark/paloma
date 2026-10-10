@@ -3,7 +3,7 @@ use paloma::{theme::ColorfulTheme, Password};
 fn main() {
     let password = Password::new()
         .theme(&ColorfulTheme::default())
-        .label("Password")
+        .prompt("Password")
         .confirmation("Repeat password", "Error: the passwords don't match.")
         // .mask_char('*') // uncomment to mask the password with a given character
         .validate(|input: &String| -> Result<(), &str> {

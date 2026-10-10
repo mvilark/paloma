@@ -56,7 +56,7 @@ pub trait Theme {
 
     /// Formats one confirm button: `yes` tells which of the two it is, `focused`
     /// whether it is the one `Enter` would pick. Only used for
-    /// [`ConfirmStyle::Buttons`](crate::ConfirmStyle::Buttons).
+    /// [`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons).
     fn format_confirm_button(
         &self,
         f: &mut dyn fmt::Write,

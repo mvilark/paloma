@@ -14,33 +14,33 @@ fn main() {
     println!("All the following controls are run in a buffered terminal");
     Confirm::new()
         .theme(&theme)
-        .label("Do you want to continue?")
+        .prompt("Do you want to continue?")
         .interact_on(&term)
         .unwrap();
 
     let _: String = Input::new()
         .theme(&theme)
-        .label("Your name")
+        .prompt("Your name")
         .interact_on(&term)
         .unwrap();
 
     Select::new()
         .theme(&theme)
-        .label("Pick an item")
+        .prompt("Pick an item")
         .items(items)
         .interact_on(&term)
         .unwrap();
 
     MultiSelect::new()
         .theme(&theme)
-        .label("Pick some items")
+        .prompt("Pick some items")
         .items(items)
         .interact_on(&term)
         .unwrap();
 
     Sort::new()
         .theme(&theme)
-        .label("Order these items")
+        .prompt("Order these items")
         .items(items)
         .interact_on(&term)
         .unwrap();

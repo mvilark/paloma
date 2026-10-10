@@ -13,47 +13,47 @@ use paloma::{theme::ColorfulTheme, Confirm, Input, Select};
 
 fn main() -> paloma::Result<()> {
     paloma::set_theme(ColorfulTheme::default()); // once, for every prompt
-    let name: String = Input::new().label("Name").interact()?;
+    let name: String = Input::new().prompt("Name").interact()?;
     let env = Select::new()
-        .label("Environment")
+        .prompt("Environment")
         .items(["dev", "staging", "prod"])
         .default(0)
         .interact()?;
-    if Confirm::new().label(format!("Deploy {name} to #{env}?")).interact()? {
+    if Confirm::new().prompt(format!("Deploy {name} to #{env}?")).interact()? {
         println!("deploying");
     }
     Ok(())
 }
 ```
 
-Every prompt has `new()` (uses the app theme from `set_theme`, `SimpleTheme` by default), `theme(&dyn Theme)` (a theme for this prompt only), `label(..)`, `report(bool)`, and `interact_on(&Term)` to target a specific terminal. Prompts that can be cancelled also have `interact_opt()` / `interact_on_opt()`, which return `None` on Esc/`q` instead of an error.
+Every prompt has `new()` (uses the app theme from `set_theme`, `SimpleTheme` by default), `theme(&dyn Theme)` (a theme for this prompt only), `prompt(..)`, `report(bool)`, and `interact_on(&Term)` to target a specific terminal. Prompts that can be cancelled also have `interact_opt()` / `interact_on_opt()`, which return `None` on Esc/`q` instead of an error.
 
 ## Confirm
 ```rust
-let ok: bool = Confirm::new().label("Continue?").default(true).interact()?;
-let maybe: Option<bool> = Confirm::new().label("Continue?").interact_opt()?;
+let ok: bool = Confirm::new().prompt("Continue?").default(true).interact()?;
+let maybe: Option<bool> = Confirm::new().prompt("Continue?").interact_opt()?;
 ```
 
-`.style(ConfirmStyle::Buttons)` shows `Yes` / `No` buttons on the line under the question: `←`/`→`/`Tab` move the focus, `Enter` picks it, and `y` / `n` jump to a button. The theme draws each button in `format_confirm_button`. `.on_shortcut(false)` makes `y` / `n` only select, so the user hits `Enter` to submit; it works in both styles. The prompt is erased after the answer and, with `report(true)`, replaced by the one-line selection.
-Other options: `show_default`, `show_choices` (the `[y/n]` text).
+`.choices_as_buttons(true)` shows `Yes` / `No` buttons on the line under the question instead of the classic `(y/n)` text: `←`/`→`/`Tab` move the focus, `Enter` picks it, and `y` / `n` jump to a button. The theme draws each button in `format_confirm_button`. `.on_shortcut(false)` makes `y` / `n` only select, so the user hits `Enter` to submit; it works with and without buttons. The prompt is erased after the answer and, with `report(true)`, replaced by the one-line selection.
+Other options: `show_default`.
 
 ## Input
 Generic over any `T: Clone + FromStr + ToString`; use `interact()`.
 ```rust
-let port: u16 = Input::new().label("Port").default(8080).interact()?;
+let port: u16 = Input::new().prompt("Port").default(8080).interact()?;
 let email: String = Input::new()
-    .label("Email")
+    .prompt("Email")
     .validate(|s: &String| -> Result<(), &str> {
         if s.contains('@') { Ok(()) } else { Err("needs an @") }
     })
     .interact()?;
 ```
-Other options: `initial_text`, `allow_empty`, `show_default`, `answered_label`, `history(&mut H)` (feature `history`), `completion(&C)` (feature `completion`).
+Other options: `prefill`, `allow_empty`, `show_default`, `answered_prompt`, `history(&mut H)` (feature `history`), `completion(&C)` (feature `completion`).
 
 ## Select
 Returns the chosen index.
 ```rust
-let i = Select::new().label("Pick").items(["a", "b", "c"]).default(1).interact()?;
+let i = Select::new().prompt("Pick").items(["a", "b", "c"]).default(1).interact()?;
 ```
 Other options: `item`, `max_length` (paging), `clear`. `interact_opt` returns `None` on Esc/`q`.
 
@@ -61,7 +61,7 @@ Other options: `item`, `max_length` (paging), `clear`. `interact_opt` returns `N
 Returns the selected indices.
 ```rust
 let picked: Vec<usize> = MultiSelect::new()
-    .label("Features")
+    .prompt("Features")
     .items_checked([("fast", true), ("safe", false)])
     .interact()?;
 ```
@@ -69,13 +69,13 @@ let picked: Vec<usize> = MultiSelect::new()
 ## Sort
 Returns the items' indices in the user's new order.
 ```rust
-let order: Vec<usize> = Sort::new().label("Rank").items(["x", "y", "z"]).interact()?;
+let order: Vec<usize> = Sort::new().prompt("Rank").items(["x", "y", "z"]).interact()?;
 ```
 
 ## Password (feature `password`, on by default)
 ```rust
 let pw = Password::new()
-    .label("Password")
+    .prompt("Password")
     .confirmation("Repeat", "Mismatch")
     .interact()?;
 ```
@@ -86,9 +86,9 @@ While typing, `.mask(true)` echoes the theme's `password_mask_glyph()` for each 
 ## FuzzySelect (feature `fuzzy-select`)
 Type to filter; returns the index into the original items.
 ```rust
-let i = FuzzySelect::new().label("Search").items(["apple", "banana"]).interact()?;
+let i = FuzzySelect::new().prompt("Search").items(["apple", "banana"]).interact()?;
 ```
-Other options: `initial_text`, `highlight_matches`, `vim_mode`, `max_length`.
+Other options: `prefill`, `highlight_matches`, `vim_mode`, `max_length`.
 
 ## Editor (feature `editor`, on by default)
 Opens `$EDITOR`; returns `None` if not saved when `require_save(true)`.
@@ -120,10 +120,10 @@ Themes decide how prompts look; options decide how they work. Set them once, nex
 paloma::set_options(
     paloma::Options::new()
         .general(|g| g.report(true))                       // every prompt
-        .confirm(|c| c.style(ConfirmStyle::Buttons).on_shortcut(false))
+        .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
         .password(|p| p.mask(true).result_len(8))
         .select(|s| s.report(false)),                      // overrides general for Select
 );
 ```
 
-A setting is resolved in this order: the prompt's own builder method (`Confirm::new().style(..)`), the prompt's group in `Options`, `general`, then the built-in default. Groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`. Input and password errors (validation, parsing, password mismatch) are drawn on the line under the input and disappear once the user submits again; a theme styles them with `format_error`.
+A setting is resolved in this order: the prompt's own builder method (`Confirm::new().choices_as_buttons(..)`), the prompt's group in `Options`, `general`, then the built-in default. Groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`. Input and password errors (validation, parsing, password mismatch) are drawn on the line under the input and disappear once the user submits again; a theme styles them with `format_error`.

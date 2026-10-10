@@ -7,7 +7,7 @@ fn main() {
 
     Input::<String>::new()
         .theme(&ColorfulTheme::default())
-        .label("paloma")
+        .prompt("paloma")
         .completion(&completion)
         .interact()
         .unwrap();

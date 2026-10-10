@@ -10,7 +10,7 @@ fn main() {
     let defaults = &[false, false, true, false];
     let selections = MultiSelect::new()
         .theme(&ColorfulTheme::default())
-        .label("Pick your food")
+        .prompt("Pick your food")
         .items(&multiselected[..])
         .defaults(&defaults[..])
         .interact()
@@ -27,7 +27,7 @@ fn main() {
 
     let selections = MultiSelect::new()
         .theme(&ColorfulTheme::default())
-        .label("Pick your food")
+        .prompt("Pick your food")
         .items(&multiselected[..])
         .defaults(&defaults[..])
         .max_length(2)
