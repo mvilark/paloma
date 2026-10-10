@@ -90,3 +90,4 @@ Backwards compatibility: purely additive. Apps that never call `set_default` ren
 - 2026-10-10: Naming decided by spideyincrocs: `paloma::theme::set_default(t)` (and `reset_default()` if the default stays replaceable). Global vs. context object, replaceable vs. set once, lookup time, and a public getter are still awaiting a decision.
 - 2026-10-10: Global default (not a context object) confirmed by spideyincrocs.
 - 2026-10-10: Replaceable default with `reset_default()` (not set once) confirmed by spideyincrocs.
+- 2026-10-10: Look up the default when a prompt is shown (not when it is built) confirmed by spideyincrocs.
