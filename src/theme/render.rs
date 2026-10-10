@@ -62,8 +62,16 @@ impl<'a> TermThemeRenderer<'a> {
         self.term
     }
 
-    pub fn add_line(&mut self) {
-        self.height += 1;
+    /// The terminal read a line, so the cursor is now on the row under the input. If
+    /// that row holds the input error, it is cleared and reused; otherwise it is a new row.
+    pub fn input_submitted(&mut self) -> Result {
+        if self.error_shown {
+            self.term.clear_line()?;
+            self.error_shown = false;
+        } else {
+            self.height += 1;
+        }
+        Ok(())
     }
 
     fn write_formatted_str<
@@ -110,10 +118,6 @@ impl<'a> TermThemeRenderer<'a> {
         write!(buf, " [Page {}/{}] ", paging_info.0, paging_info.1)
     }
 
-    pub fn error(&mut self, err: &str) -> Result {
-        self.write_formatted_line(|this, buf| this.theme.format_error(buf, err))
-    }
-
     pub fn confirm_prompt(&mut self, prompt: &str, default: Option<bool>) -> Result<usize> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt(buf, prompt, default))
     }
@@ -154,9 +158,14 @@ impl<'a> TermThemeRenderer<'a> {
         let len = self.write_formatted_str(|this, buf| {
             this.theme.format_input_prompt(buf, prompt, default)
         })?;
+        self.draw_pending_error(len)?;
+        Ok(len)
+    }
+
+    /// Draws a pending input error on the row under the input, then puts the cursor
+    /// back after the prompt, `len` columns in.
+    fn draw_pending_error(&mut self, len: usize) -> Result {
         if let Some(err) = self.pending_error.take() {
-            // Draw the error on the row under the input, then put the cursor back
-            // after the prompt.
             self.write_formatted_str(|this, buf| {
                 writeln!(buf)?;
                 this.theme.format_error(buf, &err)
@@ -166,11 +175,11 @@ impl<'a> TermThemeRenderer<'a> {
             self.term.move_cursor_right(len)?;
             self.error_shown = true;
         }
-        Ok(len)
+        Ok(())
     }
 
-    /// Reports an input error: it is drawn under the input line when the prompt is
-    /// shown again.
+    /// Reports an input error: it is drawn under the input line when the prompt
+    /// (input or password) is shown again.
     pub fn input_error(&mut self, err: &str) -> Result {
         self.pending_error = Some(err.to_string());
         Ok(())
@@ -184,10 +193,12 @@ impl<'a> TermThemeRenderer<'a> {
 
     #[cfg(feature = "password")]
     pub fn password_prompt(&mut self, prompt: &str) -> Result<usize> {
-        self.write_formatted_str(|this, buf| {
+        let len = self.write_formatted_str(|this, buf| {
             write!(buf, "\r")?;
             this.theme.format_password_prompt(buf, prompt)
-        })
+        })?;
+        self.draw_pending_error(len)?;
+        Ok(len)
     }
 
     #[cfg(feature = "password")]

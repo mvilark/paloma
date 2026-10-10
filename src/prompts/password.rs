@@ -157,7 +157,8 @@ impl Password<'_> {
 
             if let Some(ref validator) = self.validator {
                 if let Some(err) = validator(&password) {
-                    render.error(&err)?;
+                    render.clear()?;
+                    render.input_error(&err)?;
                     continue;
                 }
             }
@@ -166,7 +167,8 @@ impl Password<'_> {
                 let pw2 = Zeroizing::new(self.prompt_password(&mut render, prompt, mask)?);
 
                 if *password != *pw2 {
-                    render.error(err)?;
+                    render.clear()?;
+                    render.input_error(err)?;
                     continue;
                 }
             }
@@ -195,7 +197,7 @@ impl Password<'_> {
 
             let Some(mask) = mask else {
                 let input = render.term().read_secure_line()?;
-                render.add_line();
+                render.input_submitted()?;
 
                 if !input.is_empty() || self.allow_empty_password {
                     return Ok(input);
@@ -226,7 +228,7 @@ impl Password<'_> {
 
             term.write_line("")?;
 
-            render.add_line();
+            render.input_submitted()?;
 
             if !password.is_empty() || self.allow_empty_password {
                 return Ok(password);

@@ -665,15 +665,16 @@ where
                 term.read_line()?
             };
 
-            render.add_line();
+            // `read_line` moved the cursor to the row under the input.
             term.clear_line()?;
+            render.input_submitted()?;
             render.clear()?;
 
             if input.is_empty() {
                 if let Some(ref default) = self.default {
                     if let Some(ref mut validator) = self.validator {
                         if let Some(err) = validator.lock().unwrap()(default) {
-                            render.error(&err)?;
+                            render.input_error(&err)?;
                             continue;
                         }
                     }
@@ -695,7 +696,7 @@ where
                 Ok(value) => {
                     if let Some(ref mut validator) = self.validator {
                         if let Some(err) = validator.lock().unwrap()(&value) {
-                            render.error(&err)?;
+                            render.input_error(&err)?;
                             continue;
                         }
                     }
@@ -708,7 +709,7 @@ where
                     return Ok(value);
                 }
                 Err(err) => {
-                    render.error(&err.to_string())?;
+                    render.input_error(&err.to_string())?;
                     continue;
                 }
             }
