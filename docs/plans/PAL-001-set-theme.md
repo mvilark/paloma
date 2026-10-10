@@ -57,3 +57,4 @@ This is purely additive: apps that never call `set_theme` see no change.
 ## Status notes
 
 - 2026-10-10: Plan written after the earlier plan (PR #3) was dropped for this simpler design.
+- 2026-10-10: spideyincrocs chose to keep `Select::with_theme(&t)` as the per-prompt override (no chained method, nothing breaks).
