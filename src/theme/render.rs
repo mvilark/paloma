@@ -23,6 +23,14 @@ impl<'a> std::ops::Deref for ThemeHandle<'a> {
     }
 }
 
+/// How many screen rows `text` takes once written as whole lines on a terminal `width`
+/// columns wide, counting the rows of lines that wrap.
+fn rows(text: &str, width: usize) -> usize {
+    text.split('\n')
+        .map(|line| measure_text_width(line).max(1).div_ceil(width.max(1)))
+        .sum()
+}
+
 /// Helper struct to conveniently render a theme.
 pub(crate) struct TermThemeRenderer<'a> {
     term: &'a Term,
@@ -88,15 +96,6 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(measure_text_width(buf.rsplit('\n').next().unwrap_or("")))
     }
 
-    /// How many screen rows `text` takes once written as whole lines, counting the
-    /// rows of lines that wrap.
-    fn rows(&self, text: &str) -> usize {
-        let width = (self.term.size().1 as usize).max(1);
-        text.split('\n')
-            .map(|line| measure_text_width(line).max(1).div_ceil(width))
-            .sum()
-    }
-
     fn write_formatted_line<
         F: FnOnce(&mut TermThemeRenderer, &mut dyn fmt::Write) -> fmt::Result,
     >(
@@ -105,7 +104,7 @@ impl<'a> TermThemeRenderer<'a> {
     ) -> Result {
         let mut buf = String::new();
         f(self, &mut buf).map_err(io::Error::other)?;
-        self.height += self.rows(&buf);
+        self.height += rows(&buf, self.term.size().1 as usize);
         Ok(self.term.write_line(&buf)?)
     }
 
@@ -349,6 +348,15 @@ impl<'a> TermThemeRenderer<'a> {
 mod tests {
     use super::*;
     use crate::theme::ColorfulTheme;
+
+    #[test]
+    fn rows_count_display_width_and_wrapping() {
+        assert_eq!(rows("", 10), 1);
+        assert_eq!(rows("a\nb", 10), 2);
+        assert_eq!(rows(&"ñ".repeat(10), 10), 1); // 20 bytes, 10 columns
+        assert_eq!(rows(&"a".repeat(11), 10), 2);
+        assert_eq!(rows("\x1b[31mred\x1b[0m", 3), 1); // escape codes take no room
+    }
 
     #[test]
     fn prompt_theme_overrides_app_theme() {
