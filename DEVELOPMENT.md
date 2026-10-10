@@ -1,6 +1,6 @@
 # Development
 
-No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API usage see [docs/USAGE.md](docs/USAGE.md). The crate is named `interacteur` (forked from [dialoguer](https://github.com/console-rs/dialoguer)).
+No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API usage see [docs/USAGE.md](docs/USAGE.md). The crate is named `paloma` (forked from [dialoguer](https://github.com/console-rs/dialoguer)).
 
 ## Layout
 - `src/lib.rs` - public re-exports and feature gates (`#![deny(clippy::all)]`).

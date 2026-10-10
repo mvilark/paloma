@@ -1,17 +1,17 @@
 # Using the library
 
-This crate, `interacteur`, is a fork of dialoguer. Every prompt is a builder: configure it, then call `interact()`. All of them return `interacteur::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
+This crate, `paloma`, is a fork of dialoguer. Every prompt is a builder: configure it, then call `interact()`. All of them return `paloma::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
 
 ```toml
 [dependencies]
-interacteur = "0.12"   # default features: editor, password
+paloma = "0.12"   # default features: editor, password
 # optional features: fuzzy-select, history, completion
 ```
 
 ```rust
-use interacteur::{theme::ColorfulTheme, Confirm, Input, Select};
+use paloma::{theme::ColorfulTheme, Confirm, Input, Select};
 
-fn main() -> interacteur::Result<()> {
+fn main() -> paloma::Result<()> {
     let theme = ColorfulTheme::default();
     let name: String = Input::with_theme(&theme).with_prompt("Name").interact_text()?;
     let env = Select::with_theme(&theme)
@@ -98,9 +98,9 @@ let text: Option<String> = Editor::new().extension(".md").edit("initial text")?;
 ## Themes
 `SimpleTheme` (plain, default for `new()`) and `ColorfulTheme` (public styled fields, e.g. `prompt_style`, `values_style`; use struct-update syntax):
 ```rust
-use interacteur::{console::Style, theme::ColorfulTheme};
+use paloma::{console::Style, theme::ColorfulTheme};
 let theme = ColorfulTheme { values_style: Style::new().yellow().dim(), ..ColorfulTheme::default() };
 ```
-For a fully custom look, implement `interacteur::theme::Theme`; every `format_*` method has a default, so override only what you need.
+For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need.
 
 More runnable samples live in `examples/` (`cargo run --example wizard`).

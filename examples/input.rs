@@ -1,4 +1,4 @@
-use interacteur::{theme::ColorfulTheme, Input};
+use paloma::{theme::ColorfulTheme, Input};
 
 fn main() {
     let input: String = Input::with_theme(&ColorfulTheme::default())

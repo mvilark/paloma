@@ -1,4 +1,4 @@
-use interacteur::Editor;
+use paloma::Editor;
 
 fn main() {
     if let Some(rv) = Editor::new().edit("Enter a commit message").unwrap() {

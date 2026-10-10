@@ -12,7 +12,7 @@ use crate::{
 /// ## Example
 ///
 /// ```rust,no_run
-/// use interacteur::Confirm;
+/// use paloma::Confirm;
 ///
 /// fn main() {
 ///     let confirmation = Confirm::new()
@@ -127,7 +127,7 @@ impl Confirm<'_> {
     /// ## Example
     ///
     /// ```rust,no_run
-    /// use interacteur::Confirm;
+    /// use paloma::Confirm;
     ///
     /// fn main() {
     ///     let confirmation = Confirm::new()
@@ -257,7 +257,7 @@ impl<'a> Confirm<'a> {
     /// ## Example
     ///
     /// ```rust,no_run
-    /// use interacteur::{theme::ColorfulTheme, Confirm};
+    /// use paloma::{theme::ColorfulTheme, Confirm};
     ///
     /// fn main() {
     ///     let confirmation = Confirm::with_theme(&ColorfulTheme::default())

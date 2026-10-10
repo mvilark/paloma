@@ -1,4 +1,4 @@
-use interacteur::{theme::ColorfulTheme, Password};
+use paloma::{theme::ColorfulTheme, Password};
 
 fn main() {
     let password = Password::with_theme(&ColorfulTheme::default())

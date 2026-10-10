@@ -1,4 +1,4 @@
-use interacteur::{theme::ColorfulTheme, Confirm};
+use paloma::{theme::ColorfulTheme, Confirm};
 
 fn main() {
     if Confirm::with_theme(&ColorfulTheme::default())

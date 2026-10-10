@@ -12,7 +12,7 @@ use crate::{
 /// ## Example
 ///
 /// ```rust,no_run
-/// use interacteur::MultiSelect;
+/// use paloma::MultiSelect;
 ///
 /// fn main() {
 ///     let items = vec!["foo", "bar", "baz"];
@@ -159,7 +159,7 @@ impl MultiSelect<'_> {
     /// ## Example
     ///
     /// ```rust,no_run
-    /// use interacteur::MultiSelect;
+    /// use paloma::MultiSelect;
     ///
     /// fn main() {
     ///     let items = vec!["foo", "bar", "baz"];
@@ -353,7 +353,7 @@ impl<'a> MultiSelect<'a> {
     /// ## Example
     ///
     /// ```rust,no_run
-    /// use interacteur::{theme::ColorfulTheme, MultiSelect};
+    /// use paloma::{theme::ColorfulTheme, MultiSelect};
     ///
     /// fn main() {
     ///     let selection = MultiSelect::with_theme(&ColorfulTheme::default())

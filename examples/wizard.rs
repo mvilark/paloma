@@ -2,7 +2,7 @@ use std::error::Error;
 use std::net::IpAddr;
 
 use console::Style;
-use interacteur::{theme::ColorfulTheme, Confirm, Input, Select};
+use paloma::{theme::ColorfulTheme, Confirm, Input, Select};
 
 #[derive(Debug)]
 #[allow(dead_code)]

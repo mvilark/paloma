@@ -1,4 +1,4 @@
-use interacteur::{theme::ColorfulTheme, FuzzySelect};
+use paloma::{theme::ColorfulTheme, FuzzySelect};
 
 fn main() {
     let selections = &[

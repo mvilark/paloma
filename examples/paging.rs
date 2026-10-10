@@ -1,4 +1,4 @@
-use interacteur::{theme::ColorfulTheme, Select};
+use paloma::{theme::ColorfulTheme, Select};
 
 fn main() {
     let selections = &[

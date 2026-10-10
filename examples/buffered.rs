@@ -1,5 +1,5 @@
 use console::Term;
-use interacteur::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select, Sort};
+use paloma::{theme::ColorfulTheme, Confirm, Input, MultiSelect, Select, Sort};
 
 fn main() {
     let items = &[
