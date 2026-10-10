@@ -88,6 +88,15 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(measure_text_width(buf.rsplit('\n').next().unwrap_or("")))
     }
 
+    /// How many screen rows `text` takes once written as whole lines, counting the
+    /// rows of lines that wrap.
+    fn rows(&self, text: &str) -> usize {
+        let width = (self.term.size().1 as usize).max(1);
+        text.split('\n')
+            .map(|line| measure_text_width(line).max(1).div_ceil(width))
+            .sum()
+    }
+
     fn write_formatted_line<
         F: FnOnce(&mut TermThemeRenderer, &mut dyn fmt::Write) -> fmt::Result,
     >(
@@ -96,7 +105,7 @@ impl<'a> TermThemeRenderer<'a> {
     ) -> Result {
         let mut buf = String::new();
         f(self, &mut buf).map_err(io::Error::other)?;
-        self.height += buf.chars().filter(|&x| x == '\n').count() + 1;
+        self.height += self.rows(&buf);
         Ok(self.term.write_line(&buf)?)
     }
 
@@ -328,19 +337,9 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(())
     }
 
-    pub fn clear_preserve_prompt(&mut self, size_vec: &[usize]) -> Result {
-        let mut new_height = self.height;
-        let prefix_width = 2;
-        //Check each item size, increment on finding an overflow
-        for size in size_vec {
-            if *size > self.term.size().1 as usize {
-                new_height += (((*size as f64 + prefix_width as f64) / self.term.size().1 as f64)
-                    .ceil()) as usize
-                    - 1;
-            }
-        }
-
-        self.term.clear_last_lines(new_height)?;
+    /// Clears what was drawn since the last prompt line, keeping the prompt.
+    pub fn clear_preserve_prompt(&mut self) -> Result {
+        self.term.clear_last_lines(self.height)?;
         self.height = 0;
         Ok(())
     }
