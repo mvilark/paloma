@@ -1,12 +1,12 @@
-//! paloma is a library for Rust that helps you build useful small
-//! interactive user inputs for the command line.  It provides utilities
-//! to render various simple dialogs like confirmation prompts, text
-//! inputs and more.
+//! paloma is a UI framework for command-line programs that run one action and
+//! exit: prompts, flows of prompts, messages, loading messages and progress bars,
+//! all drawn through one app-wide [`Theme`](theme::Theme) and configured by app-wide
+//! [`Options`]. It is line-oriented: the scrollback is the record of what happened,
+//! and there are no full-screen views.
 //!
-//! Best paired with other libraries in the family:
-//!
-//! * [indicatif](https://docs.rs/indicatif)
-//! * [console](https://docs.rs/console)
+//! The prompts are built; flows, messages, spinners and progress bars are on the
+//! roadmap. paloma draws with [console](https://docs.rs/console), re-exported as
+//! [`paloma::console`](console).
 //!
 //! # Crate Contents
 //!

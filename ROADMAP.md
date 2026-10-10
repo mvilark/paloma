@@ -20,13 +20,14 @@ Rough ideas that are not yet scoped.
 
 Scoped and agreed, not started.
 
-- **PAL-004 · CLI UI framework.** Umbrella plan: turn paloma from a prompt library into a UI framework for prompt-and-flow CLIs (messages, output blocks, live tasks, progress), with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
+- **PAL-004 · CLI UI framework.** Umbrella plan: build the rest of paloma's CLI UI framework (flows, messages, output blocks, spinners, progress bars) next to the existing prompts, with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
 - **PAL-006 · Foundations and messages.** Options families, terminal layer, tokens, `Context`, `restyle`, and `Message` (success / info / warning / error with a hint). Plan: [PAL-004, Phase 1](docs/plans/PAL-004-ui-framework.md#pal-006--phase-1-foundations-and-messages).
 - **PAL-007 · Output blocks.** `Section`, `KeyValue`, `Table`, `Panel`, `link`, `gradient`. Plan: [PAL-004, Phase 2](docs/plans/PAL-004-ui-framework.md#pal-007--phase-2-output-blocks).
 - **PAL-008 · Live tasks.** `Task` with spinner, steps and elapsed time; motion off for CI and pipes. Plan: [PAL-004, Phase 3](docs/plans/PAL-004-ui-framework.md#pal-008--phase-3-live-tasks).
 - **PAL-009 · Theme v2 for prompts.** Prompt hooks take a context and a view; token-driven default layout. Breaking. Plan: [PAL-004, Phase 4](docs/plans/PAL-004-ui-framework.md#pal-009--phase-4-theme-v2-for-prompts).
-- **PAL-010 · Prompt gaps.** Hints, rich items, live validation, step counters, cancel and back, presets and unattended mode. Breaking (`Error`). Plan: [PAL-004, Phase 5](docs/plans/PAL-004-ui-framework.md#pal-010--phase-5-prompt-gaps-from-pal-002).
-- **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 6](docs/plans/PAL-004-ui-framework.md#pal-011--phase-6-progress-bars).
+- **PAL-010 · Prompt gaps.** Hints, rich items, live validation, cancel and back results, presets and unattended mode. Breaking (`Error`). Plan: [PAL-004, Phase 5](docs/plans/PAL-004-ui-framework.md#pal-010--phase-5-prompt-gaps-from-pal-002).
+- **PAL-015 · Flows.** `Flow` runs prompts as numbered steps: step counters, `Esc` back, `^C` cancels the flow, unattended runs. Plan: [PAL-004, Phase 6](docs/plans/PAL-004-ui-framework.md#pal-015--phase-6-flows).
+- **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars).
 
 ## In progress
 

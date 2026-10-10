@@ -1,6 +1,8 @@
 # paloma
 
-A Rust library for the interactive side of command-line programs: confirmations, text and password input, selections, sorting and fuzzy search, with app-wide themes and options. Messages, spinners and progress bars are on the way; see the [roadmap](ROADMAP.md).
+A Rust UI framework for command-line programs that run one action and exit: prompts, flows of prompts, messages, loading messages and progress bars, styled by one app-wide theme and configured by app-wide options. Anything but full-screen GUIs.
+
+The prompts are built (confirm, text and password input, select, multi-select, sort, fuzzy search); the other components are being built now, see the [roadmap](ROADMAP.md).
 
 paloma is a fork of [dialoguer](https://github.com/console-rs/dialoguer) (MIT) and builds on [console](https://github.com/console-rs/console).
 

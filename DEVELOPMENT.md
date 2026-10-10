@@ -36,7 +36,7 @@ CI (`.github/workflows/ci.yml`) also runs: tests on Linux/macOS/Windows, MSRV ch
 - Builder style: `new()`, `with_theme(&dyn Theme)`, `with_prompt(..)`, option setters taking `mut self -> Self`, and `interact` / `interact_opt` / `interact_on` / `interact_on_opt` terminals returning `crate::Result`. Prompts derive/impl `Clone` and `Default` where sensible.
 - Every prompt embeds a `PromptBase` as `base`. The built-in defaults live in one private `with_base(base)` constructor: `new()` calls it with `PromptBase::app_theme()` (the renderer then uses the app theme from `set_theme`) and `with_theme(&t)` with `PromptBase::with_theme(&t)`. New prompts follow the same pattern.
 - Themes decide how things look; `Options` decide how they work. A behaviour setting is an `Option` resolved in this order: the prompt's builder method, its group in `Options`, `general`, the built-in default. Read the app options once, when the prompt is shown (`crate::options::current()`), not inside loops.
-- Everything a prompt draws goes through a `Theme` method via `render.rs`; prompts never write styled text or layout themselves.
+- Everything paloma draws goes through a `Theme` method (for prompts, via `render.rs`); components never write styled text or layout themselves.
 - Public items need doc comments (`missing_docs` is denied); docs build with warnings denied.
 - Gate optional code with `#[cfg(feature = "...")]` and update both `lib.rs` and docs.rs metadata (`all-features = true`).
 - Avoid leaking new third-party types in the public API (external-types check).
@@ -59,4 +59,4 @@ Create `src/prompts/<name>.rs` with a `base: PromptBase` field and `report_metho
 Releases are not documented in the repo. `CHANGELOG-OLD.md` says newer release notes live in GitHub Releases, and `Cargo.toml` sets `no_individual_tags` for cargo-workspaces. Suggested process: bump `version` in `Cargo.toml`, run the full CI command set above, publish via GitHub Release with notes grouped as Enhancements / Bug fixes / Breaking changes.
 
 ## Goals
-paloma is becoming a UI framework for command-line programs that run one action and exit: prompts, messages, output blocks, spinners and progress bars, all customizable through themes and options. It stays line-oriented: no full-screen TUI, no long-running or asynchronous apps. The architecture and phases are in [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md); work is tracked in [ROADMAP.md](ROADMAP.md).
+paloma is a UI framework for command-line programs that run one action and exit: prompts, flows, messages, output blocks, spinners and progress bars, all customizable through themes and options. Only the prompts exist so far. It stays line-oriented: no full-screen TUI, no long-running or asynchronous apps. The architecture and phases are in [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md); work is tracked in [ROADMAP.md](ROADMAP.md).
