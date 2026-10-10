@@ -7,7 +7,7 @@ No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API us
 - `src/prompts/` - one file per prompt: `confirm`, `input`, `select`, `multi_select`, `sort`, `password`, `fuzzy_select`.
 - `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, and `app.rs` (app-wide theme, `set_theme`) and `render.rs` (internal `TermThemeRenderer` that prompts draw through).
 - `src/validate.rs`, `history.rs`, `completion.rs`, `edit.rs` (`Editor`), `paging.rs`, `error.rs`.
-- `examples/` - one runnable example per feature (`cargo run --example wizard`).
+- `examples/` - one runnable example per feature (`cargo run --example wizard`). `examples/ultraviolet/` is a larger fake VPN CLI themed with the Ultraviolet design system (`cargo run --example ultraviolet --all-features -- <command>`); its `ui.rs` draws the non-prompt output and its gaps are listed in [docs/plans/PAL-002-ultraviolet-example.md](docs/plans/PAL-002-ultraviolet-example.md).
 - `.cargo/config.toml` - aliases used by CI. `deny.toml` - cargo-deny config. `CHANGELOG-OLD.md` - changelog up to 0.11.0.
 
 ## Features

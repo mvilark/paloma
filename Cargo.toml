@@ -27,6 +27,14 @@ zeroize = { version = "1.1.1", optional = true }
 fuzzy-matcher = { version = "0.3.7", optional = true }
 shell-words = "1.1.0"
 
+[dev-dependencies]
+ctrlc = "3"
+
+[[example]]
+name = "ultraviolet"
+path = "examples/ultraviolet/main.rs"
+required-features = ["fuzzy-select", "password"]
+
 [[example]]
 name = "password"
 required-features = ["password"]

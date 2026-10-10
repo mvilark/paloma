@@ -118,3 +118,4 @@ Ordered by how visible the compromise is in the example.
 
 - 2026-10-10: Plan written. Style guide stored as `docs/design/ultraviolet.md`.
 - 2026-10-10: spideyincrocs chose `ctrlc` as the only new dev-dependency (no `clap`, no `indicatif`).
+- 2026-10-10: Implemented on branch `claude/pal-002` (`examples/ultraviolet/`, `ctrlc` dev-dependency). Differences from the plan: `UltravioletTheme` also uses `●`/`○` for `Sort`; the Serrallonga icon is a small hand-drawn version; `accent-dim` is defined but unused. Manual checks done in a pty: fuzzy select, the setup flow (Esc/step back not exercised), `^C` at a prompt and during a spinner (exit 130), `--yes`, piped output, `CI=1`, `--ascii`, `NO_COLOR`. Not checked: 16-colour terminal look and light theme on a real light terminal.
