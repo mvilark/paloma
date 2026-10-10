@@ -5,7 +5,7 @@ No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API us
 ## Layout
 - `src/lib.rs` - public re-exports and feature gates (`#![deny(clippy::all)]`).
 - `src/prompts/` - one file per prompt: `confirm`, `input`, `select`, `multi_select`, `sort`, `password`, `fuzzy_select`.
-- `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, and `app.rs` (app-wide theme, `set_theme`), and `render.rs` (internal `TermThemeRenderer` that prompts draw through).
+- `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, and `app.rs` (app-wide theme, `set_theme`) and `render.rs` (internal `TermThemeRenderer` that prompts draw through).
 - `src/validate.rs`, `history.rs`, `completion.rs`, `edit.rs` (`Editor`), `paging.rs`, `error.rs`.
 - `examples/` - one runnable example per feature (`cargo run --example wizard`).
 - `.cargo/config.toml` - aliases used by CI. `deny.toml` - cargo-deny config. `CHANGELOG-OLD.md` - changelog up to 0.11.0.

@@ -46,7 +46,7 @@ impl Default for Password<'static> {
 }
 
 impl Password<'static> {
-    /// Creates a password input prompt with default theme.
+    /// Creates a password input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Password<'static> {
         let mut prompt = Self::with_theme(&SimpleTheme);
         prompt.theme = None;

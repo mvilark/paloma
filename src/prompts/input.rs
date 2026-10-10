@@ -74,7 +74,7 @@ impl<T> Default for Input<'static, T> {
 }
 
 impl<T> Input<'_, T> {
-    /// Creates an input prompt with default theme.
+    /// Creates an input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
         prompt.theme = None;

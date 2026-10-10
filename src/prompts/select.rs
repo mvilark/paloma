@@ -47,7 +47,7 @@ impl Default for Select<'static> {
 }
 
 impl Select<'static> {
-    /// Creates a select prompt with default theme.
+    /// Creates a select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
         prompt.theme = None;

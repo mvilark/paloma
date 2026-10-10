@@ -45,7 +45,7 @@ impl Default for Confirm<'static> {
 }
 
 impl Confirm<'static> {
-    /// Creates a confirm prompt with default theme.
+    /// Creates a confirm prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
         prompt.theme = None;
