@@ -292,6 +292,10 @@ impl Theme for UltravioletTheme {
         self.label(f, prompt, self.cfg.g.active, Tok::Accent)
     }
 
+    fn input_error_below(&self) -> bool {
+        true
+    }
+
     fn format_error(&self, f: &mut dyn fmt::Write, err: &str) -> fmt::Result {
         let p = &self.cfg.pal;
         write!(

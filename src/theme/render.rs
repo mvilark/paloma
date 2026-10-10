@@ -30,6 +30,10 @@ pub(crate) struct TermThemeRenderer<'a> {
     height: usize,
     prompt_height: usize,
     prompts_reset_height: bool,
+    /// An input error waiting to be drawn under the next input prompt.
+    pending_error: Option<String>,
+    /// An error row is on screen under the input line.
+    error_shown: bool,
 }
 
 impl<'a> TermThemeRenderer<'a> {
@@ -43,6 +47,8 @@ impl<'a> TermThemeRenderer<'a> {
             height: 0,
             prompt_height: 0,
             prompts_reset_height: true,
+            pending_error: None,
+            error_shown: false,
         }
     }
 
@@ -136,7 +142,33 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     pub fn input_prompt(&mut self, prompt: &str, default: Option<&str>) -> Result<usize> {
-        self.write_formatted_str(|this, buf| this.theme.format_input_prompt(buf, prompt, default))
+        let len = self.write_formatted_str(|this, buf| {
+            this.theme.format_input_prompt(buf, prompt, default)
+        })?;
+        if let Some(err) = self.pending_error.take() {
+            // Draw the error on the row under the input, then put the cursor back
+            // after the prompt.
+            self.write_formatted_str(|this, buf| {
+                writeln!(buf)?;
+                this.theme.format_error(buf, &err)
+            })?;
+            self.term.move_cursor_up(1)?;
+            self.term.write_str("\r")?;
+            self.term.move_cursor_right(len)?;
+            self.error_shown = true;
+        }
+        Ok(len)
+    }
+
+    /// Reports an input error: under the next input prompt when the theme asks for
+    /// it, otherwise on a line of its own right away.
+    pub fn input_error(&mut self, err: &str) -> Result {
+        if self.theme.input_error_below() {
+            self.pending_error = Some(err.to_string());
+            Ok(())
+        } else {
+            self.error(err)
+        }
     }
 
     pub fn input_prompt_selection(&mut self, prompt: &str, sel: &str) -> Result {
@@ -261,6 +293,12 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     pub fn clear(&mut self) -> Result {
+        if self.error_shown {
+            // The cursor is on the input line; step down so the error row is cleared too.
+            self.term.move_cursor_down(1)?;
+            self.term.clear_line()?;
+            self.error_shown = false;
+        }
         self.term
             .clear_last_lines(self.height + self.prompt_height)?;
         self.height = 0;

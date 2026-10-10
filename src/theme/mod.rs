@@ -28,6 +28,12 @@ pub trait Theme {
         write!(f, "error: {}", err)
     }
 
+    /// Whether an input validation error is drawn on the row under the input
+    /// instead of on a line above the re-rendered prompt. Defaults to `false`.
+    fn input_error_below(&self) -> bool {
+        false
+    }
+
     /// Formats a confirm prompt.
     fn format_confirm_prompt(
         &self,

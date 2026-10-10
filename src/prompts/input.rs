@@ -583,7 +583,7 @@ where
                 if let Some(ref default) = self.default {
                     if let Some(ref mut validator) = self.validator {
                         if let Some(err) = validator.lock().unwrap()(default) {
-                            render.error(&err)?;
+                            render.input_error(&err)?;
                             continue;
                         }
                     }
@@ -610,7 +610,7 @@ where
 
                     if let Some(ref mut validator) = self.validator {
                         if let Some(err) = validator.lock().unwrap()(&value) {
-                            render.error(&err)?;
+                            render.input_error(&err)?;
                             continue;
                         }
                     }
@@ -623,7 +623,7 @@ where
                     return Ok(value);
                 }
                 Err(err) => {
-                    render.error(&err.to_string())?;
+                    render.input_error(&err.to_string())?;
                     continue;
                 }
             }
