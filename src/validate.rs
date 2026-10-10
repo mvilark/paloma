@@ -5,6 +5,7 @@
 /// A generic implementation for `Fn(&str) -> Result<(), E>` is provided
 /// to facilitate development.
 pub trait InputValidator<T> {
+    /// The error a failed validation returns; its `to_string()` is shown to the user.
     type Err;
 
     /// Invoked with the value to validate.
@@ -28,6 +29,7 @@ where
 /// Trait for password validators.
 #[allow(clippy::ptr_arg)]
 pub trait PasswordValidator {
+    /// The error a failed validation returns; its `to_string()` is shown to the user.
     type Err;
 
     /// Invoked with the value to validate.

@@ -34,7 +34,7 @@ pub struct ColorfulTheme {
     pub inactive_item_style: Style,
     /// Active item in select prefix value and style
     pub active_item_prefix: StyledObject<String>,
-    /// Inctive item in select prefix value and style
+    /// Inactive item in select prefix value and style
     pub inactive_item_prefix: StyledObject<String>,
     /// Checked item in multi select prefix value and style
     pub checked_item_prefix: StyledObject<String>,
@@ -47,7 +47,7 @@ pub struct ColorfulTheme {
     /// Formats the cursor for a fuzzy select prompt
     #[cfg(feature = "fuzzy-select")]
     pub fuzzy_cursor_style: Style,
-    // Formats the highlighting if matched characters
+    /// The style for the characters that match the search in a fuzzy select item
     #[cfg(feature = "fuzzy-select")]
     pub fuzzy_match_highlight_style: Style,
 }
@@ -253,6 +253,17 @@ impl Theme for ColorfulTheme {
         self.format_input_prompt_selection(f, prompt, "********")
     }
 
+    /// Formats a password prompt after selection, with `mask_len` stars.
+    #[cfg(feature = "password")]
+    fn format_password_prompt_selection_masked(
+        &self,
+        f: &mut dyn fmt::Write,
+        prompt: &str,
+        mask_len: usize,
+    ) -> fmt::Result {
+        self.format_input_prompt_selection(f, prompt, &"*".repeat(mask_len))
+    }
+
     /// Formats a multi select prompt after selection.
     fn format_multi_select_prompt_selection(
         &self,
@@ -414,7 +425,7 @@ impl Theme for ColorfulTheme {
         }
     }
 
-    /// Formats a fuzzy-selectprompt after selection.
+    /// Formats a fuzzy select prompt.
     #[cfg(feature = "fuzzy-select")]
     fn format_fuzzy_select_prompt(
         &self,

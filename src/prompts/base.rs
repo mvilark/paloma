@@ -11,7 +11,19 @@ pub(crate) struct PromptBase<'a> {
     pub(crate) report: Option<bool>,
 }
 
+impl PromptBase<'static> {
+    /// No theme of its own: the renderer uses the app theme from
+    /// [`set_theme`](crate::set_theme).
+    pub(crate) fn app_theme() -> Self {
+        PromptBase {
+            theme: None,
+            report: None,
+        }
+    }
+}
+
 impl<'a> PromptBase<'a> {
+    /// Draws with `theme`, whatever the app theme is.
     pub(crate) fn with_theme(theme: &'a dyn Theme) -> Self {
         PromptBase {
             theme: Some(theme),

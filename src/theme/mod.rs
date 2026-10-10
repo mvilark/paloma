@@ -22,7 +22,7 @@ pub trait Theme {
         write!(f, "{}:", prompt)
     }
 
-    /// Formats out an error.
+    /// Formats an error.
     #[inline]
     fn format_error(&self, f: &mut dyn fmt::Write, err: &str) -> fmt::Result {
         write!(f, "error: {}", err)

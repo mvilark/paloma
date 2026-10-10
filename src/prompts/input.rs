@@ -13,7 +13,7 @@ use crate::completion::Completion;
 use crate::history::History;
 use crate::{
     prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
+    theme::{render::TermThemeRenderer, Theme},
     validate::InputValidator,
     Result,
 };
@@ -76,9 +76,7 @@ impl<T> Default for Input<'static, T> {
 impl<T> Input<'_, T> {
     /// Creates an input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
+        Self::with_base(PromptBase::app_theme())
     }
 
     /// Sets the input prompt.
@@ -151,13 +149,18 @@ impl<'a, T> Input<'a, T> {
     /// }
     /// ```
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
+        Self::with_base(PromptBase::with_theme(theme))
+    }
+
+    /// The built-in defaults, drawn with `base`'s theme.
+    fn with_base(base: PromptBase<'a>) -> Self {
         Self {
             prompt: "".into(),
             post_completion_text: None,
             default: None,
             show_default: true,
             initial_text: None,
-            base: PromptBase::with_theme(theme),
+            base,
             permit_empty: false,
             validator: None,
             #[cfg(feature = "history")]

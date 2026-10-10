@@ -5,7 +5,7 @@ use fuzzy_matcher::FuzzyMatcher;
 
 use crate::{
     prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
+    theme::{render::TermThemeRenderer, Theme},
     Result,
 };
 
@@ -55,9 +55,7 @@ impl Default for FuzzySelect<'static> {
 impl FuzzySelect<'static> {
     /// Creates a fuzzy select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
+        Self::with_base(PromptBase::app_theme())
     }
 }
 
@@ -379,6 +377,11 @@ impl<'a> FuzzySelect<'a> {
     /// }
     /// ```
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
+        Self::with_base(PromptBase::with_theme(theme))
+    }
+
+    /// The built-in defaults, drawn with `base`'s theme.
+    fn with_base(base: PromptBase<'a>) -> Self {
         Self {
             default: None,
             items: vec![],
@@ -387,7 +390,7 @@ impl<'a> FuzzySelect<'a> {
             highlight_matches: true,
             enable_vim_mode: false,
             max_length: None,
-            base: PromptBase::with_theme(theme),
+            base,
             initial_text: "".into(),
         }
     }

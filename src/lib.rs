@@ -29,7 +29,7 @@
 //!
 //! By default `editor` and `password` are enabled.
 
-#![deny(clippy::all)]
+#![deny(clippy::all, missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 pub use console;
@@ -42,7 +42,6 @@ pub use error::{Error, Result};
 #[cfg(feature = "history")]
 pub use history::{BasicHistory, History};
 pub use options::{set_options, ConfirmStyle, Options};
-use paging::Paging;
 pub use theme::app::set_theme;
 pub use validate::{InputValidator, PasswordValidator};
 

@@ -3,9 +3,10 @@ use std::{io, iter::repeat, ops::Rem};
 use console::{Key, Term};
 
 use crate::{
+    paging::Paging,
     prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
-    Paging, Result,
+    theme::{render::TermThemeRenderer, Theme},
+    Result,
 };
 
 /// Renders a multi select prompt.
@@ -50,9 +51,7 @@ impl Default for MultiSelect<'static> {
 impl MultiSelect<'static> {
     /// Creates a multi select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
+        Self::with_base(PromptBase::app_theme())
     }
 }
 
@@ -359,13 +358,18 @@ impl<'a> MultiSelect<'a> {
     /// }
     /// ```
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
+        Self::with_base(PromptBase::with_theme(theme))
+    }
+
+    /// The built-in defaults, drawn with `base`'s theme.
+    fn with_base(base: PromptBase<'a>) -> Self {
         Self {
             items: vec![],
             defaults: vec![],
             clear: true,
             prompt: None,
             max_length: None,
-            base: PromptBase::with_theme(theme),
+            base,
         }
     }
 }

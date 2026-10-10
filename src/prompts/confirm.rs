@@ -5,7 +5,7 @@ use console::{Key, Term};
 use crate::{
     options::ConfirmStyle,
     prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
+    theme::{render::TermThemeRenderer, Theme},
     Result,
 };
 
@@ -49,9 +49,7 @@ impl Default for Confirm<'static> {
 impl Confirm<'static> {
     /// Creates a confirm prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
+        Self::with_base(PromptBase::app_theme())
     }
 }
 
@@ -344,13 +342,18 @@ impl<'a> Confirm<'a> {
     /// }
     /// ```
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
+        Self::with_base(PromptBase::with_theme(theme))
+    }
+
+    /// The built-in defaults, drawn with `base`'s theme.
+    fn with_base(base: PromptBase<'a>) -> Self {
         Self {
             prompt: "".into(),
             default: None,
             show_default: true,
             style: None,
             on_shortcut: None,
-            base: PromptBase::with_theme(theme),
+            base,
             show_hint: true,
         }
     }

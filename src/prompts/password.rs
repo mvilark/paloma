@@ -5,7 +5,7 @@ use zeroize::Zeroizing;
 
 use crate::{
     prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
+    theme::{render::TermThemeRenderer, Theme},
     validate::PasswordValidator,
     Result,
 };
@@ -50,9 +50,7 @@ impl Default for Password<'static> {
 impl Password<'static> {
     /// Creates a password input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Password<'static> {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
+        Self::with_base(PromptBase::app_theme())
     }
 }
 
@@ -147,8 +145,15 @@ impl Password<'_> {
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_prompts_reset_height(false);
 
+        let options = crate::options::current();
+        let masked = self.mask_input.or(options.password.mask).unwrap_or(false);
+        let mask = self
+            .mask
+            .or_else(|| masked.then(|| render.password_mask_glyph()));
+        let result_len = self.result_len.or(options.password.result_len).unwrap_or(8);
+
         loop {
-            let password = Zeroizing::new(self.prompt_password(&mut render, &self.prompt)?);
+            let password = Zeroizing::new(self.prompt_password(&mut render, &self.prompt, mask)?);
 
             if let Some(ref validator) = self.validator {
                 if let Some(err) = validator(&password) {
@@ -158,7 +163,7 @@ impl Password<'_> {
             }
 
             if let Some((ref prompt, ref err)) = self.confirmation_prompt {
-                let pw2 = Zeroizing::new(self.prompt_password(&mut render, prompt)?);
+                let pw2 = Zeroizing::new(self.prompt_password(&mut render, prompt, mask)?);
 
                 if *password != *pw2 {
                     render.error(err)?;
@@ -169,11 +174,7 @@ impl Password<'_> {
             render.clear()?;
 
             if self.report_enabled() {
-                let len = self
-                    .result_len
-                    .or(crate::options::current().password.result_len)
-                    .unwrap_or(8);
-                render.password_prompt_selection(&self.prompt, len)?;
+                render.password_prompt_selection(&self.prompt, result_len)?;
             }
             term.flush()?;
 
@@ -181,18 +182,17 @@ impl Password<'_> {
         }
     }
 
-    fn prompt_password(&self, render: &mut TermThemeRenderer, prompt: &str) -> Result<String> {
+    /// Reads one password, echoing `mask` for each character, or nothing when `None`.
+    fn prompt_password(
+        &self,
+        render: &mut TermThemeRenderer,
+        prompt: &str,
+        mask: Option<char>,
+    ) -> Result<String> {
         loop {
             render.password_prompt(prompt)?;
             render.term().flush()?;
 
-            let masked = self
-                .mask_input
-                .or(crate::options::current().password.mask)
-                .unwrap_or(false);
-            let mask = self
-                .mask
-                .or_else(|| masked.then(|| render.password_mask_glyph()));
             let Some(mask) = mask else {
                 let input = render.term().read_secure_line()?;
                 render.add_line();
@@ -294,9 +294,14 @@ impl<'a> Password<'a> {
     /// }
     /// ```
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
+        Self::with_base(PromptBase::with_theme(theme))
+    }
+
+    /// The built-in defaults, drawn with `base`'s theme.
+    fn with_base(base: PromptBase<'a>) -> Self {
         Self {
             prompt: "".into(),
-            base: PromptBase::with_theme(theme),
+            base,
             allow_empty_password: false,
             confirmation_prompt: None,
             validator: None,
