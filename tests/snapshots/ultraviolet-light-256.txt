@@ -1,0 +1,138 @@
+$ ultraviolet setup --yes
+--- exit 0
+--- stdout
+ada@example.com
+--- stderr
+␛[38;5;60m◇␛[0m ␛[38;5;60mAccount email␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mada@example.com␛[0m
+␛[38;5;60m◇␛[0m ␛[38;5;60mPassword␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234m••••••••␛[0m
+␛[38;5;60m◇␛[0m ␛[38;5;60mProtocol␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mWireGuard␛[0m
+␛[38;5;60m◇␛[0m ␛[38;5;60mFeatures␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mKill switch, Auto reconnect␛[0m
+␛[38;5;60m◇␛[0m ␛[38;5;60mConnect on startup?␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mYes␛[0m
+
+␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mSetup␛[0m
+    ␛[38;5;189m↳␛[0m ␛[38;5;60mGenerated device key␛[0m
+␛[38;5;30m✓␛[0m ␛[38;5;234mCreated your profile␛[0m  ␛[38;5;60m0.0s␛[0m
+␛[38;5;30m✓␛[0m ␛[38;5;234mApplied settings␛[0m  ␛[38;5;60m0.0s␛[0m
+
+␛[38;5;189m╭␛[0m␛[38;5;189m─␛[0m ␛[38;5;55m␛[1mSetup complete␛[0m ␛[38;5;189m─────────────────────────────────────────────␛[0m␛[38;5;189m╮␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;30m✓␛[0m ␛[38;5;234mSigned in as ada@example.com␛[0m                          ␛[38;5;60m0.0s␛[0m ␛[38;5;189m│␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;30m✓␛[0m ␛[38;5;234mWireGuard · 2 features␛[0m                                ␛[38;5;60m0.0s␛[0m ␛[38;5;189m│␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;99m•␛[0m ␛[38;5;234mConnect on startup: On␛[0m                                     ␛[38;5;189m│␛[0m
+␛[38;5;189m╰␛[0m␛[38;5;189m──────────────────────────────────────────────────────────────␛[0m␛[38;5;189m╯␛[0m
+
+$ ultraviolet connect --yes
+--- exit 0
+--- stdout
+us-nyc-01
+--- stderr
+␛[38;5;60m◇␛[0m ␛[38;5;60mServer␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mus-nyc-01 · New York, US␛[0m
+
+␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mConnect␛[0m
+    ␛[38;5;189m↳␛[0m ␛[38;5;60mResolved endpoint␛[0m
+    ␛[38;5;189m↳␛[0m ␛[38;5;60mOpened tunnel␛[0m
+    ␛[38;5;189m↳␛[0m ␛[38;5;60mNegotiated cipher␛[0m
+␛[38;5;30m✓␛[0m ␛[38;5;234mConnected to us-nyc-01␛[0m  ␛[38;5;60m0.0s␛[0m
+␛[38;5;99m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━␛[0m ␛[38;5;60mExchanging keys␛[0m  ␛[38;5;60m100%␛[0m
+
+␛[38;5;189m╭␛[0m␛[38;5;189m─␛[0m ␛[38;5;55m␛[1mConnected␛[0m ␛[38;5;189m──────────────────────────────────────────────────␛[0m␛[38;5;189m╮␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;30m✓␛[0m ␛[38;5;234mNew York, US · 18 ms · 42% load␛[0m                       ␛[38;5;60m0.0s␛[0m ␛[38;5;189m│␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;30m✓␛[0m ␛[38;5;234mKey exchange complete␛[0m                                      ␛[38;5;189m│␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;94m▲␛[0m ␛[38;5;234mKill switch is off␛[0m                                         ␛[38;5;189m│␛[0m
+␛[38;5;189m╰␛[0m␛[38;5;189m──────────────────────────────────────────────────────────────␛[0m␛[38;5;189m╯␛[0m
+
+$ ultraviolet connect --server xx-nowhere-01
+--- exit 1
+--- stdout
+--- stderr
+␛[38;5;161m✕␛[0m ␛[38;5;234mServer xx-nowhere-01 not found␛[0m
+  ␛[38;5;60m␛[3mHint␛[0m  ␛[38;5;55multraviolet servers␛[0m
+
+$ ultraviolet connect --server es-bcn-01 --yes
+--- exit 0
+--- stdout
+es-bcn-01
+--- stderr
+␛[38;5;60m◇␛[0m ␛[38;5;60mServer␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mes-bcn-01 · Barcelona, ES␛[0m
+
+␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mConnect␛[0m
+    ␛[38;5;189m↳␛[0m ␛[38;5;60mResolved endpoint␛[0m
+    ␛[38;5;189m↳␛[0m ␛[38;5;60mOpened tunnel␛[0m
+    ␛[38;5;189m↳␛[0m ␛[38;5;60mNegotiated cipher␛[0m
+␛[38;5;30m✓␛[0m ␛[38;5;234mConnected to es-bcn-01␛[0m  ␛[38;5;60m0.0s␛[0m
+␛[38;5;99m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━␛[0m ␛[38;5;60mExchanging keys␛[0m  ␛[38;5;60m100%␛[0m
+
+␛[38;5;189m╭␛[0m␛[38;5;189m─␛[0m ␛[38;5;55m␛[1mConnected␛[0m ␛[38;5;189m──────────────────────────────────────────────────␛[0m␛[38;5;189m╮␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;30m✓␛[0m ␛[38;5;234mBarcelona, ES · 12 ms · 23% load␛[0m                      ␛[38;5;60m0.0s␛[0m ␛[38;5;189m│␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;30m✓␛[0m ␛[38;5;234mKey exchange complete␛[0m                                      ␛[38;5;189m│␛[0m
+␛[38;5;189m│␛[0m ␛[38;5;94m▲␛[0m ␛[38;5;234mKill switch is off␛[0m                                         ␛[38;5;189m│␛[0m
+␛[38;5;189m╰␛[0m␛[38;5;189m──────────────────────────────────────────────────────────────␛[0m␛[38;5;189m╯␛[0m
+
+$ ultraviolet favorites --yes
+--- exit 0
+--- stdout
+es-bcn-01
+de-fra-02
+us-nyc-01
+jp-tyo-03
+--- stderr
+␛[38;5;60m◇␛[0m ␛[38;5;60mFavourites␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mes-bcn-01, de-fra-02, us-nyc-01, jp-tyo-03␛[0m
+
+$ ultraviolet disconnect --yes
+--- exit 0
+--- stdout
+--- stderr
+␛[38;5;30m✓␛[0m ␛[38;5;234mDisconnected␛[0m  ␛[38;5;60m0.0s␛[0m
+
+$ ultraviolet status
+--- exit 0
+--- stdout
+␛[38;5;60mState␛[0m      ␛[38;5;234mConnected␛[0m
+␛[38;5;60mServer␛[0m     ␛[38;5;234mes-bcn-01 · Barcelona, ES␛[0m
+␛[38;5;60mProtocol␛[0m   ␛[38;5;234mWireGuard␛[0m
+␛[38;5;60mPing␛[0m       ␛[38;5;234m12 ms␛[0m
+␛[38;5;60mSent␛[0m       ␛[38;5;234m4.8 MB␛[0m
+␛[38;5;60mReceived␛[0m   ␛[38;5;234m31.2 MB␛[0m
+--- stderr
+
+$ ultraviolet status --json
+--- exit 0
+--- stdout
+{"state":"connected","server":"es-bcn-01","protocol":"wireguard","ping_ms":12,"sent_mb":4.8,"received_mb":31.2}
+--- stderr
+
+$ ultraviolet servers
+--- exit 0
+--- stdout
+␛[38;5;234m␛[1mServer   ␛[0m   ␛[38;5;234m␛[1mPlace        ␛[0m   ␛[38;5;234m␛[1mLoad␛[0m   ␛[38;5;234m␛[1mPing  ␛[0m
+␛[38;5;234mus-nyc-01␛[0m   ␛[38;5;234mNew York, US ␛[0m   ␛[38;5;234m42% ␛[0m   ␛[38;5;234m18 ms ␛[0m
+␛[38;5;234mde-fra-02␛[0m   ␛[38;5;234mFrankfurt, DE␛[0m   ␛[38;5;234m67% ␛[0m   ␛[38;5;234m31 ms ␛[0m
+␛[38;5;234mes-bcn-01␛[0m   ␛[38;5;234mBarcelona, ES␛[0m   ␛[38;5;234m23% ␛[0m   ␛[38;5;234m12 ms ␛[0m
+␛[38;5;234mjp-tyo-03␛[0m   ␛[38;5;234mTokyo, JP    ␛[0m   ␛[38;5;234m55% ␛[0m   ␛[38;5;234m96 ms ␛[0m
+␛[38;5;234mbr-sao-01␛[0m   ␛[38;5;234mSao Paulo, BR␛[0m   ␛[38;5;234m31% ␛[0m   ␛[38;5;234m74 ms ␛[0m
+␛[38;5;234mau-syd-02␛[0m   ␛[38;5;234mSydney, AU   ␛[0m   ␛[38;5;234m48% ␛[0m   ␛[38;5;234m121 ms␛[0m
+--- stderr
+
+$ ultraviolet about
+--- exit 0
+--- stdout
+␛[38;5;60mVersion␛[0m      ␛[38;5;234m0.12.0␛[0m
+␛[38;5;60mBuilt with␛[0m   ␛[38;5;234mpaloma 0.12.0␛[0m
+␛[38;5;60mDocs␛[0m         ␛[38;5;234mhttps://github.com/mvilark/paloma␛[0m
+--- stderr
+␛[38;5;99m  ▄████▄  ␛[0m  
+␛[38;5;99m ▐██████▌ ␛[0m  
+␛[38;5;99m ▐▀◉  ◉▀▌ ␛[0m  
+␛[38;5;99m  ▝▄▂▂▄▘  ␛[0m  ␛[38;5;55m␛[1mU␛[0m␛[38;5;55m␛[1ml␛[0m␛[38;5;55m␛[1mt␛[0m␛[38;5;55m␛[1mr␛[0m␛[38;5;55m␛[1ma␛[0m␛[38;5;55m␛[1mv␛[0m␛[38;5;55m␛[1mi␛[0m␛[38;5;55m␛[1mo␛[0m␛[38;5;55m␛[1ml␛[0m␛[38;5;55m␛[1me␛[0m␛[38;5;55m␛[1mt␛[0m
+␛[38;5;99m ╱▓▚▞▚▞▓╲ ␛[0m  ␛[38;5;60mA fake VPN, themed with Ultraviolet␛[0m
+␛[38;5;99m╱ ▓▞▚▞▚▓ ╲␛[0m  
+␛[38;5;99m  ▐▌  ▐▌  ␛[0m  
+␛[38;5;99m  ▀▀  ▀▀  ␛[0m  
+
+
+$ ultraviolet nope
+--- exit 2
+--- stdout
+--- stderr
+␛[38;5;161m✕␛[0m ␛[38;5;234mUnknown command nope␛[0m
+  ␛[38;5;60m␛[3mHint␛[0m  ␛[38;5;55multraviolet about␛[0m
+
