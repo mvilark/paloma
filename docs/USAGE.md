@@ -103,6 +103,8 @@ let theme = ColorfulTheme { values_style: Style::new().yellow().dim(), ..Colorfu
 ```
 Set one theme for the whole app with `paloma::set_theme(theme)` (the theme must be `Send + Sync`). Calling it again replaces the theme. A prompt built with `with_theme(&t)` keeps `t` and ignores the app theme. See `examples/set_theme.rs`.
 
+For a full design system in practice, see `examples/ultraviolet/`: a fake VPN CLI whose `UltravioletTheme` implements `Theme` directly and is installed once with `set_theme` (`cargo run --example ultraviolet --all-features -- setup`).
+
 For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need.
 
 More runnable samples live in `examples/` (`cargo run --example wizard`).
