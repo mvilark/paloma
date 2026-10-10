@@ -66,6 +66,9 @@ jobs:
 
   semver:
     name: Check semver compatibility
+    # paloma is not on crates.io yet, so there is no release to compare against.
+    # Remove this line after the first release.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
