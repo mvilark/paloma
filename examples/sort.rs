@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, Sort};
+use interacteur::{theme::ColorfulTheme, Sort};
 
 fn main() {
     let list = &[

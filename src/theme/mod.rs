@@ -13,7 +13,7 @@ mod simple;
 pub use colorful::ColorfulTheme;
 pub use simple::SimpleTheme;
 
-/// Implements a theme for dialoguer.
+/// Implements a theme for interacteur.
 pub trait Theme {
     /// Formats a prompt.
     #[inline]

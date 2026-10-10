@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, MultiSelect};
+use interacteur::{theme::ColorfulTheme, MultiSelect};
 
 fn main() {
     let multiselected = &[

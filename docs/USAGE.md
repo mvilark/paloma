@@ -1,17 +1,17 @@
 # Using the library
 
-The crate is currently still published and imported as `dialoguer` (see `Cargo.toml`), even though this fork is called "interacteur". Every prompt is a builder: configure it, then call `interact()`. All of them return `dialoguer::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
+This crate, `interacteur`, is a fork of dialoguer. Every prompt is a builder: configure it, then call `interact()`. All of them return `interacteur::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
 
 ```toml
 [dependencies]
-dialoguer = "0.12"   # default features: editor, password
+interacteur = "0.12"   # default features: editor, password
 # optional features: fuzzy-select, history, completion
 ```
 
 ```rust
-use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
+use interacteur::{theme::ColorfulTheme, Confirm, Input, Select};
 
-fn main() -> dialoguer::Result<()> {
+fn main() -> interacteur::Result<()> {
     let theme = ColorfulTheme::default();
     let name: String = Input::with_theme(&theme).with_prompt("Name").interact_text()?;
     let env = Select::with_theme(&theme)
@@ -98,9 +98,9 @@ let text: Option<String> = Editor::new().extension(".md").edit("initial text")?;
 ## Themes
 `SimpleTheme` (plain, default for `new()`) and `ColorfulTheme` (public styled fields, e.g. `prompt_style`, `values_style`; use struct-update syntax):
 ```rust
-use dialoguer::{console::Style, theme::ColorfulTheme};
+use interacteur::{console::Style, theme::ColorfulTheme};
 let theme = ColorfulTheme { values_style: Style::new().yellow().dim(), ..ColorfulTheme::default() };
 ```
-For a fully custom look, implement `dialoguer::theme::Theme`; every `format_*` method has a default, so override only what you need.
+For a fully custom look, implement `interacteur::theme::Theme`; every `format_*` method has a default, so override only what you need.
 
 More runnable samples live in `examples/` (`cargo run --example wizard`).

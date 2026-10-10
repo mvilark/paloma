@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, Password};
+use interacteur::{theme::ColorfulTheme, Password};
 
 fn main() {
     let password = Password::with_theme(&ColorfulTheme::default())

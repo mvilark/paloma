@@ -1,6 +1,6 @@
 # Development
 
-No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API usage see [docs/USAGE.md](docs/USAGE.md). Note: the repo is the "interacteur" fork, but `Cargo.toml` still names the crate `dialoguer` (v0.12.0) and examples import `dialoguer::`; a rename has not happened yet.
+No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API usage see [docs/USAGE.md](docs/USAGE.md). The crate is named `interacteur` (forked from [dialoguer](https://github.com/console-rs/dialoguer)).
 
 ## Layout
 - `src/lib.rs` - public re-exports and feature gates (`#![deny(clippy::all)]`).

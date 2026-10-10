@@ -1,4 +1,4 @@
-//! dialoguer is a library for Rust that helps you build useful small
+//! interacteur is a library for Rust that helps you build useful small
 //! interactive user inputs for the command line.  It provides utilities
 //! to render various simple dialogs like confirmation prompts, text
 //! inputs and more.

@@ -1,5 +1,5 @@
 [package]
-name = "dialoguer"
+name = "interacteur"
 description = "A command line prompting library."
 version = "0.12.0"
 edition = "2021"
@@ -7,9 +7,9 @@ rust-version = "1.85"
 keywords = ["cli", "menu", "prompt"]
 categories = ["command-line-interface"]
 license = "MIT"
-homepage = "https://github.com/console-rs/dialoguer"
-repository = "https://github.com/console-rs/dialoguer"
-documentation = "https://docs.rs/dialoguer"
+homepage = "https://github.com/mvilark/interacteur"
+repository = "https://github.com/mvilark/interacteur"
+documentation = "https://docs.rs/interacteur"
 readme = "README.md"
 
 [features]

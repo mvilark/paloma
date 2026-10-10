@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use interacteur::{theme::ColorfulTheme, Confirm};
 
 fn main() {
     if Confirm::with_theme(&ColorfulTheme::default())

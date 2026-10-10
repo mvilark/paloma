@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, BasicHistory, Input};
+use interacteur::{theme::ColorfulTheme, BasicHistory, Input};
 use std::process;
 
 fn main() {
@@ -11,7 +11,7 @@ fn main() {
 
     loop {
         if let Ok(cmd) = Input::<String>::with_theme(&ColorfulTheme::default())
-            .with_prompt("dialoguer")
+            .with_prompt("interacteur")
             .history_with(&mut history)
             .interact_text()
         {

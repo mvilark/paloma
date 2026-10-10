@@ -16,7 +16,7 @@ use crate::{
 /// ## Example
 ///
 /// ```rust,no_run
-/// use dialoguer::FuzzySelect;
+/// use interacteur::FuzzySelect;
 ///
 /// fn main() {
 ///     let items = vec!["foo", "bar", "baz"];
@@ -162,7 +162,7 @@ impl FuzzySelect<'_> {
     /// ## Example
     ///
     /// ```rust,no_run
-    /// use dialoguer::FuzzySelect;
+    /// use interacteur::FuzzySelect;
     ///
     /// fn main() {
     ///     let items = vec!["foo", "bar", "baz"];
@@ -373,7 +373,7 @@ impl<'a> FuzzySelect<'a> {
     /// ## Example
     ///
     /// ```rust,no_run
-    /// use dialoguer::{theme::ColorfulTheme, FuzzySelect};
+    /// use interacteur::{theme::ColorfulTheme, FuzzySelect};
     ///
     /// fn main() {
     ///     let selection = FuzzySelect::with_theme(&ColorfulTheme::default())

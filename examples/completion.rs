@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, Completion, Input};
+use interacteur::{theme::ColorfulTheme, Completion, Input};
 
 fn main() {
     println!("Use the Right arrow or Tab to complete your command");
@@ -6,7 +6,7 @@ fn main() {
     let completion = MyCompletion::default();
 
     Input::<String>::with_theme(&ColorfulTheme::default())
-        .with_prompt("dialoguer")
+        .with_prompt("interacteur")
         .completion_with(&completion)
         .interact_text()
         .unwrap();
