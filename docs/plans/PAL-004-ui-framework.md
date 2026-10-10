@@ -17,7 +17,7 @@ After this plan, paloma is a UI framework for prompt-and-flow command-line progr
 
 ### Purpose
 
-paloma is a fork of dialoguer. It builds the interactive surface of *prompt-and-flow* CLIs: questions asked one at a time, a scrollback that reads as a record of what happened, results at the end. It is not a full-screen TUI and should not become one.
+paloma is a fork of dialoguer. It builds the interactive surface of *prompt-and-flow* CLIs: questions asked one at a time, a scrollback that reads as a record of what happened, results at the end. It is not a full-screen TUI and will not become one: it is for programs that run once for one specific action and exit when it is done. No long-running or asynchronous apps, no panes, no alternate screen.
 
 ### Principles already in the code and docs
 
@@ -59,7 +59,7 @@ Found while studying the repo. All of them are fixed in Phase 0 (PAL-005) unless
 **Code**
 
 8. `USAGE.md` says "Input errors are always drawn on the line under the input", but `Input::interact` (not `interact_text`) and `Password` still print errors above the prompt with `render.error`. Make them match the doc.
-9. The renderer writes ` [Page x/y] ` itself, bypassing the theme (DEVELOPMENT.md: "if it changes rendering, route it through the theme"). Add a theme hook (Gap 7).
+9. The renderer writes ` [Page x/y] ` itself, bypassing the theme (DEVELOPMENT.md: "if it changes rendering, route it through the theme"). Add a theme hook (Gap 7). *(Phase 4, so the new hook gets the Theme v2 shape instead of being added twice.)*
 10. `clear_preserve_prompt` assumes a 2-cell item prefix and measures items with `str::len` (bytes), so wrapped Unicode items and themes with a wider prefix leave ghost lines (Gap 8). Measure the formatted line instead.
 11. Public items without docs, against the "public items need doc comments" rule: `Completion::get`, `BasicHistory`, `InputValidator::Err`, `PasswordValidator::Err`, `ColorfulTheme::fuzzy_match_highlight_style` (written with `//`). Add `#![deny(missing_docs)]` so the rule is enforced.
 12. Doc typos: "Inctive item", "Formats out an error", and `ColorfulTheme::format_fuzzy_select_prompt` documented as "after selection" (it draws the live prompt).
@@ -246,7 +246,7 @@ Phases 1-3 are additive, so the new components can be used as soon as they land.
 
 ### PAL-005 · Phase 0: Housekeeping and safety nets
 
-- Fix convention breaks 3-16 above.
+- Fix convention breaks 3-8 and 10-16 above (9 moves to Phase 4).
 - Add the golden tests described above, and run the example's tests (`test = true`).
 - CI: disable the `semver` job until the first release; document in `DEVELOPMENT.md` that Actions must be enabled.
 - No public API change.
@@ -301,6 +301,7 @@ The foundations land together with their first real user, so nothing is built on
 
 - OSC 11 background query to choose dark or light (Gap 11).
 - Several live lines at once (multi-progress), if a real app needs it.
+- Changing the terminal background colour only while the program works, and restoring it on exit. Undecided; PAL-002 left backgrounds out of scope.
 
 ## Implementation steps
 
@@ -314,11 +315,11 @@ For every phase:
 
 ## Open questions / risks
 
-Decisions for you (they set the direction and are hard to undo):
+Direction decisions (agreed 2026-10-10, see status notes):
 
-1. **Breaking release.** paloma is not published and the example is the only known custom theme, so a one-time redesign of `Theme` (Phase 4) and `Error` (Phase 5) costs little now and much later. Recommended: allow both, released together as 0.13.
-2. **Live rendering engine.** Recommended: paloma's own small engine (one live region, `Task` and `Progress`, no new dependency). The alternative is building on `indicatif`: mature and supports many bars at once, but it styles through template strings that bypass the theme and tokens, its types cannot appear in paloma's public API, and its terminal handling would compete with the prompt renderer.
-3. **Scope.** Recommended: stay line-oriented (prompts, output, live lines) and never become a full-screen TUI (no layouts, panes or alternate screen). That keeps scrollback as the record and keeps the crate small.
+1. **Breaking release.** paloma is not published and the example is the only known custom theme, so a one-time redesign of `Theme` (Phase 4) and `Error` (Phase 5) costs little now and much later. **Agreed:** allow both, released together as 0.13.
+2. **Live rendering engine.** Recommended: paloma's own small engine (one live region, `Task` and `Progress`, no new dependency). The alternative is building on `indicatif`: mature and supports many bars at once, but it styles through template strings that bypass the theme and tokens, its types cannot appear in paloma's public API, and its terminal handling would compete with the prompt renderer. **Agreed:** paloma's own engine.
+3. **Scope.** Recommended: stay line-oriented (prompts, output, live lines) and never become a full-screen TUI (no layouts, panes or alternate screen). That keeps scrollback as the record and keeps the crate small. **Agreed:** paloma is for programs that run one action and exit; terminal GUIs and long-running or asynchronous apps are out of scope.
 
 Risks:
 
@@ -329,3 +330,5 @@ Risks:
 ## Status notes
 
 - 2026-10-10: Plan written after studying the repo. Convention breaks 1 and 2 fixed in the same PR (roadmap only).
+- 2026-10-10: spideyincrocs agreed to all three direction decisions: one breaking release (0.13) for `Theme` v2 and `Error`; paloma's own live engine, no `indicatif`; line-oriented scope only, for programs that run one action and exit (no terminal GUI, no long-running or async apps). A background colour while the program works may be considered later (PAL-014).
+- 2026-10-10: Phase 0 (PAL-005) needs no API plan of its own (no public API change beyond docs and one additive `ColorfulTheme` override); its scope is the list above.
