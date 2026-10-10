@@ -63,7 +63,7 @@ pub fn hint(cmd: &str) {
             .style(Tok::Subtle)
             .italic()
             .for_stderr()
-            .apply_to("hint"),
+            .apply_to("Hint"),
         c.pal.e(Tok::Strong, cmd)
     ));
 }
@@ -80,7 +80,7 @@ pub fn cancelled() {
             .style(Tok::Subtle)
             .italic()
             .for_stderr()
-            .apply_to("cancelled")
+            .apply_to("Cancelled")
     ));
 }
 
@@ -178,7 +178,7 @@ pub fn wordmark_with_icon(tagline: &str) {
         String::new(),
         String::new(),
         String::new(),
-        c.pal.gradient("ultraviolet"),
+        c.pal.gradient("Ultraviolet"),
         c.pal.e(Tok::Muted, tagline),
         String::new(),
         String::new(),

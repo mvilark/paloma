@@ -14,7 +14,7 @@ The character sits between a precise developer tool and a cyberpunk HUD. Precisi
 
 ## Voice and copy
 
-- Sentence case for labels and messages: `Project name`, `Install dependencies now?`. Lowercase for values, commands, keywords and section titles: `# setup`, `next`.
+- Always capitalise the first letter of labels, messages, values, table headers and section titles: `Project name`, `Install dependencies now?`, `# Setup`. Commands and flags stay lowercase because they are typed literally: `next`, `--yes`.
 - Prompt labels are nouns or yes/no questions, never instructions: `Template`, not `Please choose a template:`. No trailing colon.
 - Running work is present tense with an `-ing` verb and ends with `...`: `Installing dependencies...`. Finished work drops the dots and goes into past tense with what changed: `Installed 214 packages`.
 - Status messages carry only their glyph (`✓`, `▲`, `✕`, `•`). The word is never repeated before the message.

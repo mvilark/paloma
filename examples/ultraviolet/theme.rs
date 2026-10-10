@@ -299,7 +299,7 @@ impl Theme for UltravioletTheme {
         match selection {
             Some(true) => self.collapsed(f, prompt, "yes"),
             Some(false) => self.collapsed(f, prompt, "no"),
-            None => self.collapsed(f, prompt, &hint(&self.cfg.pal, "skipped")),
+            None => self.collapsed(f, prompt, &hint(&self.cfg.pal, "Skipped")),
         }
     }
 
