@@ -35,7 +35,7 @@ pub struct FuzzySelect<'a> {
     default: Option<usize>,
     items: Vec<String>,
     prompt: String,
-    report: bool,
+    report: Option<bool>,
     clear: bool,
     highlight_matches: bool,
     enable_vim_mode: bool,
@@ -109,11 +109,18 @@ impl FuzzySelect<'_> {
         self
     }
 
+    fn report_enabled(&self) -> bool {
+        let options = crate::options::current();
+        options
+            .report(self.report, options.fuzzy_select.report)
+            .unwrap_or(true)
+    }
+
     /// Indicates whether to report the selected value after interaction.
     ///
     /// The default is to report the selection.
     pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
+        self.report = Some(val);
         self
     }
 
@@ -332,7 +339,7 @@ impl FuzzySelect<'_> {
                         render.clear()?;
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render
                             .input_prompt_selection(self.prompt.as_str(), filtered_list[sel].0)?;
                     }
@@ -389,7 +396,7 @@ impl<'a> FuzzySelect<'a> {
             default: None,
             items: vec![],
             prompt: "".into(),
-            report: true,
+            report: None,
             clear: true,
             highlight_matches: true,
             enable_vim_mode: false,

@@ -295,10 +295,6 @@ impl Theme for UltravioletTheme {
         self.label(f, prompt, self.cfg.g.active, Tok::Accent)
     }
 
-    fn input_error_below(&self) -> bool {
-        true
-    }
-
     fn format_error(&self, f: &mut dyn fmt::Write, err: &str) -> fmt::Result {
         let p = &self.cfg.pal;
         write!(
@@ -307,15 +303,6 @@ impl Theme for UltravioletTheme {
             p.e(Tok::Error, self.cfg.g.err),
             p.e(Tok::Fg, err)
         )
-    }
-
-    fn confirm_buttons(&self) -> bool {
-        true
-    }
-
-    /// `y` / `n` select a button; `Enter` submits.
-    fn confirm_wait_for_newline(&self) -> bool {
-        true
     }
 
     fn format_confirm_prompt_no_hint(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
@@ -403,8 +390,8 @@ impl Theme for UltravioletTheme {
     }
 
     /// Typed characters show as dots.
-    fn password_mask(&self) -> Option<char> {
-        self.cfg.g.dot.chars().next()
+    fn password_mask_glyph(&self) -> char {
+        self.cfg.g.dot.chars().next().unwrap_or('*')
     }
 
     fn format_password_prompt_selection_masked(

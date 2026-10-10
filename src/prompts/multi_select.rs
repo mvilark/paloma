@@ -35,7 +35,7 @@ pub struct MultiSelect<'a> {
     defaults: Vec<bool>,
     items: Vec<String>,
     prompt: Option<String>,
-    report: bool,
+    report: Option<bool>,
     clear: bool,
     max_length: Option<usize>,
     theme: Option<&'a dyn Theme>,
@@ -133,11 +133,18 @@ impl MultiSelect<'_> {
         self
     }
 
+    fn report_enabled(&self) -> bool {
+        let options = crate::options::current();
+        options
+            .report(self.report, options.multi_select.report)
+            .unwrap_or(true)
+    }
+
     /// Indicates whether to report the selected values after interaction.
     ///
     /// The default is to report the selections.
     pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
+        self.report = Some(val);
         self
     }
 
@@ -307,7 +314,7 @@ impl MultiSelect<'_> {
                     }
 
                     if let Some(ref prompt) = self.prompt {
-                        if self.report {
+                        if self.report_enabled() {
                             let selections: Vec<_> = checked
                                 .iter()
                                 .enumerate()
@@ -370,7 +377,7 @@ impl<'a> MultiSelect<'a> {
             defaults: vec![],
             clear: true,
             prompt: None,
-            report: true,
+            report: None,
             max_length: None,
             theme: Some(theme),
         }

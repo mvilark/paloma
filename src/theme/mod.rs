@@ -28,12 +28,6 @@ pub trait Theme {
         write!(f, "error: {}", err)
     }
 
-    /// Whether an input validation error is drawn on the row under the input
-    /// instead of on a line above the re-rendered prompt. Defaults to `false`.
-    fn input_error_below(&self) -> bool {
-        false
-    }
-
     /// Formats a confirm prompt.
     fn format_confirm_prompt(
         &self,
@@ -60,24 +54,9 @@ pub trait Theme {
         Ok(())
     }
 
-    /// Whether `y` / `n` in a [`Confirm`](crate::Confirm) only select the choice (the user
-    /// then hits `Enter`) instead of answering at once. A prompt can override this with
-    /// [`Confirm::wait_for_newline`](crate::Confirm::wait_for_newline). Defaults to `false`.
-    fn confirm_wait_for_newline(&self) -> bool {
-        false
-    }
-
-    /// Whether [`Confirm`](crate::Confirm) draws its choices as buttons on a line under
-    /// the question. They are moved with the arrow keys or `Tab`, and the prompt is
-    /// redrawn on every change. Defaults to `false`: choices stay inline in
-    /// [`format_confirm_prompt`](Self::format_confirm_prompt).
-    fn confirm_buttons(&self) -> bool {
-        false
-    }
-
     /// Formats one confirm button: `yes` tells which of the two it is, `focused`
-    /// whether it is the one `Enter` would pick. Only used when
-    /// [`confirm_buttons`](Self::confirm_buttons) is `true`.
+    /// whether it is the one `Enter` would pick. Only used for
+    /// [`ConfirmStyle::Buttons`](crate::ConfirmStyle::Buttons).
     fn format_confirm_button(
         &self,
         f: &mut dyn fmt::Write,
@@ -165,16 +144,15 @@ pub trait Theme {
         self.format_input_prompt_selection(f, prompt, "[hidden]")
     }
 
-    /// The character echoed for each typed password character, used when the prompt
-    /// sets none with [`Password::with_mask`](crate::Password::with_mask). `None`
-    /// (the default) echoes nothing.
+    /// The character echoed for each typed password character when the prompt masks
+    /// its input (see [`Password::mask`](crate::Password::mask)). Defaults to `*`.
     #[cfg(feature = "password")]
-    fn password_mask(&self) -> Option<char> {
-        None
+    fn password_mask_glyph(&self) -> char {
+        '*'
     }
 
     /// Formats a password prompt after selection, given how many mask characters the
-    /// prompt asks to show (see [`Password::report_mask_len`](crate::Password::report_mask_len)).
+    /// prompt asks to show (see [`Password::result_len`](crate::Password::result_len)).
     /// Defaults to [`format_password_prompt_selection`](Self::format_password_prompt_selection),
     /// which ignores the length.
     #[cfg(feature = "password")]

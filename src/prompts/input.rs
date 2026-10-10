@@ -54,7 +54,7 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 pub struct Input<'a, T> {
     prompt: String,
     post_completion_text: Option<String>,
-    report: bool,
+    report: Option<bool>,
     default: Option<T>,
     show_default: bool,
     initial_text: Option<String>,
@@ -98,11 +98,18 @@ impl<T> Input<'_, T> {
         self.post_completion_text.as_deref().unwrap_or(&self.prompt)
     }
 
+    fn report_enabled(&self) -> bool {
+        let options = crate::options::current();
+        options
+            .report(self.report, options.input.report)
+            .unwrap_or(true)
+    }
+
     /// Indicates whether to report the input value after interaction.
     ///
     /// The default is to report the input value.
     pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
+        self.report = Some(val);
         self
     }
 
@@ -160,7 +167,7 @@ impl<'a, T> Input<'a, T> {
         Self {
             prompt: "".into(),
             post_completion_text: None,
-            report: true,
+            report: None,
             default: None,
             show_default: true,
             initial_text: None,
@@ -588,7 +595,7 @@ where
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(
                             self.completion_prompt(),
                             &default.to_string(),
@@ -615,7 +622,7 @@ where
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(self.completion_prompt(), &input)?;
                     }
                     term.flush()?;
@@ -682,7 +689,7 @@ where
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(
                             self.completion_prompt(),
                             &default.to_string(),
@@ -704,7 +711,7 @@ where
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(self.completion_prompt(), &input)?;
                     }
                     term.flush()?;

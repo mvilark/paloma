@@ -3,6 +3,7 @@ use std::io;
 use console::{Key, Term};
 
 use crate::{
+    options::ConfirmStyle,
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     Result,
 };
@@ -30,10 +31,11 @@ use crate::{
 #[derive(Clone)]
 pub struct Confirm<'a> {
     prompt: String,
-    report: bool,
+    report: Option<bool>,
     default: Option<bool>,
     show_default: bool,
-    wait_for_newline: Option<bool>,
+    style: Option<ConfirmStyle>,
+    on_shortcut: Option<bool>,
     theme: Option<&'a dyn Theme>,
     show_hint: bool,
 }
@@ -60,28 +62,47 @@ impl Confirm<'_> {
         self
     }
 
+    fn report_enabled(&self) -> bool {
+        let options = crate::options::current();
+        options
+            .report(self.report, options.confirm.report)
+            .unwrap_or(true)
+    }
+
     /// Indicates whether or not to report the chosen selection after interaction.
     ///
     /// The default is to report the chosen selection.
     pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
+        self.report = Some(val);
         self
     }
 
-    /// Sets when to react to user input.
+    /// Sets how the choices are shown: an inline hint or buttons under the question.
     ///
-    /// When `false` (default), we check on each user keystroke immediately as
-    /// it is typed. Valid inputs can be one of 'y', 'n', or a newline to accept
-    /// the default.
-    ///
-    /// When `true`, the user must type their choice and hit the Enter key before
-    /// proceeding. Valid inputs can be "yes", "no", "y", "n", or an empty string
-    /// to accept the default.
-    ///
-    /// Left unset, the theme decides ([`Theme::confirm_wait_for_newline`]).
-    pub fn wait_for_newline(mut self, wait: bool) -> Self {
-        self.wait_for_newline = Some(wait);
+    /// Left unset, the app option applies ([`Options::confirm`](crate::Options::confirm)),
+    /// then [`ConfirmStyle::Inline`].
+    pub fn style(mut self, style: ConfirmStyle) -> Self {
+        self.style = Some(style);
         self
+    }
+
+    /// Sets whether `y` / `n` answer at once.
+    ///
+    /// When `true` (the default), the prompt reacts to each keystroke: `y`, `n`, or
+    /// `Enter` to accept the default. When `false`, `y` and `n` only select the
+    /// choice and the user hits `Enter` to submit. Works in both styles.
+    ///
+    /// Left unset, the app option applies.
+    pub fn on_shortcut(mut self, val: bool) -> Self {
+        self.on_shortcut = Some(val);
+        self
+    }
+
+    /// Sets when to react to user input. `wait_for_newline(true)` is
+    /// `on_shortcut(false)`.
+    #[deprecated(note = "use `on_shortcut` (inverted)")]
+    pub fn wait_for_newline(self, wait: bool) -> Self {
+        self.on_shortcut(!wait)
     }
 
     /// Sets a default.
@@ -170,10 +191,16 @@ impl Confirm<'_> {
 
         let mut render = TermThemeRenderer::new(term, self.theme);
 
-        let wait_for_newline = self
-            .wait_for_newline
-            .unwrap_or_else(|| render.confirm_wait_for_newline());
-        if render.confirm_buttons_enabled() {
+        let options = crate::options::current();
+        let wait_for_newline = !self
+            .on_shortcut
+            .or(options.confirm.on_shortcut)
+            .unwrap_or(true);
+        let style = self
+            .style
+            .or(options.confirm.style)
+            .unwrap_or(ConfirmStyle::Inline);
+        if style == ConfirmStyle::Buttons {
             return self.interact_buttons(term, render, allow_quit, wait_for_newline);
         }
 
@@ -252,7 +279,7 @@ impl Confirm<'_> {
         }
 
         term.clear_line()?;
-        if self.report {
+        if self.report_enabled() {
             render.confirm_prompt_selection(&self.prompt, rv)?;
         }
         term.show_cursor()?;
@@ -267,7 +294,7 @@ impl Confirm<'_> {
     ///
     /// Left/right arrows and `Tab` move the focus and `Enter` picks the focused button.
     /// `y` / `n` pick at once, or only move the focus with
-    /// [`wait_for_newline`](Self::wait_for_newline). The whole prompt is erased
+    /// [`on_shortcut(false)`](Self::on_shortcut). The whole prompt is erased
     /// afterwards.
     fn interact_buttons(
         self,
@@ -306,7 +333,7 @@ impl Confirm<'_> {
                 break rv;
             }
         };
-        if self.report {
+        if self.report_enabled() {
             render.confirm_prompt_selection(&self.prompt, rv)?;
         }
         term.show_cursor()?;
@@ -332,10 +359,11 @@ impl<'a> Confirm<'a> {
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
         Self {
             prompt: "".into(),
-            report: true,
+            report: None,
             default: None,
             show_default: true,
-            wait_for_newline: None,
+            style: None,
+            on_shortcut: None,
             theme: Some(theme),
             show_hint: true,
         }

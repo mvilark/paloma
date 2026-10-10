@@ -34,7 +34,7 @@ pub struct Select<'a> {
     default: usize,
     items: Vec<String>,
     prompt: Option<String>,
-    report: bool,
+    report: Option<bool>,
     clear: bool,
     theme: Option<&'a dyn Theme>,
     max_length: Option<usize>,
@@ -123,15 +123,21 @@ impl Select<'_> {
     /// the selection. You can opt-out of this with [`report`](Self::report).
     pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
-        self.report = true;
         self
+    }
+
+    fn report_enabled(&self) -> bool {
+        let options = crate::options::current();
+        options
+            .report(self.report, options.select.report)
+            .unwrap_or(self.prompt.is_some())
     }
 
     /// Indicates whether to report the selected value after interaction.
     ///
     /// The default is to report the selection.
     pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
+        self.report = Some(val);
         self
     }
 
@@ -284,7 +290,7 @@ impl Select<'_> {
                     }
 
                     if let Some(ref prompt) = self.prompt {
-                        if self.report {
+                        if self.report_enabled() {
                             render.select_prompt_selection(prompt, &self.items[sel])?;
                         }
                     }
@@ -328,7 +334,7 @@ impl<'a> Select<'a> {
             default: !0,
             items: vec![],
             prompt: None,
-            report: false,
+            report: None,
             clear: true,
             max_length: None,
             theme: Some(theme),

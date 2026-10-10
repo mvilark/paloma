@@ -118,14 +118,6 @@ impl<'a> TermThemeRenderer<'a> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt(buf, prompt, default))
     }
 
-    pub fn confirm_wait_for_newline(&self) -> bool {
-        self.theme.confirm_wait_for_newline()
-    }
-
-    pub fn confirm_buttons_enabled(&self) -> bool {
-        self.theme.confirm_buttons()
-    }
-
     /// The question, then the buttons on the line under it.
     pub fn confirm_buttons(&mut self, prompt: &str, yes_focused: bool) -> Result<usize> {
         self.write_formatted_str(|this, buf| {
@@ -177,15 +169,11 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(len)
     }
 
-    /// Reports an input error: under the next input prompt when the theme asks for
-    /// it, otherwise on a line of its own right away.
+    /// Reports an input error: it is drawn under the input line when the prompt is
+    /// shown again.
     pub fn input_error(&mut self, err: &str) -> Result {
-        if self.theme.input_error_below() {
-            self.pending_error = Some(err.to_string());
-            Ok(())
-        } else {
-            self.error(err)
-        }
+        self.pending_error = Some(err.to_string());
+        Ok(())
     }
 
     pub fn input_prompt_selection(&mut self, prompt: &str, sel: &str) -> Result {
@@ -211,8 +199,8 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     #[cfg(feature = "password")]
-    pub fn password_mask(&self) -> Option<char> {
-        self.theme.password_mask()
+    pub fn password_mask_glyph(&self) -> char {
+        self.theme.password_mask_glyph()
     }
 
     pub fn select_prompt(&mut self, prompt: &str, paging_info: Option<(usize, usize)>) -> Result {

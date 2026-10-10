@@ -41,6 +41,7 @@ pub use edit::Editor;
 pub use error::{Error, Result};
 #[cfg(feature = "history")]
 pub use history::{BasicHistory, History};
+pub use options::{set_options, ConfirmStyle, Options};
 use paging::Paging;
 pub use theme::app::set_theme;
 pub use validate::{InputValidator, PasswordValidator};
@@ -60,6 +61,7 @@ mod edit;
 mod error;
 #[cfg(feature = "history")]
 mod history;
+pub mod options;
 mod paging;
 mod prompts;
 pub mod theme;

@@ -94,6 +94,12 @@ fn main() {
     };
     theme::init(config.clone());
     paloma::set_theme(UltravioletTheme::new(config));
+    // How prompts work, as opposed to how they look (the theme).
+    paloma::set_options(
+        paloma::Options::new()
+            .confirm(|c| c.style(paloma::ConfirmStyle::Buttons).on_shortcut(false))
+            .password(|p| p.mask(true).result_len(8)),
+    );
 
     // Ctrl+C while a spinner runs (no prompt is reading keys then).
     let _ = ctrlc::set_handler(|| {
