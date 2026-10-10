@@ -23,11 +23,11 @@ paloma is a UI framework for command-line programs. It started as a fork of dial
 ### Principles already in the code and docs
 
 1. **Not opinionated, fully customizable.** Every look and every behaviour can be changed with paloma's own tools (themes, tokens, options, builder methods, hooks). A developer never needs to write their own UI structs or work below paloma's interface to get the UI they want. Anything a design system wants, such as Ultraviolet's collapsed answers, is a choice the app makes, not a rule of paloma.
-2. **Sensible defaults, minimal code.** Every component works out of the box with a sensible default, in as little code as possible: `Confirm::new().with_prompt("Continue?").interact()` needs no setup (`SimpleTheme`, built-in defaults). Customization starts from there.
+2. **Sensible defaults, minimal code.** Every component works out of the box with a sensible default, in as little code as possible: `Confirm::new().label("Continue?").interact()` needs no setup (`SimpleTheme`, built-in defaults). Customization starts from there.
 3. **Look and behaviour are separate.** A `Theme` decides how things look; `Options` decide how they work (PR #8: "Themes decide how prompts look; options decide how they work").
-4. **Settings cascade, most specific wins.** Behaviour: the prompt's builder method, then its group in `Options`, then `general`, then the built-in default. Look: `with_theme(&t)`, then `set_theme(t)`, then `SimpleTheme`. App-wide state is read when a prompt is shown, not when it is built.
+4. **Settings cascade, most specific wins.** Behaviour: the prompt's builder method, then its group in `Options`, then `general`, then the built-in default. Look: the prompt's `.theme(&t)`, then `set_theme(t)`, then `SimpleTheme`. App-wide state is read when a prompt is shown, not when it is built.
 5. **Override only what differs.** Every `Theme` method has a default; every option is an `Option` that falls through.
-6. **One builder style.** `new()`, `with_theme`, `with_prompt`, setters taking `mut self -> Self`, and the `interact` / `interact_opt` / `interact_on` / `interact_on_opt` family returning `paloma::Result`.
+6. **One builder style.** `new()`, setters named after what they set (`label`, `theme`, `default`) taking `mut self -> Self`, and the `interact` / `interact_opt` / `interact_on` / `interact_on_opt` family returning `paloma::Result`.
 7. **Terminal handling belongs to paloma.** The renderer owns line counting and clearing. By default UI goes to stderr and results to stdout, and the stream is a setting.
 8. **A conservative, stable crate.** MSRV 1.85, few dependencies, optional ones behind features, only `console` types in the public API, docs build with warnings denied.
 9. **Process.** Roadmap IDs, a plan file before code, a PR body in Before / After / How, `docs/USAGE.md` and `DEVELOPMENT.md` updated in the same PR, one example per feature, unit tests in the file they test.
@@ -79,7 +79,7 @@ Found while studying the repo. All of them are fixed in Phase 0 (PAL-005) unless
 | --- | --- | --- |
 | **Prompts** | ask, then (by default) collapse to a one-line answer; keeping, collapsing or clearing is a setting | `Input`, `Password`, `Confirm`, `Select`, `MultiSelect`, `Sort`, `FuzzySelect` (existing) |
 | **Flows** | run steps (prompts and any app code between them) in order: step counter, going back by `Esc` or to a named step from code, `^C` cancels the whole flow, presets and `--yes` skip steps | `Flow` |
-| **Output** | print once and become scrollback | `Message` (success / info / warning / error, with an optional hint), `Section`, `KeyValue`, `Table`, `Panel` (summary box), inline helpers (`link`, `gradient`) |
+| **Output** | print once and become scrollback | `Message` (hint / info / success / warning / error; messages nest, so an error can carry a hint), `Section`, `KeyValue`, `Table`, `Panel` (summary box), inline helpers (`link`, `gradient`) |
 | **Live** | redraw while work runs, then (by default) leave a static result line | `Task` (spinner, nested steps, elapsed time), `Progress` (later) |
 
 All of them render through the theme, read the options, and write to a stream (stderr by default; data blocks like `KeyValue` and `Table` default to stdout, because they are usually results; every default is a setting).
@@ -90,10 +90,10 @@ Components that only differ in a few things share a base. The base holds the sha
 
 | Family | Base | Members | Shared settings (examples) |
 | --- | --- | --- | --- |
-| prompts | `PromptBase` | all prompts | theme, report, message row (hint, live message, errors), preset value, cancel behaviour, the step it has in a flow |
+| prompts | `PromptBase` | all prompts | theme, what is left after the answer (`done`), message row (description, live message, errors), preset value, cancel behaviour, the step it has in a flow |
 | ↳ lists | `ListBase` | `Select`, `MultiSelect`, `Sort`, `FuzzySelect` | items (with description / disabled), page size, clear, paging |
 | ↳ text | `TextBase` | `Input`, `Password` | validation display, cursor |
-| messages | `Message` + `Status` | success, info, warning, error | stream, hint label, indent; per status: glyph, word, colour |
+| messages | `Message` + `Status` | hint, info, success, warning, error | stream, indent, nesting indent; per status: glyph, word, colour |
 | blocks | `BlockBase` | `Section`, `KeyValue`, `Table`, `Panel` | stream, space before, indent, max width |
 | live | `LiveBase` | `Task`, `Progress` | stream, motion, frame rate, elapsed format, cursor hiding, finish line |
 
@@ -135,7 +135,7 @@ Tokens use the same closure-builder style as `Options`, so there is one way to c
 paloma::set_theme(
     ColorfulTheme::default().restyle(|t| t
         .glyphs(|g| g.error("✕").warning("▲"))
-        .messages(|m| m.base(|b| b.label(None)).error(|e| e.hint_label("Fix")))),
+        .messages(|m| m.base(|b| b.label(None)).hint(|h| h.label(Some("Fix"))))),
 );
 ```
 
@@ -152,11 +152,17 @@ fn format_message(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &MessageVi
 ```
 
 - `ctx: &Context` carries the resolved tokens, the target stream, the terminal width and the detected capabilities, plus `ctx.paint(&style, text)`, which styles for the right stream (`console` checks colour support per stream, which is why the example has `e()` and `o()` today). Hooks read tokens from `ctx`, never from `self`, so `restyle` can wrap a theme and the wrapped theme's hooks see the new tokens.
-- `view: &XView` is a `#[non_exhaustive]` struct of everything the component knows (label, value, step, state, hint, error...). Adding a field later breaks nobody, which ends the `_masked`-style duplicate methods.
+- `view: &XView` is a `#[non_exhaustive]` struct of everything the component knows (label, value, step, state, message row...). Adding a field later breaks nobody, which ends the `_masked`-style duplicate methods.
 - The default bodies are public functions in `paloma::theme::defaults`, so an override can wrap the default instead of copying it.
 - Views carry plain data only (match indices instead of `SkimMatcherV2`), which removes the external-type leak.
 
 All new public structs (tokens, option groups, views) keep their fields private or `#[non_exhaustive]`, so adding a setting is never a breaking change. One crate-private `settings!` macro generates the `Option` fields, documented setters, getters and the fallback merge for both option groups and component tokens, so the two cascades cannot drift apart.
+
+### Builder naming and interaction (decided 2026-10-10)
+
+- **No `with`.** A builder setter is named after what it sets: `.label("Name")`, `.theme(&t)`, `.initial_text("…")`, `.validate(f)`, `.history(&mut h)`. `with_*` / `*_with` names are dropped everywhere (they were dialoguer's, used both as constructors and setters and as prefix and suffix, with no rule). The only constructor is `new()`; `with_theme(&t)` becomes the setter `.theme(&t)`, shared by every prompt through `PromptBase`.
+- **`label`, not `prompt`.** The text a prompt shows is its label (`.label("Account email")`, and `.answered_label(..)` for the text shown once it is answered), since the component itself is the prompt.
+- **One way to interact.** `Input` had `interact` (a line read by the terminal: no cursor movement, history, completion or per-key updates) and `interact_text` (paloma reads every key and does all of that). `interact_text` was a superset, so it becomes `interact`, and the line-reading version is gone. `Password` also reads key by key, so it can show live messages while typing.
 
 ### Terminal layer
 
@@ -202,22 +208,22 @@ paloma::set_options(
 let setup = Flow::new(Setup::default())   // numbers the steps (01/05), Esc goes back, ^C cancels
     .step("email", |s| {
         s.email = Input::new()
-            .with_prompt("Account email")
-            .with_initial_text(&s.email)
+            .label("Account email")
+            .initial_text(&s.email)
             .preset(args.email.clone())
-            .validate_with(valid_email)
-            .interact_text()?;
+            .validate(valid_email)
+            .interact()?;
         Ok(())
     })
     .step("password", |s| {
-        s.password = Password::new().with_prompt("Password").interact()?;
+        s.password = Password::new().label("Password").interact()?;
         // Any app code can run inside a step, here a sign-in with a spinner.
         let task = Task::new("Signing in...").start()?;
         match api::sign_in(&s.email, &s.password) {
             Ok(token) => s.token = token,
             Err(_) => {
                 task.clear()?;
-                return flow::back_to_with("email", Message::error("Wrong email or password"));
+                return flow::back_to("email", Message::error("Wrong email or password"));
             }
         }
         task.success("Signed in")?;
@@ -237,7 +243,9 @@ Panel::new("Setup complete")
     .row(Status::Info, "Connect on startup: On", None)
     .print()?;
 
-paloma::error(format!("Server {id} not found")).hint("ultraviolet servers").print()?;
+paloma::error(format!("Server {id} not found"))
+    .nest(Message::hint("ultraviolet servers"))
+    .print()?;
 ```
 
 What stays in the example: argument parsing, theme choice (`--theme`, `ULTRAVIOLET_THEME`), fake data and sleeps, the wordmark text and the Serrallonga icon art, and the `ctrlc` handler (which calls paloma to clean up).
@@ -283,7 +291,7 @@ The foundations land together with their first real user, so nothing is built on
 - `settings!` macro; `Options` families (`general` app-wide, `prompts`, `messages`), with `general().report` deprecated.
 - `terminal` layer: capabilities, streams, cursor guard.
 - `Tokens` (`Palette`, `Glyphs`, `Layout`) and component tokens for messages; `Theme::tokens()`, `Context`, `theme::defaults`, `restyle`. `SimpleTheme` gets plain tokens (`error: …`, `warning: …`, like rustc and cargo); `ColorfulTheme` gets tokens matching its current colours and glyphs.
-- `Status`, `Message`, shortcuts `paloma::success / info / warning / error`, `.hint(..)`, `print()` and `print_on(&Term)` (mirroring `interact_on`), all returning `paloma::Result`.
+- `Status`, `Message` (`Message::hint / info / success / warning / error`), shortcuts `paloma::hint / info / success / warning / error`, nesting (`.nest(Message::hint(..))`, drawn indented under its parent), `print()` and `print_on(&Term)` (mirroring `interact_on`), all returning `paloma::Result`.
 - `Theme::format_error` (used for validation errors) becomes "an error message" and renders through the same tokens.
 - Example: `ui::log` and `ui::hint` go; the palette and glyph set become paloma `Tokens`.
 
@@ -311,15 +319,16 @@ The foundations land together with their first real user, so nothing is built on
 
 ### PAL-010 · Phase 5: Prompt gaps from PAL-002
 
-- **Message row** (Gaps 2 and 4). Every prompt gets an optional row under it that shows a `Message`: a hint, info, success, warning or error, drawn with the messages tokens. It can be:
-  - static: `.hint("The address you signed up with")`;
-  - live, recomputed as the user types or moves the selection: `.message_with(|value| …)`, where `value` is what the prompt holds right now (the text for `Input` and `Password`, the highlighted index for `Select`, the checked items for `MultiSelect`, the focused choice for `Confirm`, the order for `Sort`);
-  - set on submit: a failed `validate_with` shows its error there and keeps the input; a flow going back to the prompt can put a message there too (PAL-015).
+- **Message row** (Gaps 2 and 4). Every prompt can have a row under it. Over the prompt's life the row shows the latest of three things, each set with one builder method:
+  1. `.description("3 to 16 letters or digits")`: shown when the prompt opens, and whenever nothing newer applies.
+  2. `.on_change(|value| -> Option<Message>)`: called each time the value changes (a key typed, the selection moved). `Some(message)` replaces the row; `None` brings the description back. `value` is what the prompt holds right now: the text for `Input` and `Password`, the highlighted index for `Select` and `FuzzySelect`, the checked items for `MultiSelect`, the focused choice for `Confirm`, the order for `Sort`. It runs on a worker thread so a slow check (a server call) never blocks typing; results for an outdated value are dropped. `.change_delay(ms)` waits until the user pauses, and `.pending(Message)` is shown while a check is running (by default the row keeps what it had).
+  3. `.validate(|value| -> Result<(), Message>)`: called on submit. An error keeps the prompt open, keeps the input, and replaces the row until the value changes. A slow validation shows `.pending(..)` too. A flow going back to this prompt can also put a message here (PAL-015).
 
-  The most recent wins: a submit error stays until the user changes the value, then the live message (if any) or the hint comes back. The theme draws the row and decides where it goes; options can turn it off.
+  The row holds a `Message` of any kind (hint, info, success, warning, error), drawn with the messages tokens; the theme decides where and how the row is drawn, and options can turn it off. Reading keys while a check runs needs a key read with a timeout, which `console` does not offer: a small platform module does it with `libc` (Unix) and `windows-sys` (Windows), both already compiled as `console`'s own dependencies.
+- **What an answered prompt leaves.** `.done(Done::Collapse)` (the default: one line with the answer), `Done::Keep` (the prompt stays as it was) or `Done::Erase` (nothing). It replaces today's `report` and `clear` flags, also in `Options`.
 - Key legends (Gap 2), rich items with a description and a disabled state (Gap 3), cursor style (Gap 9).
 - What a flow needs from each prompt (Gap 5): `Error::Cancelled` and `#[non_exhaustive]` on `Error`, an Esc ("back") result for every prompt including `Input` and `Password`, the cancelled state drawn by the theme, the live prompt cleaned up on `^C`.
-- Presets and unattended mode (Gap 10): `.preset(Option<T>)` skips the prompt and reports the value as an answered prompt would (as configured with `report`); with `general().unattended(true)` prompts return their default the same way. Without either, a prompt on a non-terminal still returns an error, as today.
+- Presets and unattended mode (Gap 10): `.preset(Option<T>)` skips the prompt and shows the value as an answered prompt would (as configured with `done`); with `general().unattended(true)` prompts return their default the same way. Without either, a prompt on a non-terminal still returns an error, as today.
 - Example: `ui::answered` goes, and so does the rest of `ui.rs` except the progress bar.
 
 ### PAL-015 · Phase 6: Flows
@@ -330,8 +339,12 @@ A flow runs the steps of one task in order. A step is plain app code that usuall
 - **Step counter.** The flow numbers the steps and passes the step to each prompt's view, so the theme draws it (`01/05`). With conditional steps the total grows when it becomes known (`01/05`, then `04/06`). The counter can be turned off, per flow or app-wide in `Options`.
 - **Going back.**
   - `Esc` in a prompt goes back one step. On the first step it cancels the flow (both are options with these defaults).
-  - From code: `return flow::back_to("email")` or `return flow::back_to_with("email", Message::error("Wrong email or password"))` jumps back to any earlier step. The message shows in the target prompt's message row (PAL-010).
+  - From code, one call jumps back to any earlier step: `return flow::back_to("email", Message::error("Wrong email or password"));`, or `flow::back_to("email", None)` without a message. The message shows in the target prompt's message row (PAL-010).
   - Going back erases what the steps in between printed, by default, so the screen never shows an answer twice (today the example's setup flow shows `◇ Protocol · …` twice after Esc). The state keeps earlier values, so a step can prefill its prompt with them.
+- **What stays on screen.**
+  - `.step_done(Done::…)` sets what each answered step leaves (collapse, keep or erase), unless a prompt sets its own `done`.
+  - `.keep_last(n)` keeps only the last `n` answered steps visible while the flow runs: with `.keep_last(1)` the current and the previous prompt are on screen and older ones are erased as the flow moves on. By default all stay.
+  - `.done(Done::…)` sets what the whole flow leaves when it finishes: everything (`Keep`), one summary line drawn by the theme (`Collapse`) or nothing (`Erase`).
 - **Cancelling.** `^C` cancels the whole flow: the theme draws the cancelled state and `run()` returns `Error::Cancelled`, so the app can exit with code 130.
 - **Unattended.** Presets and unattended mode work per step, so a flow run with `--yes` asks nothing.
 - Example: the `setup` command's step loop, `theme::set_step` and its `AtomicU32` go.
@@ -379,4 +392,5 @@ Risks:
 - 2026-10-10: spideyincrocs corrected the framing: paloma *is* a CLI UI framework (prompts, flows, messages, loading messages, progress bars; anything but full-screen GUIs), not a prompt library growing into one. The architecture already targeted a framework, so it stands, with two changes: flows become a component of their own (PAL-015) instead of a step counter and back handling spread over prompt options, and the README, crate description and crate docs say what paloma is now instead of waiting for Phase 1. No Phase 0 code changes.
 - 2026-10-10: spideyincrocs on flows: steps must allow app code between prompts (for example a sign-in after the password) and a convenient call to go back to a chosen earlier step with an error; every prompt gets an optional, dynamic row under it for a hint, error, warning and so on (now in PAL-010). Decisions: the step counter grows when the total becomes known and can be turned off; `Esc` on the first step cancels the flow.
 - 2026-10-10: spideyincrocs corrected a second point: paloma is not opinionated. Collapsing answered prompts, hiding passwords and similar behaviour are defaults or a design system's choices, never rules; everything must be customizable with paloma's tools, starting from sensible defaults with minimal code. The plan's principles now say so (principles 1, 2, 7 and 10), and wording that described Ultraviolet's rules as paloma's was changed. Two design changes follow: a prompt during a running task pauses the task instead of being refused, and the one-live-region limit is a limit of this phase, not a principle.
+- 2026-10-10: spideyincrocs decisions on naming and the message row: `interact_text` becomes `interact` (the line-reading `interact` goes); no `with_` / `_with` names (my call, see "Builder naming"); `description` instead of `hint` for a prompt's default row text, with hint being one kind of `Message` that can be nested; the row shows description, then a live message as the user types, then a validation error on submit. Prompts get `done` (collapse, keep or erase); flows get `step_done`, `keep_last(n)` and `done` for the whole flow. GitHub Actions stays off until the crate is published. The naming rule and the single `interact` were implemented right away on the PAL-005 branch (the API is unpublished, so nothing needs a deprecation path), together with the example's `1 features` → `1 feature` fix.
 - 2026-10-10: Phase 0 implemented on branch `claude/dazzling-galileo-dqa12c`. Golden tests first (built-in theme hooks; the example in 5 terminal setups × 11 commands), then the fixes. Two output changes, both intended: `ColorfulTheme` now shows `result_len` stars instead of always 8 (default unchanged); list prompts no longer erase lines above the list when an item is long in bytes but not in columns (a bug the pty check found). Convention break 10 turned out to be that bug. Snapshots of the example are unchanged, and the interactive setup flow (validation error, password mask, Esc back, select, multi-select, confirm buttons) gives the same final screen as `main` in a pty. Found on the way, not fixed (same on `main`): Esc back leaves the old answer's record on screen (scheduled in Phase 5), and the example prints `1 features` (example copy; fixing it changes the output, so it waits for your OK).

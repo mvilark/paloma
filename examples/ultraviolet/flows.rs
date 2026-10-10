@@ -25,7 +25,7 @@ const FEATURES: [&str; 4] = [
     "Auto reconnect",
 ];
 
-// `validate_with` needs a function over `&String`, the type `Input` reads.
+// `validate` needs a function over `&String`, the type `Input` reads.
 #[allow(clippy::ptr_arg)]
 fn valid_email(s: &String) -> std::result::Result<(), String> {
     match s.split_once('@') {
@@ -57,10 +57,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                     email = "ada@example.com".into();
                     ui::answered(&name, &email);
                 } else {
-                    email = Input::new()
-                        .with_prompt(name)
-                        .validate_with(valid_email)
-                        .interact_text()?;
+                    email = Input::new().label(name).validate(valid_email).interact()?;
                 }
                 Some(())
             }
@@ -69,7 +66,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                 if args.yes {
                     ui::answered(&name, &theme::cfg().g.dot.repeat(8));
                 } else {
-                    Password::new().with_prompt(name).interact()?;
+                    Password::new().label(name).interact()?;
                 }
                 Some(())
             }
@@ -88,7 +85,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                     Some(())
                 } else {
                     Select::new()
-                        .with_prompt(name)
+                        .label(name)
                         .items(PROTOCOLS)
                         .default(protocol)
                         .interact_opt()?
@@ -104,7 +101,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                 } else {
                     let defaults = [true, false, false, true];
                     MultiSelect::new()
-                        .with_prompt(name)
+                        .label(name)
                         .items(FEATURES)
                         .defaults(&defaults)
                         .interact_opt()?
@@ -118,7 +115,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                     Some(())
                 } else {
                     Confirm::new()
-                        .with_prompt(name)
+                        .label(name)
                         .default(true)
                         .interact_opt()?
                         .map(|v| startup = v)
@@ -155,7 +152,16 @@ pub fn setup(args: &Args) -> Result<i32> {
             (Kind::Ok, format!("Signed in as {email}"), Some(a)),
             (
                 Kind::Ok,
-                format!("{} · {} features", PROTOCOLS[protocol], features.len()),
+                format!(
+                    "{} · {} {}",
+                    PROTOCOLS[protocol],
+                    features.len(),
+                    if features.len() == 1 {
+                        "feature"
+                    } else {
+                        "features"
+                    }
+                ),
                 Some(b),
             ),
             (
@@ -191,7 +197,7 @@ pub fn connect(args: &Args) -> Result<i32> {
             0
         }
         None => match FuzzySelect::new()
-            .with_prompt("Server")
+            .label("Server")
             .items(&places)
             .default(0)
             .interact_opt()?
@@ -206,7 +212,7 @@ pub fn connect(args: &Args) -> Result<i32> {
     if !kill_switch {
         let go = args.yes
             || Confirm::new()
-                .with_prompt("Kill switch is off. Connect anyway?")
+                .label("Kill switch is off. Connect anyway?")
                 .default(false)
                 .interact()?;
         if !go {
@@ -249,7 +255,7 @@ pub fn favorites(args: &Args) -> Result<i32> {
         (0..items.len()).collect()
     } else {
         match Sort::new()
-            .with_prompt("Favourite order")
+            .label("Favourite order")
             .items(items)
             .interact_opt()?
         {
@@ -266,7 +272,7 @@ pub fn favorites(args: &Args) -> Result<i32> {
 pub fn disconnect(args: &Args) -> Result<i32> {
     let go = args.yes
         || Confirm::new()
-            .with_prompt("Disconnect?")
+            .label("Disconnect?")
             .default(true)
             .interact()?;
     if !go {
