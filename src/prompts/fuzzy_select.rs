@@ -40,7 +40,7 @@ pub struct FuzzySelect<'a> {
     highlight_matches: bool,
     enable_vim_mode: bool,
     max_length: Option<usize>,
-    theme: &'a dyn Theme,
+    theme: Option<&'a dyn Theme>,
     /// Search string that a fuzzy search with start with.
     /// Defaults to an empty string.
     initial_text: String,
@@ -53,9 +53,11 @@ impl Default for FuzzySelect<'static> {
 }
 
 impl FuzzySelect<'static> {
-    /// Creates a fuzzy select prompt with default theme.
+    /// Creates a fuzzy select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
-        Self::with_theme(&SimpleTheme)
+        let mut prompt = Self::with_theme(&SimpleTheme);
+        prompt.theme = None;
+        prompt
     }
 }
 
@@ -392,7 +394,7 @@ impl<'a> FuzzySelect<'a> {
             highlight_matches: true,
             enable_vim_mode: false,
             max_length: None,
-            theme,
+            theme: Some(theme),
             initial_text: "".into(),
         }
     }

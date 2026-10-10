@@ -1,4 +1,4 @@
-use std::{fmt, io};
+use std::{fmt, io, sync::Arc};
 
 use console::{measure_text_width, Term};
 #[cfg(feature = "fuzzy-select")]
@@ -6,20 +6,40 @@ use fuzzy_matcher::skim::SkimMatcherV2;
 
 use crate::{theme::Theme, Result};
 
+/// The theme a renderer uses: the prompt's own, or the app-wide one.
+enum ThemeHandle<'a> {
+    Prompt(&'a dyn Theme),
+    App(Arc<dyn Theme + Send + Sync>),
+}
+
+impl<'a> std::ops::Deref for ThemeHandle<'a> {
+    type Target = dyn Theme + 'a;
+
+    fn deref(&self) -> &(dyn Theme + 'a) {
+        match self {
+            ThemeHandle::Prompt(theme) => *theme,
+            ThemeHandle::App(theme) => &**theme,
+        }
+    }
+}
+
 /// Helper struct to conveniently render a theme.
 pub(crate) struct TermThemeRenderer<'a> {
     term: &'a Term,
-    theme: &'a dyn Theme,
+    theme: ThemeHandle<'a>,
     height: usize,
     prompt_height: usize,
     prompts_reset_height: bool,
 }
 
 impl<'a> TermThemeRenderer<'a> {
-    pub fn new(term: &'a Term, theme: &'a dyn Theme) -> TermThemeRenderer<'a> {
+    pub fn new(term: &'a Term, theme: Option<&'a dyn Theme>) -> TermThemeRenderer<'a> {
         TermThemeRenderer {
             term,
-            theme,
+            theme: match theme {
+                Some(theme) => ThemeHandle::Prompt(theme),
+                None => ThemeHandle::App(super::app::current()),
+            },
             height: 0,
             prompt_height: 0,
             prompts_reset_height: true,
@@ -262,5 +282,26 @@ impl<'a> TermThemeRenderer<'a> {
         self.term.clear_last_lines(new_height)?;
         self.height = 0;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::theme::ColorfulTheme;
+
+    #[test]
+    fn prompt_theme_overrides_app_theme() {
+        let custom = ColorfulTheme::default();
+        let handle = ThemeHandle::Prompt(&custom);
+
+        let (mut via_handle, mut direct) = (String::new(), String::new());
+        handle
+            .format_select_prompt_item(&mut via_handle, "item", true)
+            .unwrap();
+        custom
+            .format_select_prompt_item(&mut direct, "item", true)
+            .unwrap();
+        assert_eq!(via_handle, direct);
     }
 }

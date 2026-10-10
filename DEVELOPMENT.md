@@ -5,7 +5,7 @@ No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API us
 ## Layout
 - `src/lib.rs` - public re-exports and feature gates (`#![deny(clippy::all)]`).
 - `src/prompts/` - one file per prompt: `confirm`, `input`, `select`, `multi_select`, `sort`, `password`, `fuzzy_select`.
-- `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, and `render.rs` (internal `TermThemeRenderer` that prompts draw through).
+- `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, and `app.rs` (app-wide theme, `set_theme`) and `render.rs` (internal `TermThemeRenderer` that prompts draw through).
 - `src/validate.rs`, `history.rs`, `completion.rs`, `edit.rs` (`Editor`), `paging.rs`, `error.rs`.
 - `examples/` - one runnable example per feature (`cargo run --example wizard`).
 - `.cargo/config.toml` - aliases used by CI. `deny.toml` - cargo-deny config. `CHANGELOG-OLD.md` - changelog up to 0.11.0.
@@ -27,7 +27,7 @@ CI (`.github/workflows/ci.yml`) also runs: tests on Linux/macOS/Windows, MSRV ch
 
 ## Conventions
 - MSRV 1.85; do not use newer language/std features.
-- Builder style: `new()`, `with_theme(&dyn Theme)`, `with_prompt(..)`, option setters taking `mut self -> Self`, and `interact` / `interact_opt` / `interact_on` / `interact_on_opt` terminals returning `crate::Result`. Prompts derive/impl `Clone` and `Default` where sensible.
+- Builder style: `new()`, `with_theme(&dyn Theme)`, `with_prompt(..)`, option setters taking `mut self -> Self`, and `interact` / `interact_opt` / `interact_on` / `interact_on_opt` terminals returning `crate::Result`. The prompt's `theme` field is `Option<&dyn Theme>`: `new()` leaves it `None` (the renderer then uses the app theme from `set_theme`) and `with_theme` sets `Some`; new prompts must follow this pattern. Prompts derive/impl `Clone` and `Default` where sensible.
 - Public items need doc comments; docs build with warnings denied.
 - Gate optional code with `#[cfg(feature = "...")]` and update both `lib.rs` and docs.rs metadata (`all-features = true`).
 - Avoid leaking new third-party types in the public API (external-types check).

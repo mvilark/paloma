@@ -18,11 +18,11 @@ _(none yet)_
 
 Scoped and agreed, not started.
 
-- **PAL-001 · App-wide theme.** `paloma::set_theme(t)` sets the theme for every prompt in the app; `with_theme(&t)` overrides it for one prompt. Plan: [docs/plans/PAL-001-set-theme.md](docs/plans/PAL-001-set-theme.md).
+_(none yet)_
 
 ## In progress
 
-_(none yet)_
+- **PAL-001 · App-wide theme.** `paloma::set_theme(t)` sets the theme for every prompt in the app; `with_theme(&t)` overrides it for one prompt. Plan: [docs/plans/PAL-001-set-theme.md](docs/plans/PAL-001-set-theme.md). PR: [#5](https://github.com/mvilark/paloma/pull/5).
 
 ## Done
 

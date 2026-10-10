@@ -32,7 +32,7 @@ type PasswordValidatorCallback<'a> = Arc<dyn Fn(&String) -> Option<String> + 'a>
 pub struct Password<'a> {
     prompt: String,
     report: bool,
-    theme: &'a dyn Theme,
+    theme: Option<&'a dyn Theme>,
     allow_empty_password: bool,
     confirmation_prompt: Option<(String, String)>,
     validator: Option<PasswordValidatorCallback<'a>>,
@@ -46,9 +46,11 @@ impl Default for Password<'static> {
 }
 
 impl Password<'static> {
-    /// Creates a password input prompt with default theme.
+    /// Creates a password input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Password<'static> {
-        Self::with_theme(&SimpleTheme)
+        let mut prompt = Self::with_theme(&SimpleTheme);
+        prompt.theme = None;
+        prompt
     }
 }
 
@@ -267,7 +269,7 @@ impl<'a> Password<'a> {
         Self {
             prompt: "".into(),
             report: true,
-            theme,
+            theme: Some(theme),
             allow_empty_password: false,
             confirmation_prompt: None,
             validator: None,
