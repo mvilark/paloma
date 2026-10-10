@@ -12,6 +12,7 @@ use crate::completion::Completion;
 #[cfg(feature = "history")]
 use crate::history::History;
 use crate::{
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     validate::InputValidator,
     Result,
@@ -54,11 +55,10 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 pub struct Input<'a, T> {
     prompt: String,
     post_completion_text: Option<String>,
-    report: bool,
     default: Option<T>,
     show_default: bool,
     initial_text: Option<String>,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
     permit_empty: bool,
     validator: Option<InputValidatorCallback<'a, T>>,
     #[cfg(feature = "history")]
@@ -77,7 +77,7 @@ impl<T> Input<'_, T> {
     /// Creates an input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 
@@ -98,13 +98,7 @@ impl<T> Input<'_, T> {
         self.post_completion_text.as_deref().unwrap_or(&self.prompt)
     }
 
-    /// Indicates whether to report the input value after interaction.
-    ///
-    /// The default is to report the input value.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
-        self
-    }
+    report_methods!(input, |_| true);
 
     /// Sets initial text that user can accept or erase.
     pub fn with_initial_text<S: Into<String>>(mut self, val: S) -> Self {
@@ -160,11 +154,10 @@ impl<'a, T> Input<'a, T> {
         Self {
             prompt: "".into(),
             post_completion_text: None,
-            report: true,
             default: None,
             show_default: true,
             initial_text: None,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
             permit_empty: false,
             validator: None,
             #[cfg(feature = "history")]
@@ -305,7 +298,7 @@ where
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
 
         loop {
             let default_string = self.default.as_ref().map(ToString::to_string);
@@ -583,12 +576,12 @@ where
                 if let Some(ref default) = self.default {
                     if let Some(ref mut validator) = self.validator {
                         if let Some(err) = validator.lock().unwrap()(default) {
-                            render.error(&err)?;
+                            render.input_error(&err)?;
                             continue;
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(
                             self.completion_prompt(),
                             &default.to_string(),
@@ -610,12 +603,12 @@ where
 
                     if let Some(ref mut validator) = self.validator {
                         if let Some(err) = validator.lock().unwrap()(&value) {
-                            render.error(&err)?;
+                            render.input_error(&err)?;
                             continue;
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(self.completion_prompt(), &input)?;
                     }
                     term.flush()?;
@@ -623,7 +616,7 @@ where
                     return Ok(value);
                 }
                 Err(err) => {
-                    render.error(&err.to_string())?;
+                    render.input_error(&err.to_string())?;
                     continue;
                 }
             }
@@ -648,7 +641,7 @@ where
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
 
         loop {
             let default_string = self.default.as_ref().map(ToString::to_string);
@@ -682,7 +675,7 @@ where
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(
                             self.completion_prompt(),
                             &default.to_string(),
@@ -704,7 +697,7 @@ where
                         }
                     }
 
-                    if self.report {
+                    if self.report_enabled() {
                         render.input_prompt_selection(self.completion_prompt(), &input)?;
                     }
                     term.flush()?;

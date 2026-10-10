@@ -1,5 +1,11 @@
 //! Ultraviolet palette, glyphs and the `Theme` implementation.
-use std::{fmt, sync::OnceLock};
+use std::{
+    fmt,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        OnceLock,
+    },
+};
 
 use console::{Color, Style};
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
@@ -126,6 +132,7 @@ pub struct Glyphs {
     pub active: &'static str,
     pub answered: &'static str,
     pub caret: &'static str,
+    pub dot: &'static str,
     pub focus: &'static str,
     pub checked: &'static str,
     pub unchecked: &'static str,
@@ -153,6 +160,7 @@ impl Glyphs {
                 active: "*",
                 answered: "o",
                 caret: ">",
+                dot: "*",
                 focus: ">",
                 checked: "[x]",
                 unchecked: "[ ]",
@@ -177,6 +185,7 @@ impl Glyphs {
                 active: "◆",
                 answered: "◇",
                 caret: "›",
+                dot: "•",
                 focus: "▸",
                 checked: "■",
                 unchecked: "□",
@@ -227,6 +236,18 @@ fn hint(pal: &Palette, text: &str) -> String {
         .to_string()
 }
 
+/// Current flow step as `n << 8 | total`, or 0 outside a flow. The `Theme` trait has no
+/// notion of a flow (Gap 6), so the example hands the step to the theme out of band.
+static STEP: AtomicU32 = AtomicU32::new(0);
+
+pub fn set_step(n: u32, total: u32) {
+    STEP.store(n << 8 | total, Ordering::Relaxed);
+}
+
+pub fn clear_step() {
+    STEP.store(0, Ordering::Relaxed);
+}
+
 pub struct UltravioletTheme {
     cfg: Config,
 }
@@ -243,7 +264,16 @@ impl UltravioletTheme {
             "{} {}",
             p.e(tok, glyph),
             p.style(Tok::Fg).bold().for_stderr().apply_to(prompt)
-        )
+        )?;
+        // `01/05` step counter: `fg-subtle`, regular weight, after the label.
+        match STEP.load(Ordering::Relaxed) {
+            0 => Ok(()),
+            s => write!(
+                f,
+                "  {}",
+                p.e(Tok::Subtle, format!("{:02}/{:02}", s >> 8, s & 0xff))
+            ),
+        }
     }
 
     /// `◇ Label · value`, the collapsed form of an answered prompt.
@@ -275,6 +305,38 @@ impl Theme for UltravioletTheme {
         )
     }
 
+    fn format_confirm_prompt_no_hint(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
+        self.format_prompt(f, prompt)
+    }
+
+    /// `[Y]es` / `[N]o` in `fg-muted`; the focused one in `accent`, bold.
+    fn format_confirm_button(
+        &self,
+        f: &mut dyn fmt::Write,
+        yes: bool,
+        focused: bool,
+    ) -> fmt::Result {
+        let p = &self.cfg.pal;
+        let text = if yes { "[Y]es" } else { "[N]o" };
+        if focused {
+            write!(
+                f,
+                "{}",
+                p.style(Tok::Accent).bold().for_stderr().apply_to(text)
+            )
+        } else {
+            write!(f, "{}", p.e(Tok::Muted, text))
+        }
+    }
+
+    /// Buttons sit on the line under the label, indented to `col-2`.
+    fn format_confirm_buttons(&self, f: &mut dyn fmt::Write, yes_focused: bool) -> fmt::Result {
+        write!(f, "  ")?;
+        self.format_confirm_button(f, true, yes_focused)?;
+        write!(f, " {} ", self.cfg.pal.e(Tok::Subtle, "/"))?;
+        self.format_confirm_button(f, false, !yes_focused)
+    }
+
     fn format_confirm_prompt(
         &self,
         f: &mut dyn fmt::Write,
@@ -297,9 +359,9 @@ impl Theme for UltravioletTheme {
         selection: Option<bool>,
     ) -> fmt::Result {
         match selection {
-            Some(true) => self.collapsed(f, prompt, "yes"),
-            Some(false) => self.collapsed(f, prompt, "no"),
-            None => self.collapsed(f, prompt, &hint(&self.cfg.pal, "skipped")),
+            Some(true) => self.collapsed(f, prompt, "Yes"),
+            Some(false) => self.collapsed(f, prompt, "No"),
+            None => self.collapsed(f, prompt, &hint(&self.cfg.pal, "Skipped")),
         }
     }
 
@@ -314,7 +376,8 @@ impl Theme for UltravioletTheme {
         if let Some(default) = default {
             write!(f, " {}", p.e(Tok::Subtle, format!("({default})")))?;
         }
-        write!(f, " {} ", p.e(Tok::Accent, self.cfg.g.caret))
+        // The input sits on its own line, indented to `col-2`.
+        write!(f, "\n  {} ", p.e(Tok::Accent, self.cfg.g.caret))
     }
 
     fn format_input_prompt_selection(
@@ -326,12 +389,18 @@ impl Theme for UltravioletTheme {
         self.collapsed(f, prompt, sel)
     }
 
-    fn format_password_prompt_selection(
+    /// Typed characters show as dots.
+    fn password_mask_glyph(&self) -> char {
+        self.cfg.g.dot.chars().next().unwrap_or('*')
+    }
+
+    fn format_password_prompt_selection_masked(
         &self,
         f: &mut dyn fmt::Write,
         prompt: &str,
+        mask_len: usize,
     ) -> fmt::Result {
-        self.collapsed(f, prompt, &"•".repeat(8))
+        self.collapsed(f, prompt, &self.cfg.g.dot.repeat(mask_len))
     }
 
     fn format_multi_select_prompt_selection(

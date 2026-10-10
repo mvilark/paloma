@@ -3,6 +3,7 @@ use std::{io, ops::Rem};
 use console::{Key, Term};
 
 use crate::{
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     Paging, Result,
 };
@@ -34,9 +35,8 @@ pub struct Select<'a> {
     default: usize,
     items: Vec<String>,
     prompt: Option<String>,
-    report: bool,
     clear: bool,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
     max_length: Option<usize>,
 }
 
@@ -50,7 +50,7 @@ impl Select<'static> {
     /// Creates a select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 }
@@ -123,17 +123,10 @@ impl Select<'_> {
     /// the selection. You can opt-out of this with [`report`](Self::report).
     pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
-        self.report = true;
         self
     }
 
-    /// Indicates whether to report the selected value after interaction.
-    ///
-    /// The default is to report the selection.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
-        self
-    }
+    report_methods!(select, |s: &Self| s.prompt.is_some());
 
     /// Enables user interaction and returns the result.
     ///
@@ -202,7 +195,7 @@ impl Select<'_> {
         }
 
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = self.default;
 
         let mut size_vec = Vec::new();
@@ -284,7 +277,7 @@ impl Select<'_> {
                     }
 
                     if let Some(ref prompt) = self.prompt {
-                        if self.report {
+                        if self.report_enabled() {
                             render.select_prompt_selection(prompt, &self.items[sel])?;
                         }
                     }
@@ -328,10 +321,9 @@ impl<'a> Select<'a> {
             default: !0,
             items: vec![],
             prompt: None,
-            report: false,
             clear: true,
             max_length: None,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
         }
     }
 }

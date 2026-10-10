@@ -3,6 +3,7 @@ use std::{io, iter::repeat, ops::Rem};
 use console::{Key, Term};
 
 use crate::{
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     Paging, Result,
 };
@@ -35,10 +36,9 @@ pub struct MultiSelect<'a> {
     defaults: Vec<bool>,
     items: Vec<String>,
     prompt: Option<String>,
-    report: bool,
     clear: bool,
     max_length: Option<usize>,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
 }
 
 impl Default for MultiSelect<'static> {
@@ -51,7 +51,7 @@ impl MultiSelect<'static> {
     /// Creates a multi select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 }
@@ -133,13 +133,7 @@ impl MultiSelect<'_> {
         self
     }
 
-    /// Indicates whether to report the selected values after interaction.
-    ///
-    /// The default is to report the selections.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
-        self
-    }
+    report_methods!(multi_select, |_| true);
 
     /// Enables user interaction and returns the result.
     ///
@@ -214,7 +208,7 @@ impl MultiSelect<'_> {
         }
 
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = 0;
 
         let mut size_vec = Vec::new();
@@ -307,7 +301,7 @@ impl MultiSelect<'_> {
                     }
 
                     if let Some(ref prompt) = self.prompt {
-                        if self.report {
+                        if self.report_enabled() {
                             let selections: Vec<_> = checked
                                 .iter()
                                 .enumerate()
@@ -370,9 +364,8 @@ impl<'a> MultiSelect<'a> {
             defaults: vec![],
             clear: true,
             prompt: None,
-            report: true,
             max_length: None,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
         }
     }
 }

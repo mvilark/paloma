@@ -26,7 +26,7 @@ fn main() {
         .with_prompt("Do you really really want to continue?")
         .default(true)
         .show_default(false)
-        .wait_for_newline(true)
+        .on_shortcut(false)
         .interact()
         .unwrap()
     {
@@ -37,7 +37,7 @@ fn main() {
 
     if Confirm::with_theme(&ColorfulTheme::default())
         .with_prompt("Do you really really really want to continue?")
-        .wait_for_newline(true)
+        .on_shortcut(false)
         .interact()
         .unwrap()
     {
@@ -59,7 +59,7 @@ fn main() {
     match Confirm::with_theme(&ColorfulTheme::default())
         .with_prompt("Do you really really really really really want to continue?")
         .default(true)
-        .wait_for_newline(true)
+        .on_shortcut(false)
         .interact_opt()
         .unwrap()
     {

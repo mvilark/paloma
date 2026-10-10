@@ -33,7 +33,9 @@ Every prompt has `new()` (uses the app theme from `set_theme`, `SimpleTheme` by 
 let ok: bool = Confirm::new().with_prompt("Continue?").default(true).interact()?;
 let maybe: Option<bool> = Confirm::new().with_prompt("Continue?").interact_opt()?;
 ```
-Other options: `show_default`, `show_hint`, `wait_for_newline`.
+
+`.style(ConfirmStyle::Buttons)` shows `Yes` / `No` buttons on the line under the question: `←`/`→`/`Tab` move the focus, `Enter` picks it, and `y` / `n` jump to a button. The theme draws each button in `format_confirm_button`. `.on_shortcut(false)` makes `y` / `n` only select, so the user hits `Enter` to submit; it works in both styles. The prompt is erased after the answer and, with `report(true)`, replaced by the one-line selection.
+Other options: `show_default`, `show_hint`. `wait_for_newline(true)` is deprecated; use `on_shortcut(false)`.
 
 ## Input
 Generic over any `T: Clone + FromStr + ToString`; use `interact_text()`.
@@ -79,6 +81,8 @@ let pw = Password::new()
 ```
 Other options: `allow_empty_password`, `with_mask(char)`, `validate_with` (takes `Fn(&String) -> Result<(), E>`).
 
+While typing, `.mask(true)` echoes the theme's `password_mask_glyph()` for each key press (`.with_mask('•')` picks the character yourself). After the password is confirmed, the one-line result shows a fixed number of mask characters, 8 by default, set with `.result_len(n)`; themes draw it in `format_password_prompt_selection_masked`.
+
 ## FuzzySelect (feature `fuzzy-select`)
 Type to filter; returns the index into the original items.
 ```rust
@@ -108,3 +112,18 @@ For a full design system in practice, see `examples/ultraviolet/`: a fake VPN CL
 For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need.
 
 More runnable samples live in `examples/` (`cargo run --example wizard`).
+
+## Options
+Themes decide how prompts look; options decide how they work. Set them once, next to `set_theme`:
+
+```rust
+paloma::set_options(
+    paloma::Options::new()
+        .general(|g| g.report(true))                       // every prompt
+        .confirm(|c| c.style(ConfirmStyle::Buttons).on_shortcut(false))
+        .password(|p| p.mask(true).result_len(8))
+        .select(|s| s.report(false)),                      // overrides general for Select
+);
+```
+
+A setting is resolved in this order: the prompt's own builder method (`Confirm::new().style(..)`), the prompt's group in `Options`, `general`, then the built-in default. Groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`. Input errors are always drawn on the line under the input; a theme only styles them with `format_error`.

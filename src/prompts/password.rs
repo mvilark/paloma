@@ -4,6 +4,7 @@ use console::{Key, Term};
 use zeroize::Zeroizing;
 
 use crate::{
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     validate::PasswordValidator,
     Result,
@@ -31,12 +32,13 @@ type PasswordValidatorCallback<'a> = Arc<dyn Fn(&String) -> Option<String> + 'a>
 #[derive(Clone)]
 pub struct Password<'a> {
     prompt: String,
-    report: bool,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
     allow_empty_password: bool,
     confirmation_prompt: Option<(String, String)>,
     validator: Option<PasswordValidatorCallback<'a>>,
     mask: Option<char>,
+    mask_input: Option<bool>,
+    result_len: Option<usize>,
 }
 
 impl Default for Password<'static> {
@@ -49,7 +51,7 @@ impl Password<'static> {
     /// Creates a password input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Password<'static> {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 }
@@ -61,11 +63,26 @@ impl Password<'_> {
         self
     }
 
-    /// Indicates whether to report confirmation after interaction.
+    report_methods!(password, |_| true);
+
+    /// Sets how many mask characters the one-line result shows after the password is
+    /// confirmed (default 8). The count is fixed, so the result never reveals the
+    /// password's length. Themes decide how the mask is drawn; the default theme
+    /// ignores it.
     ///
-    /// The default is to report.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = val;
+    /// Left unset, the app option applies ([`Options::password`](crate::Options::password)).
+    pub fn result_len(mut self, len: usize) -> Self {
+        self.result_len = Some(len);
+        self
+    }
+
+    /// Sets whether typed characters are echoed as mask characters, drawn with the
+    /// theme's [`password_mask_glyph`](Theme::password_mask_glyph). Use
+    /// [`with_mask`](Self::with_mask) to pick the character yourself.
+    ///
+    /// Left unset, the app option applies; by default nothing is echoed.
+    pub fn mask(mut self, val: bool) -> Self {
+        self.mask_input = Some(val);
         self
     }
 
@@ -89,8 +106,8 @@ impl Password<'_> {
 
     /// Sets the character used to mask each typed character.
     ///
-    /// By default no mask is used and the input is fully hidden (nothing is
-    /// echoed). When a mask is set, one mask character is echoed for every
+    /// By default no mask is used (unless [`mask`](Self::mask) is on) and the input is
+    /// fully hidden (nothing is echoed). When a mask is set, one mask character is echoed for every
     /// character typed.
     ///
     /// ## Example
@@ -127,7 +144,7 @@ impl Password<'_> {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_prompts_reset_height(false);
 
         loop {
@@ -151,8 +168,12 @@ impl Password<'_> {
 
             render.clear()?;
 
-            if self.report {
-                render.password_prompt_selection(&self.prompt)?;
+            if self.report_enabled() {
+                let len = self
+                    .result_len
+                    .or(crate::options::current().password.result_len)
+                    .unwrap_or(8);
+                render.password_prompt_selection(&self.prompt, len)?;
             }
             term.flush()?;
 
@@ -165,7 +186,14 @@ impl Password<'_> {
             render.password_prompt(prompt)?;
             render.term().flush()?;
 
-            let Some(mask) = self.mask else {
+            let masked = self
+                .mask_input
+                .or(crate::options::current().password.mask)
+                .unwrap_or(false);
+            let mask = self
+                .mask
+                .or_else(|| masked.then(|| render.password_mask_glyph()));
+            let Some(mask) = mask else {
                 let input = render.term().read_secure_line()?;
                 render.add_line();
 
@@ -268,12 +296,13 @@ impl<'a> Password<'a> {
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
         Self {
             prompt: "".into(),
-            report: true,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
             allow_empty_password: false,
             confirmation_prompt: None,
             validator: None,
             mask: None,
+            mask_input: None,
+            result_len: None,
         }
     }
 }

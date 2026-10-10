@@ -54,6 +54,30 @@ pub trait Theme {
         Ok(())
     }
 
+    /// Formats one confirm button: `yes` tells which of the two it is, `focused`
+    /// whether it is the one `Enter` would pick. Only used for
+    /// [`ConfirmStyle::Buttons`](crate::ConfirmStyle::Buttons).
+    fn format_confirm_button(
+        &self,
+        f: &mut dyn fmt::Write,
+        yes: bool,
+        focused: bool,
+    ) -> fmt::Result {
+        let label = if yes { "Yes" } else { "No" };
+        if focused {
+            write!(f, "[{label}]")
+        } else {
+            write!(f, " {label} ")
+        }
+    }
+
+    /// Formats the row of confirm buttons; `yes_focused` says which one has focus.
+    fn format_confirm_buttons(&self, f: &mut dyn fmt::Write, yes_focused: bool) -> fmt::Result {
+        self.format_confirm_button(f, true, yes_focused)?;
+        write!(f, "  ")?;
+        self.format_confirm_button(f, false, !yes_focused)
+    }
+
     /// Formats a confirm prompt after selection.
     fn format_confirm_prompt_selection(
         &self,
@@ -118,6 +142,27 @@ pub trait Theme {
         prompt: &str,
     ) -> fmt::Result {
         self.format_input_prompt_selection(f, prompt, "[hidden]")
+    }
+
+    /// The character echoed for each typed password character when the prompt masks
+    /// its input (see [`Password::mask`](crate::Password::mask)). Defaults to `*`.
+    #[cfg(feature = "password")]
+    fn password_mask_glyph(&self) -> char {
+        '*'
+    }
+
+    /// Formats a password prompt after selection, given how many mask characters the
+    /// prompt asks to show (see [`Password::result_len`](crate::Password::result_len)).
+    /// Defaults to [`format_password_prompt_selection`](Self::format_password_prompt_selection),
+    /// which ignores the length.
+    #[cfg(feature = "password")]
+    fn format_password_prompt_selection_masked(
+        &self,
+        f: &mut dyn fmt::Write,
+        prompt: &str,
+        _mask_len: usize,
+    ) -> fmt::Result {
+        self.format_password_prompt_selection(f, prompt)
     }
 
     /// Formats a select prompt.

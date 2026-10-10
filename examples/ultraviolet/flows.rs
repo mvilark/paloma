@@ -2,6 +2,7 @@
 use paloma::{Confirm, Error, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort};
 
 use crate::{
+    theme,
     ui::{self, Kind},
     Args,
 };
@@ -16,12 +17,12 @@ const SERVERS: [(&str, &str, u8, u16); 6] = [
     ("au-syd-02", "Sydney, AU", 48, 121),
 ];
 
-const PROTOCOLS: [&str; 3] = ["wireguard", "openvpn udp", "openvpn tcp"];
+const PROTOCOLS: [&str; 3] = ["WireGuard", "OpenVPN UDP", "OpenVPN TCP"];
 const FEATURES: [&str; 4] = [
-    "kill switch",
-    "split tunnelling",
-    "ad blocking",
-    "auto reconnect",
+    "Kill switch",
+    "Split tunnelling",
+    "Ad blocking",
+    "Auto reconnect",
 ];
 
 // `validate_with` needs a function over `&String`, the type `Input` reads.
@@ -35,7 +36,11 @@ fn valid_email(s: &String) -> std::result::Result<(), String> {
 
 pub fn setup(args: &Args) -> Result<i32> {
     const STEPS: usize = 5;
-    let label = |n: usize, text: &str| format!("{n:02}/{STEPS:02} {text}");
+    // The theme draws the `01/05` counter after the label.
+    let label = |n: usize, text: &str| {
+        theme::set_step(n as u32, STEPS as u32);
+        text.to_string()
+    };
     let mut step = 0;
     let (mut email, mut protocol, mut features, mut startup) = (String::new(), 0, Vec::new(), true);
 
@@ -62,7 +67,7 @@ pub fn setup(args: &Args) -> Result<i32> {
             1 => {
                 let name = label(n, "Password");
                 if args.yes {
-                    ui::answered(&name, &"•".repeat(8));
+                    ui::answered(&name, &theme::cfg().g.dot.repeat(8));
                 } else {
                     Password::new().with_prompt(name).interact()?;
                 }
@@ -73,7 +78,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                 if let Some(preset) = args
                     .protocol
                     .as_deref()
-                    .and_then(|p| PROTOCOLS.iter().position(|x| *x == p))
+                    .and_then(|p| PROTOCOLS.iter().position(|x| x.eq_ignore_ascii_case(p)))
                 {
                     protocol = preset;
                     ui::answered(&name, PROTOCOLS[protocol]);
@@ -86,7 +91,6 @@ pub fn setup(args: &Args) -> Result<i32> {
                         .with_prompt(name)
                         .items(PROTOCOLS)
                         .default(protocol)
-                        .report(true)
                         .interact_opt()?
                         .map(|i| protocol = i)
                 }
@@ -95,7 +99,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                 let name = label(n, "Features");
                 if args.yes {
                     features = vec![0, 3];
-                    ui::answered(&name, "kill switch, auto reconnect");
+                    ui::answered(&name, "Kill switch, Auto reconnect");
                     Some(())
                 } else {
                     let defaults = [true, false, false, true];
@@ -110,7 +114,7 @@ pub fn setup(args: &Args) -> Result<i32> {
             _ => {
                 let name = label(n, "Connect on startup?");
                 if args.yes {
-                    ui::answered(&name, "yes");
+                    ui::answered(&name, "Yes");
                     Some(())
                 } else {
                     Confirm::new()
@@ -127,8 +131,9 @@ pub fn setup(args: &Args) -> Result<i32> {
         }
     }
 
+    theme::clear_step();
     ui::blank();
-    ui::section("setup");
+    ui::section("Setup");
     let a = ui::task(
         "Creating your profile...",
         &["Generated device key"],
@@ -145,7 +150,7 @@ pub fn setup(args: &Args) -> Result<i32> {
     );
     ui::blank();
     ui::outro(
-        "setup complete",
+        "Setup complete",
         &[
             (Kind::Ok, format!("Signed in as {email}"), Some(a)),
             (
@@ -155,7 +160,7 @@ pub fn setup(args: &Args) -> Result<i32> {
             ),
             (
                 Kind::Info,
-                format!("Connect on startup: {}", if startup { "on" } else { "off" }),
+                format!("Connect on startup: {}", if startup { "On" } else { "Off" }),
                 None,
             ),
         ],
@@ -211,7 +216,7 @@ pub fn connect(args: &Args) -> Result<i32> {
     }
 
     ui::blank();
-    ui::section("connect");
+    ui::section("Connect");
     let t = ui::task(
         &format!("Connecting to {id}..."),
         &["Resolved endpoint", "Opened tunnel", "Negotiated cipher"],
@@ -232,7 +237,7 @@ pub fn connect(args: &Args) -> Result<i32> {
     if !kill_switch {
         rows.push((Kind::Warn, "Kill switch is off".to_string(), None));
     }
-    ui::outro("connected", &rows);
+    ui::outro("Connected", &rows);
     println!("{id}");
     Ok(0)
 }
@@ -278,12 +283,12 @@ pub fn status(args: &Args) -> Result<i32> {
         );
     } else {
         ui::kv(&[
-            ("state", "connected".into()),
-            ("server", "es-bcn-01 · Barcelona, ES".into()),
-            ("protocol", "wireguard".into()),
-            ("ping", "12 ms".into()),
-            ("sent", "4.8 MB".into()),
-            ("received", "31.2 MB".into()),
+            ("State", "Connected".into()),
+            ("Server", "es-bcn-01 · Barcelona, ES".into()),
+            ("Protocol", "WireGuard".into()),
+            ("Ping", "12 ms".into()),
+            ("Sent", "4.8 MB".into()),
+            ("Received", "31.2 MB".into()),
         ]);
     }
     Ok(0)
@@ -301,20 +306,20 @@ pub fn servers(_: &Args) -> Result<i32> {
             ]
         })
         .collect();
-    ui::table(&["server", "place", "load", "ping"], &rows);
+    ui::table(&["Server", "Place", "Load", "Ping"], &rows);
     Ok(0)
 }
 
 pub fn about(_: &Args) -> Result<i32> {
-    ui::wordmark_with_icon("a fake vpn, themed with Ultraviolet");
+    ui::wordmark_with_icon("A fake VPN, themed with Ultraviolet");
     ui::blank();
     ui::kv(&[
-        ("version", env!("CARGO_PKG_VERSION").into()),
+        ("Version", env!("CARGO_PKG_VERSION").into()),
         (
-            "built with",
+            "Built with",
             format!("paloma {}", env!("CARGO_PKG_VERSION")),
         ),
-        ("docs", ui::link("https://github.com/mvilark/paloma")),
+        ("Docs", ui::link("https://github.com/mvilark/paloma")),
     ]);
     Ok(0)
 }

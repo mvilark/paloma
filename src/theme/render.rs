@@ -30,6 +30,10 @@ pub(crate) struct TermThemeRenderer<'a> {
     height: usize,
     prompt_height: usize,
     prompts_reset_height: bool,
+    /// An input error waiting to be drawn under the next input prompt.
+    pending_error: Option<String>,
+    /// An error row is on screen under the input line.
+    error_shown: bool,
 }
 
 impl<'a> TermThemeRenderer<'a> {
@@ -43,6 +47,8 @@ impl<'a> TermThemeRenderer<'a> {
             height: 0,
             prompt_height: 0,
             prompts_reset_height: true,
+            pending_error: None,
+            error_shown: false,
         }
     }
 
@@ -70,7 +76,8 @@ impl<'a> TermThemeRenderer<'a> {
         f(self, &mut buf).map_err(io::Error::other)?;
         self.height += buf.chars().filter(|&x| x == '\n').count();
         self.term.write_str(&buf)?;
-        Ok(measure_text_width(&buf))
+        // A prompt may span lines; the cursor sits after the last one.
+        Ok(measure_text_width(buf.rsplit('\n').next().unwrap_or("")))
     }
 
     fn write_formatted_line<
@@ -111,6 +118,15 @@ impl<'a> TermThemeRenderer<'a> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt(buf, prompt, default))
     }
 
+    /// The question, then the buttons on the line under it.
+    pub fn confirm_buttons(&mut self, prompt: &str, yes_focused: bool) -> Result<usize> {
+        self.write_formatted_str(|this, buf| {
+            this.theme.format_confirm_prompt_no_hint(buf, prompt)?;
+            writeln!(buf)?;
+            this.theme.format_confirm_buttons(buf, yes_focused)
+        })
+    }
+
     pub fn confirm_prompt_no_hint(&mut self, prompt: &str) -> Result<usize> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt_no_hint(buf, prompt))
     }
@@ -135,7 +151,29 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     pub fn input_prompt(&mut self, prompt: &str, default: Option<&str>) -> Result<usize> {
-        self.write_formatted_str(|this, buf| this.theme.format_input_prompt(buf, prompt, default))
+        let len = self.write_formatted_str(|this, buf| {
+            this.theme.format_input_prompt(buf, prompt, default)
+        })?;
+        if let Some(err) = self.pending_error.take() {
+            // Draw the error on the row under the input, then put the cursor back
+            // after the prompt.
+            self.write_formatted_str(|this, buf| {
+                writeln!(buf)?;
+                this.theme.format_error(buf, &err)
+            })?;
+            self.term.move_cursor_up(1)?;
+            self.term.write_str("\r")?;
+            self.term.move_cursor_right(len)?;
+            self.error_shown = true;
+        }
+        Ok(len)
+    }
+
+    /// Reports an input error: it is drawn under the input line when the prompt is
+    /// shown again.
+    pub fn input_error(&mut self, err: &str) -> Result {
+        self.pending_error = Some(err.to_string());
+        Ok(())
     }
 
     pub fn input_prompt_selection(&mut self, prompt: &str, sel: &str) -> Result {
@@ -153,10 +191,16 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     #[cfg(feature = "password")]
-    pub fn password_prompt_selection(&mut self, prompt: &str) -> Result {
+    pub fn password_prompt_selection(&mut self, prompt: &str, mask_len: usize) -> Result {
         self.write_formatted_prompt(|this, buf| {
-            this.theme.format_password_prompt_selection(buf, prompt)
+            this.theme
+                .format_password_prompt_selection_masked(buf, prompt, mask_len)
         })
+    }
+
+    #[cfg(feature = "password")]
+    pub fn password_mask_glyph(&self) -> char {
+        self.theme.password_mask_glyph()
     }
 
     pub fn select_prompt(&mut self, prompt: &str, paging_info: Option<(usize, usize)>) -> Result {
@@ -260,6 +304,12 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     pub fn clear(&mut self) -> Result {
+        if self.error_shown {
+            // The cursor is on the input line; step down so the error row is cleared too.
+            self.term.move_cursor_down(1)?;
+            self.term.clear_line()?;
+            self.error_shown = false;
+        }
         self.term
             .clear_last_lines(self.height + self.prompt_height)?;
         self.height = 0;
