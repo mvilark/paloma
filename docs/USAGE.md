@@ -1,6 +1,6 @@
 # Using the library
 
-The crate is currently still published and imported as `dialoguer` (see `Cargo.toml`), even though this fork is called "interact". Every prompt is a builder: configure it, then call `interact()`. All of them return `dialoguer::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
+The crate is currently still published and imported as `dialoguer` (see `Cargo.toml`), even though this fork is called "interacteur". Every prompt is a builder: configure it, then call `interact()`. All of them return `dialoguer::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
 
 ```toml
 [dependencies]
