@@ -34,7 +34,7 @@ fn main() -> paloma::Result<()> {
 }
 ```
 
-Decisions on the roadmap's open questions:
+Decisions on the roadmap's open questions (all confirmed by spideyincrocs, see Status notes):
 
 - **Global state vs. a context object.** A process-wide default. A context object (`let p = Prompter::new(theme); p.select()...`) still has to be passed around, which is the boilerplate this item removes, and apps can already get that pattern today by holding a theme and calling `with_theme(&theme)`. A context type can be a later roadmap item if someone needs per-scope themes.
 - **Thread safety.** The default is stored in a `static DEFAULT_THEME: RwLock<Option<Arc<dyn Theme + Send + Sync>>>` (`RwLock::new` is `const`, fine for MSRV 1.85). That is why `set_default` requires `Send + Sync + 'static`. Both built-in themes satisfy it (checked: `ColorfulTheme` and `SimpleTheme` are `Send + Sync`). A custom theme holding `Rc`/`Cell` cannot be the global default but keeps working through `with_theme()`. Lock poisoning is ignored (`unwrap_or_else(PoisonError::into_inner)`) since the lock only guards a pointer swap.
@@ -80,14 +80,15 @@ Backwards compatibility: purely additive. Apps that never call `set_default` ren
 ## Open questions / risks
 
 - **Hidden global state.** Library crates that call paloma will pick up whatever theme the host app set. That is the intent, but it is a behavior change for anyone relying on `new()` always being plain; it only happens if the app opts in, so the risk is low. Document it on `new()`.
-- **Public getter.** This plan keeps the resolver crate-private. A public `default_theme() -> Arc<dyn Theme + Send + Sync>` would let apps wrap the current default in their own theme, but it widens the API; add it later if asked.
+- **Public getter.** Decided: no. The resolver stays crate-private; a public `default_theme()` getter can be added later without breaking anything if someone needs to wrap the current default.
 - **Per-prompt cost.** One `RwLock` read and one `Arc` clone per interaction (plus a small allocation when no default is set). Negligible next to terminal I/O.
 - **`ColorfulTheme` gaining a non-`Sync` field** would break `set_default(ColorfulTheme::default())`; the compile-time test in step 3 catches it.
 
 ## Status notes
 
 - 2026-10-10: Plan written; item moved to Planned.
-- 2026-10-10: Naming decided by spideyincrocs: `paloma::theme::set_default(t)` (and `reset_default()` if the default stays replaceable). Global vs. context object, replaceable vs. set once, lookup time, and a public getter are still awaiting a decision.
+- 2026-10-10: Naming decided by spideyincrocs: `paloma::theme::set_default(t)` and `reset_default()`.
 - 2026-10-10: Global default (not a context object) confirmed by spideyincrocs.
 - 2026-10-10: Replaceable default with `reset_default()` (not set once) confirmed by spideyincrocs.
 - 2026-10-10: Look up the default when a prompt is shown (not when it is built) confirmed by spideyincrocs.
+- 2026-10-10: Keep the default lookup internal, no public getter, confirmed by spideyincrocs. All design decisions settled; plan ready for review.
