@@ -18,19 +18,20 @@ This plan builds the rest of the framework:
 
 ### Purpose
 
-paloma is a UI framework for command-line programs. It started as a fork of dialoguer, so only its prompts exist so far, but its scope is the whole interface of a CLI: prompts, flows of prompts, messages, loading messages and progress bars. Questions are asked one at a time, the scrollback reads as a record of what happened, results come at the end. It is not a full-screen TUI and will not become one: it is for programs that run once for one specific action and exit when it is done. No long-running or asynchronous apps, no panes, no alternate screen.
+paloma is a UI framework for command-line programs. It started as a fork of dialoguer, so only its prompts exist so far, but its scope is the whole interface of a CLI: prompts, flows of prompts, messages, loading messages and progress bars. It is not opinionated: it does not prescribe how a CLI looks or behaves (whether answered prompts collapse, how secrets are shown, where errors go), it gives every component a sensible default and the tools to change it. It is not a full-screen TUI and will not become one: it is for programs that run once for one specific action and exit when it is done. No long-running or asynchronous apps, no panes, no alternate screen.
 
 ### Principles already in the code and docs
 
-1. **Works out of the box.** `Confirm::new().with_prompt("Continue?").interact()` needs no setup (`SimpleTheme`, built-in defaults).
-2. **Look and behaviour are separate.** A `Theme` decides how things look; `Options` decide how they work (PR #8: "Themes decide how prompts look; options decide how they work").
-3. **Settings cascade, most specific wins.** Behaviour: the prompt's builder method, then its group in `Options`, then `general`, then the built-in default. Look: `with_theme(&t)`, then `set_theme(t)`, then `SimpleTheme`. App-wide state is read when a prompt is shown, not when it is built.
-4. **Override only what differs.** Every `Theme` method has a default; every option is an `Option` that falls through.
-5. **One builder style.** `new()`, `with_theme`, `with_prompt`, setters taking `mut self -> Self`, and the `interact` / `interact_opt` / `interact_on` / `interact_on_opt` family returning `paloma::Result`.
-6. **Terminal hygiene.** UI on stderr, results on stdout; the renderer owns line counting and clearing.
-7. **A conservative, stable crate.** MSRV 1.85, few dependencies, optional ones behind features, only `console` types in the public API, docs build with warnings denied.
-8. **Process.** Roadmap IDs, a plan file before code, a PR body in Before / After / How, `docs/USAGE.md` and `DEVELOPMENT.md` updated in the same PR, one example per feature, unit tests in the file they test.
-9. **The Ultraviolet example is the acceptance test.** Its gap list ([PAL-002](PAL-002-ultraviolet-example.md)) is what drives the roadmap.
+1. **Not opinionated, fully customizable.** Every look and every behaviour can be changed with paloma's own tools (themes, tokens, options, builder methods, hooks). A developer never needs to write their own UI structs or work below paloma's interface to get the UI they want. Anything a design system wants, such as Ultraviolet's collapsed answers, is a choice the app makes, not a rule of paloma.
+2. **Sensible defaults, minimal code.** Every component works out of the box with a sensible default, in as little code as possible: `Confirm::new().with_prompt("Continue?").interact()` needs no setup (`SimpleTheme`, built-in defaults). Customization starts from there.
+3. **Look and behaviour are separate.** A `Theme` decides how things look; `Options` decide how they work (PR #8: "Themes decide how prompts look; options decide how they work").
+4. **Settings cascade, most specific wins.** Behaviour: the prompt's builder method, then its group in `Options`, then `general`, then the built-in default. Look: `with_theme(&t)`, then `set_theme(t)`, then `SimpleTheme`. App-wide state is read when a prompt is shown, not when it is built.
+5. **Override only what differs.** Every `Theme` method has a default; every option is an `Option` that falls through.
+6. **One builder style.** `new()`, `with_theme`, `with_prompt`, setters taking `mut self -> Self`, and the `interact` / `interact_opt` / `interact_on` / `interact_on_opt` family returning `paloma::Result`.
+7. **Terminal handling belongs to paloma.** The renderer owns line counting and clearing. By default UI goes to stderr and results to stdout, and the stream is a setting.
+8. **A conservative, stable crate.** MSRV 1.85, few dependencies, optional ones behind features, only `console` types in the public API, docs build with warnings denied.
+9. **Process.** Roadmap IDs, a plan file before code, a PR body in Before / After / How, `docs/USAGE.md` and `DEVELOPMENT.md` updated in the same PR, one example per feature, unit tests in the file they test.
+10. **The Ultraviolet example is an acceptance test.** It is one demanding design system among many possible ones: if it can be built with paloma's tools alone, paloma is customizable enough. Its gap list ([PAL-002](PAL-002-ultraviolet-example.md)) drives the roadmap; its rules are not paloma's.
 
 ### How it works
 
@@ -76,12 +77,12 @@ Found while studying the repo. All of them are fixed in Phase 0 (PAL-005) unless
 
 | Kind | What it does | Components |
 | --- | --- | --- |
-| **Prompts** | ask, then collapse to a one-line record | `Input`, `Password`, `Confirm`, `Select`, `MultiSelect`, `Sort`, `FuzzySelect` (existing) |
-| **Flows** | run prompts as numbered steps: `Esc` goes back a step, `^C` cancels the whole flow, presets and `--yes` skip steps | `Flow` |
+| **Prompts** | ask, then (by default) collapse to a one-line answer; keeping, collapsing or clearing is a setting | `Input`, `Password`, `Confirm`, `Select`, `MultiSelect`, `Sort`, `FuzzySelect` (existing) |
+| **Flows** | run steps (prompts and any app code between them) in order: step counter, going back by `Esc` or to a named step from code, `^C` cancels the whole flow, presets and `--yes` skip steps | `Flow` |
 | **Output** | print once and become scrollback | `Message` (success / info / warning / error, with an optional hint), `Section`, `KeyValue`, `Table`, `Panel` (summary box), inline helpers (`link`, `gradient`) |
-| **Live** | redraw while work runs, then collapse to a static line | `Task` (spinner, nested steps, elapsed time), `Progress` (later) |
+| **Live** | redraw while work runs, then (by default) leave a static result line | `Task` (spinner, nested steps, elapsed time), `Progress` (later) |
 
-All of them render through the theme, read the options, and write to a stream (stderr by default; data blocks like `KeyValue` and `Table` default to stdout, because they are results).
+All of them render through the theme, read the options, and write to a stream (stderr by default; data blocks like `KeyValue` and `Table` default to stdout, because they are usually results; every default is a setting).
 
 ### Families and their bases
 
@@ -89,14 +90,14 @@ Components that only differ in a few things share a base. The base holds the sha
 
 | Family | Base | Members | Shared settings (examples) |
 | --- | --- | --- | --- |
-| prompts | `PromptBase` | all prompts | theme, report, hint, preset value, cancel behaviour, the step it has in a flow |
+| prompts | `PromptBase` | all prompts | theme, report, message row (hint, live message, errors), preset value, cancel behaviour, the step it has in a flow |
 | ↳ lists | `ListBase` | `Select`, `MultiSelect`, `Sort`, `FuzzySelect` | items (with description / disabled), page size, clear, paging |
 | ↳ text | `TextBase` | `Input`, `Password` | validation display, cursor |
 | messages | `Message` + `Status` | success, info, warning, error | stream, hint label, indent; per status: glyph, word, colour |
 | blocks | `BlockBase` | `Section`, `KeyValue`, `Table`, `Panel` | stream, space before, indent, max width |
 | live | `LiveBase` | `Task`, `Progress` | stream, motion, frame rate, elapsed format, cursor hiding, finish line |
 
-`Status` (success / info / warning / error) is one enum shared by messages, task results and panel rows, so "a warning" looks the same wherever it appears.
+`Status` (success / info / warning / error) is one enum shared by messages, task results and panel rows, so by default "a warning" looks the same wherever it appears; each component can still override it.
 
 ### Behaviour: one cascade
 
@@ -199,16 +200,30 @@ paloma::set_options(
 
 // flows.rs: the setup command. A sketch; Flow's API is designed in PAL-015's own plan.
 let setup = Flow::new(Setup::default())   // numbers the steps (01/05), Esc goes back, ^C cancels
-    .step(|s| {
+    .step("email", |s| {
         s.email = Input::new()
             .with_prompt("Account email")
+            .with_initial_text(&s.email)
             .preset(args.email.clone())
             .validate_with(valid_email)
             .interact_text()?;
         Ok(())
     })
-    .step(|s| { s.protocol = Select::new().with_prompt("Protocol").items(PROTOCOLS).interact()?; Ok(()) })
-    // … password, features, connect on startup
+    .step("password", |s| {
+        s.password = Password::new().with_prompt("Password").interact()?;
+        // Any app code can run inside a step, here a sign-in with a spinner.
+        let task = Task::new("Signing in...").start()?;
+        match api::sign_in(&s.email, &s.password) {
+            Ok(token) => s.token = token,
+            Err(_) => {
+                task.clear()?;
+                return flow::back_to_with("email", Message::error("Wrong email or password"));
+            }
+        }
+        task.success("Signed in")?;
+        Ok(())
+    })
+    // … protocol, features, connect on startup
     .run()?;
 let email = &setup.email;
 
@@ -280,11 +295,11 @@ The foundations land together with their first real user, so nothing is built on
 
 ### PAL-008 · Phase 3: Live tasks
 
-- The live region: one live component at a time (the guide's "at most one spinner"), frames capped at 12 per second, the cursor hidden while it runs and restored on finish, drop and panic.
+- The live region: one live component at a time in this phase (several at once is PAL-013), a frame rate option (default 12 per second), the cursor hidden while it runs and restored on finish, drop and panic.
 - `Task`: spinner, running label, elapsed time, nested `step` lines, `finish(Status, text)` plus `success` / `warning` / `fail` shortcuts returning the elapsed time.
 - Motion off (option, `CI`, non-TTY): no redraws, each task printed once when it finishes.
 - `paloma::terminal::restore()` for an app's Ctrl+C handler. paloma installs no signal handler itself.
-- A prompt shown while a task runs is refused with an error, not drawn over the spinner.
+- A prompt shown while a task runs pauses the task's redraws and resumes them after the answer, so a step can ask something in the middle of work.
 - Example: `ui::Task`, `ui::task` and `ui::cancelled` go.
 
 ### PAL-009 · Phase 4: Theme v2 for prompts
@@ -296,19 +311,29 @@ The foundations land together with their first real user, so nothing is built on
 
 ### PAL-010 · Phase 5: Prompt gaps from PAL-002
 
-- Hints and key legends (Gap 2); rich items with a description and a disabled state (Gap 3); validation while typing, with the error in place of the hint and the input kept (Gap 4); cursor style (Gap 9).
-- What a flow needs from each prompt (Gap 5): `Error::Cancelled` and `#[non_exhaustive]` on `Error`, an Esc ("back") result for every prompt including `Input` and `Password`, the cancelled record drawn by the theme, the live prompt cleaned up on `^C`.
-- Presets and unattended mode (Gap 10): `.preset(Option<T>)` prints the collapsed record and skips the prompt; with `general().unattended(true)` prompts return their default and print the record. Without either, a prompt on a non-terminal still returns an error, as today.
+- **Message row** (Gaps 2 and 4). Every prompt gets an optional row under it that shows a `Message`: a hint, info, success, warning or error, drawn with the messages tokens. It can be:
+  - static: `.hint("The address you signed up with")`;
+  - live, recomputed as the user types or moves the selection: `.message_with(|value| …)`, where `value` is what the prompt holds right now (the text for `Input` and `Password`, the highlighted index for `Select`, the checked items for `MultiSelect`, the focused choice for `Confirm`, the order for `Sort`);
+  - set on submit: a failed `validate_with` shows its error there and keeps the input; a flow going back to the prompt can put a message there too (PAL-015).
+
+  The most recent wins: a submit error stays until the user changes the value, then the live message (if any) or the hint comes back. The theme draws the row and decides where it goes; options can turn it off.
+- Key legends (Gap 2), rich items with a description and a disabled state (Gap 3), cursor style (Gap 9).
+- What a flow needs from each prompt (Gap 5): `Error::Cancelled` and `#[non_exhaustive]` on `Error`, an Esc ("back") result for every prompt including `Input` and `Password`, the cancelled state drawn by the theme, the live prompt cleaned up on `^C`.
+- Presets and unattended mode (Gap 10): `.preset(Option<T>)` skips the prompt and reports the value as an answered prompt would (as configured with `report`); with `general().unattended(true)` prompts return their default the same way. Without either, a prompt on a non-terminal still returns an error, as today.
 - Example: `ui::answered` goes, and so does the rest of `ui.rs` except the progress bar.
 
 ### PAL-015 · Phase 6: Flows
 
-A flow runs prompts as steps of one task, which is how the Ultraviolet guide describes the whole interaction ("`^C` cancels the whole flow").
+A flow runs the steps of one task in order. A step is plain app code that usually asks one or more prompts, and can do anything else in between (call a server, show a spinner, print a message).
 
-- `Flow`: an ordered list of steps over a state the app owns. It numbers the steps and passes the step to each prompt's view, so the theme draws the `01/05` counter (Gap 6; whether to show it, for example only from three steps up, is a flow option).
-- `Esc` in a step goes back to the previous one and removes the answered record of the step it returns to (today the example's setup flow shows `◇ Protocol · …` twice after Esc).
-- `^C` cancels the whole flow: the theme draws the flow's cancelled record and `run()` returns `Error::Cancelled`, so the app exits with code 130.
-- Presets and unattended mode work per step, so a flow run with `--yes` prints every record and asks nothing.
+- `Flow`: named steps (`.step("email", |state| …)`, `.step_if(condition, "port", |state| …)`) over a state the app owns, then `.run()` returns the state.
+- **Step counter.** The flow numbers the steps and passes the step to each prompt's view, so the theme draws it (`01/05`). With conditional steps the total grows when it becomes known (`01/05`, then `04/06`). The counter can be turned off, per flow or app-wide in `Options`.
+- **Going back.**
+  - `Esc` in a prompt goes back one step. On the first step it cancels the flow (both are options with these defaults).
+  - From code: `return flow::back_to("email")` or `return flow::back_to_with("email", Message::error("Wrong email or password"))` jumps back to any earlier step. The message shows in the target prompt's message row (PAL-010).
+  - Going back erases what the steps in between printed, by default, so the screen never shows an answer twice (today the example's setup flow shows `◇ Protocol · …` twice after Esc). The state keeps earlier values, so a step can prefill its prompt with them.
+- **Cancelling.** `^C` cancels the whole flow: the theme draws the cancelled state and `run()` returns `Error::Cancelled`, so the app can exit with code 130.
+- **Unattended.** Presets and unattended mode work per step, so a flow run with `--yes` asks nothing.
 - Example: the `setup` command's step loop, `theme::set_step` and its `AtomicU32` go.
 
 ### PAL-011 · Phase 7: Progress bars
@@ -338,7 +363,7 @@ Direction decisions (agreed 2026-10-10, see status notes):
 
 1. **Breaking release.** paloma is not published and the example is the only known custom theme, so a one-time redesign of `Theme` (Phase 4) and `Error` (Phase 5) costs little now and much later. **Agreed:** allow both, released together as 0.13.
 2. **Live rendering engine.** Recommended: paloma's own small engine (one live region, `Task` and `Progress`, no new dependency). The alternative is building on `indicatif`: mature and supports many bars at once, but it styles through template strings that bypass the theme and tokens, its types cannot appear in paloma's public API, and its terminal handling would compete with the prompt renderer. **Agreed:** paloma's own engine.
-3. **Scope.** Recommended: stay line-oriented (prompts, flows, output, live lines) and never become a full-screen TUI (no layouts, panes or alternate screen). That keeps scrollback as the record and keeps the crate small. **Agreed:** paloma is for programs that run one action and exit; terminal GUIs and long-running or asynchronous apps are out of scope.
+3. **Scope.** Recommended: stay line-oriented (prompts, flows, output, live lines) and never become a full-screen TUI (no layouts, panes or alternate screen). That keeps the crate focused and small. **Agreed:** paloma is for programs that run one action and exit; terminal GUIs and long-running or asynchronous apps are out of scope.
 
 Risks:
 
@@ -352,4 +377,6 @@ Risks:
 - 2026-10-10: spideyincrocs agreed to all three direction decisions: one breaking release (0.13) for `Theme` v2 and `Error`; paloma's own live engine, no `indicatif`; line-oriented scope only, for programs that run one action and exit (no terminal GUI, no long-running or async apps). A background colour while the program works may be considered later (PAL-014).
 - 2026-10-10: Phase 0 (PAL-005) needs no API plan of its own (no public API change beyond docs and one additive `ColorfulTheme` override); its scope is the list above.
 - 2026-10-10: spideyincrocs corrected the framing: paloma *is* a CLI UI framework (prompts, flows, messages, loading messages, progress bars; anything but full-screen GUIs), not a prompt library growing into one. The architecture already targeted a framework, so it stands, with two changes: flows become a component of their own (PAL-015) instead of a step counter and back handling spread over prompt options, and the README, crate description and crate docs say what paloma is now instead of waiting for Phase 1. No Phase 0 code changes.
+- 2026-10-10: spideyincrocs on flows: steps must allow app code between prompts (for example a sign-in after the password) and a convenient call to go back to a chosen earlier step with an error; every prompt gets an optional, dynamic row under it for a hint, error, warning and so on (now in PAL-010). Decisions: the step counter grows when the total becomes known and can be turned off; `Esc` on the first step cancels the flow.
+- 2026-10-10: spideyincrocs corrected a second point: paloma is not opinionated. Collapsing answered prompts, hiding passwords and similar behaviour are defaults or a design system's choices, never rules; everything must be customizable with paloma's tools, starting from sensible defaults with minimal code. The plan's principles now say so (principles 1, 2, 7 and 10), and wording that described Ultraviolet's rules as paloma's was changed. Two design changes follow: a prompt during a running task pauses the task instead of being refused, and the one-live-region limit is a limit of this phase, not a principle.
 - 2026-10-10: Phase 0 implemented on branch `claude/dazzling-galileo-dqa12c`. Golden tests first (built-in theme hooks; the example in 5 terminal setups × 11 commands), then the fixes. Two output changes, both intended: `ColorfulTheme` now shows `result_len` stars instead of always 8 (default unchanged); list prompts no longer erase lines above the list when an item is long in bytes but not in columns (a bug the pty check found). Convention break 10 turned out to be that bug. Snapshots of the example are unchanged, and the interactive setup flow (validation error, password mask, Esc back, select, multi-select, confirm buttons) gives the same final screen as `main` in a pty. Found on the way, not fixed (same on `main`): Esc back leaves the old answer's record on screen (scheduled in Phase 5), and the example prints `1 features` (example copy; fixing it changes the output, so it waits for your OK).

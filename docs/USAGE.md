@@ -126,4 +126,4 @@ paloma::set_options(
 );
 ```
 
-A setting is resolved in this order: the prompt's own builder method (`Confirm::new().style(..)`), the prompt's group in `Options`, `general`, then the built-in default. Groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`. Input and password errors (validation, parsing, password mismatch) are always drawn on the line under the input and disappear once the user submits again; a theme only styles them with `format_error`.
+A setting is resolved in this order: the prompt's own builder method (`Confirm::new().style(..)`), the prompt's group in `Options`, `general`, then the built-in default. Groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`. Input and password errors (validation, parsing, password mismatch) are drawn on the line under the input and disappear once the user submits again; a theme styles them with `format_error`.

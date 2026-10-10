@@ -1,8 +1,9 @@
 //! paloma is a UI framework for command-line programs that run one action and
 //! exit: prompts, flows of prompts, messages, loading messages and progress bars,
 //! all drawn through one app-wide [`Theme`](theme::Theme) and configured by app-wide
-//! [`Options`]. It is line-oriented: the scrollback is the record of what happened,
-//! and there are no full-screen views.
+//! [`Options`]. Every component has a sensible default, so it works with minimal
+//! code, and every look and behaviour can be changed with paloma's own tools.
+//! It is line-oriented: there are no full-screen views.
 //!
 //! The prompts are built; flows, messages, spinners and progress bars are on the
 //! roadmap. paloma draws with [console](https://docs.rs/console), re-exported as

@@ -25,8 +25,8 @@ Scoped and agreed, not started.
 - **PAL-007 · Output blocks.** `Section`, `KeyValue`, `Table`, `Panel`, `link`, `gradient`. Plan: [PAL-004, Phase 2](docs/plans/PAL-004-ui-framework.md#pal-007--phase-2-output-blocks).
 - **PAL-008 · Live tasks.** `Task` with spinner, steps and elapsed time; motion off for CI and pipes. Plan: [PAL-004, Phase 3](docs/plans/PAL-004-ui-framework.md#pal-008--phase-3-live-tasks).
 - **PAL-009 · Theme v2 for prompts.** Prompt hooks take a context and a view; token-driven default layout. Breaking. Plan: [PAL-004, Phase 4](docs/plans/PAL-004-ui-framework.md#pal-009--phase-4-theme-v2-for-prompts).
-- **PAL-010 · Prompt gaps.** Hints, rich items, live validation, cancel and back results, presets and unattended mode. Breaking (`Error`). Plan: [PAL-004, Phase 5](docs/plans/PAL-004-ui-framework.md#pal-010--phase-5-prompt-gaps-from-pal-002).
-- **PAL-015 · Flows.** `Flow` runs prompts as numbered steps: step counters, `Esc` back, `^C` cancels the flow, unattended runs. Plan: [PAL-004, Phase 6](docs/plans/PAL-004-ui-framework.md#pal-015--phase-6-flows).
+- **PAL-010 · Prompt gaps.** A message row under every prompt (hint, live message, errors on submit), rich items, cancel and back results, presets and unattended mode. Breaking (`Error`). Plan: [PAL-004, Phase 5](docs/plans/PAL-004-ui-framework.md#pal-010--phase-5-prompt-gaps-from-pal-002).
+- **PAL-015 · Flows.** `Flow` runs named steps (prompts plus any app code) in order: step counter, `Esc` back, `back_to` a chosen step with a message, `^C` cancels the flow, unattended runs. Plan: [PAL-004, Phase 6](docs/plans/PAL-004-ui-framework.md#pal-015--phase-6-flows).
 - **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars).
 
 ## In progress
