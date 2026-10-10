@@ -1,5 +1,11 @@
 //! Ultraviolet palette, glyphs and the `Theme` implementation.
-use std::{fmt, sync::OnceLock};
+use std::{
+    fmt,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        OnceLock,
+    },
+};
 
 use console::{Color, Style};
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
@@ -227,6 +233,18 @@ fn hint(pal: &Palette, text: &str) -> String {
         .to_string()
 }
 
+/// Current flow step as `n << 8 | total`, or 0 outside a flow. The `Theme` trait has no
+/// notion of a flow (Gap 6), so the example hands the step to the theme out of band.
+static STEP: AtomicU32 = AtomicU32::new(0);
+
+pub fn set_step(n: u32, total: u32) {
+    STEP.store(n << 8 | total, Ordering::Relaxed);
+}
+
+pub fn clear_step() {
+    STEP.store(0, Ordering::Relaxed);
+}
+
 pub struct UltravioletTheme {
     cfg: Config,
 }
@@ -243,7 +261,16 @@ impl UltravioletTheme {
             "{} {}",
             p.e(tok, glyph),
             p.style(Tok::Fg).bold().for_stderr().apply_to(prompt)
-        )
+        )?;
+        // `01/05` step counter: `fg-subtle`, regular weight, after the label.
+        match STEP.load(Ordering::Relaxed) {
+            0 => Ok(()),
+            s => write!(
+                f,
+                "  {}",
+                p.e(Tok::Subtle, format!("{:02}/{:02}", s >> 8, s & 0xff))
+            ),
+        }
     }
 
     /// `◇ Label · value`, the collapsed form of an answered prompt.
@@ -314,7 +341,8 @@ impl Theme for UltravioletTheme {
         if let Some(default) = default {
             write!(f, " {}", p.e(Tok::Subtle, format!("({default})")))?;
         }
-        write!(f, " {} ", p.e(Tok::Accent, self.cfg.g.caret))
+        // The input sits on its own line, indented to `col-2`.
+        write!(f, "\n  {} ", p.e(Tok::Accent, self.cfg.g.caret))
     }
 
     fn format_input_prompt_selection(

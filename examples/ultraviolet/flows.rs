@@ -2,6 +2,7 @@
 use paloma::{Confirm, Error, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort};
 
 use crate::{
+    theme,
     ui::{self, Kind},
     Args,
 };
@@ -35,7 +36,11 @@ fn valid_email(s: &String) -> std::result::Result<(), String> {
 
 pub fn setup(args: &Args) -> Result<i32> {
     const STEPS: usize = 5;
-    let label = |n: usize, text: &str| format!("{n:02}/{STEPS:02} {text}");
+    // The theme draws the `01/05` counter after the label.
+    let label = |n: usize, text: &str| {
+        theme::set_step(n as u32, STEPS as u32);
+        text.to_string()
+    };
     let mut step = 0;
     let (mut email, mut protocol, mut features, mut startup) = (String::new(), 0, Vec::new(), true);
 
@@ -127,6 +132,7 @@ pub fn setup(args: &Args) -> Result<i32> {
         }
     }
 
+    theme::clear_step();
     ui::blank();
     ui::section("Setup");
     let a = ui::task(

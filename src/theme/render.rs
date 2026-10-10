@@ -70,7 +70,8 @@ impl<'a> TermThemeRenderer<'a> {
         f(self, &mut buf).map_err(io::Error::other)?;
         self.height += buf.chars().filter(|&x| x == '\n').count();
         self.term.write_str(&buf)?;
-        Ok(measure_text_width(&buf))
+        // A prompt may span lines; the cursor sits after the last one.
+        Ok(measure_text_width(buf.rsplit('\n').next().unwrap_or("")))
     }
 
     fn write_formatted_line<
