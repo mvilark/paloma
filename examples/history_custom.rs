@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, History, Input};
+use paloma::{theme::ColorfulTheme, History, Input};
 use std::{collections::VecDeque, process};
 
 fn main() {
@@ -11,7 +11,7 @@ fn main() {
 
     loop {
         if let Ok(cmd) = Input::<String>::with_theme(&ColorfulTheme::default())
-            .with_prompt("dialoguer")
+            .with_prompt("paloma")
             .history_with(&mut history)
             .interact_text()
         {

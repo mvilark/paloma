@@ -24,7 +24,7 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 /// ## Example
 ///
 /// ```rust,no_run
-/// use dialoguer::Input;
+/// use paloma::Input;
 ///
 /// fn main() {
 ///     let name: String = Input::new()
@@ -39,7 +39,7 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 /// It can also be used with turbofish notation:
 ///
 /// ```rust,no_run
-/// use dialoguer::Input;
+/// use paloma::Input;
 ///
 /// fn main() {
 ///     let name = Input::<String>::new()
@@ -146,7 +146,7 @@ impl<'a, T> Input<'a, T> {
     /// ## Example
     ///
     /// ```rust,no_run
-    /// use dialoguer::{theme::ColorfulTheme, Input};
+    /// use paloma::{theme::ColorfulTheme, Input};
     ///
     /// fn main() {
     ///     let name: String = Input::with_theme(&ColorfulTheme::default())
@@ -178,7 +178,7 @@ impl<'a, T> Input<'a, T> {
     ///
     /// ```rust,no_run
     /// use std::{collections::VecDeque, fmt::Display};
-    /// use dialoguer::{History, Input};
+    /// use paloma::{History, Input};
     ///
     /// struct MyHistory {
     ///     history: VecDeque<String>,
@@ -242,7 +242,7 @@ where
     /// # Example
     ///
     /// ```rust,no_run
-    /// use dialoguer::Input;
+    /// use paloma::Input;
     ///
     /// fn main() {
     ///     let mail: String = Input::new()

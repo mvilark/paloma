@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, Sort};
+use paloma::{theme::ColorfulTheme, Sort};
 
 fn main() {
     let list = &[

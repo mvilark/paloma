@@ -1,4 +1,4 @@
-use dialoguer::{theme::ColorfulTheme, MultiSelect};
+use paloma::{theme::ColorfulTheme, MultiSelect};
 
 fn main() {
     let multiselected = &[
