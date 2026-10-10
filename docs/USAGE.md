@@ -12,21 +12,21 @@ paloma = "0.12"   # default features: editor, password
 use paloma::{theme::ColorfulTheme, Confirm, Input, Select};
 
 fn main() -> paloma::Result<()> {
-    let theme = ColorfulTheme::default();
-    let name: String = Input::with_theme(&theme).with_prompt("Name").interact_text()?;
-    let env = Select::with_theme(&theme)
+    paloma::set_theme(ColorfulTheme::default()); // once, for every prompt
+    let name: String = Input::new().with_prompt("Name").interact_text()?;
+    let env = Select::new()
         .with_prompt("Environment")
         .items(["dev", "staging", "prod"])
         .default(0)
         .interact()?;
-    if Confirm::with_theme(&theme).with_prompt(format!("Deploy {name} to #{env}?")).interact()? {
+    if Confirm::new().with_prompt(format!("Deploy {name} to #{env}?")).interact()? {
         println!("deploying");
     }
     Ok(())
 }
 ```
 
-Every prompt has `new()` (uses `SimpleTheme`), `with_theme(&dyn Theme)`, `with_prompt(..)`, `report(bool)`, and `interact_on(&Term)` to target a specific terminal. Prompts that can be cancelled also have `interact_opt()` / `interact_on_opt()`, which return `None` on Esc/`q` instead of an error.
+Every prompt has `new()` (uses the app theme from `set_theme`, `SimpleTheme` by default), `with_theme(&dyn Theme)`, `with_prompt(..)`, `report(bool)`, and `interact_on(&Term)` to target a specific terminal. Prompts that can be cancelled also have `interact_opt()` / `interact_on_opt()`, which return `None` on Esc/`q` instead of an error.
 
 ## Confirm
 ```rust
@@ -101,6 +101,8 @@ let text: Option<String> = Editor::new().extension(".md").edit("initial text")?;
 use paloma::{console::Style, theme::ColorfulTheme};
 let theme = ColorfulTheme { values_style: Style::new().yellow().dim(), ..ColorfulTheme::default() };
 ```
+Set one theme for the whole app with `paloma::set_theme(theme)` (the theme must be `Send + Sync`). Calling it again replaces the theme. A prompt built with `with_theme(&t)` keeps `t` and ignores the app theme. See `examples/set_theme.rs`.
+
 For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need.
 
 More runnable samples live in `examples/` (`cargo run --example wizard`).

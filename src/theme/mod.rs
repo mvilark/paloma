@@ -6,6 +6,7 @@ use console::style;
 #[cfg(feature = "fuzzy-select")]
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
+pub(crate) mod app;
 mod colorful;
 pub(crate) mod render;
 mod simple;

@@ -58,3 +58,4 @@ This is purely additive: apps that never call `set_theme` see no change.
 
 - 2026-10-10: Plan written after the earlier plan (PR #3) was dropped for this simpler design.
 - 2026-10-10: spideyincrocs chose to keep `Select::with_theme(&t)` as the per-prompt override (no chained method, nothing breaks).
+- 2026-10-10: Implemented on branch `claude/pal-001-set-theme`. The override is a small `ThemeHandle` enum in `render.rs` (prompt theme or app theme) instead of a separate helper; tested in `render.rs` and `app.rs`.

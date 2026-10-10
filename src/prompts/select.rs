@@ -36,7 +36,7 @@ pub struct Select<'a> {
     prompt: Option<String>,
     report: bool,
     clear: bool,
-    theme: &'a dyn Theme,
+    theme: Option<&'a dyn Theme>,
     max_length: Option<usize>,
 }
 
@@ -49,7 +49,9 @@ impl Default for Select<'static> {
 impl Select<'static> {
     /// Creates a select prompt with default theme.
     pub fn new() -> Self {
-        Self::with_theme(&SimpleTheme)
+        let mut prompt = Self::with_theme(&SimpleTheme);
+        prompt.theme = None;
+        prompt
     }
 }
 
@@ -329,7 +331,7 @@ impl<'a> Select<'a> {
             report: false,
             clear: true,
             max_length: None,
-            theme,
+            theme: Some(theme),
         }
     }
 }

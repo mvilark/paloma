@@ -58,7 +58,7 @@ pub struct Input<'a, T> {
     default: Option<T>,
     show_default: bool,
     initial_text: Option<String>,
-    theme: &'a dyn Theme,
+    theme: Option<&'a dyn Theme>,
     permit_empty: bool,
     validator: Option<InputValidatorCallback<'a, T>>,
     #[cfg(feature = "history")]
@@ -76,7 +76,9 @@ impl<T> Default for Input<'static, T> {
 impl<T> Input<'_, T> {
     /// Creates an input prompt with default theme.
     pub fn new() -> Self {
-        Self::with_theme(&SimpleTheme)
+        let mut prompt = Self::with_theme(&SimpleTheme);
+        prompt.theme = None;
+        prompt
     }
 
     /// Sets the input prompt.
@@ -162,7 +164,7 @@ impl<'a, T> Input<'a, T> {
             default: None,
             show_default: true,
             initial_text: None,
-            theme,
+            theme: Some(theme),
             permit_empty: false,
             validator: None,
             #[cfg(feature = "history")]

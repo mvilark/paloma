@@ -39,7 +39,7 @@ pub struct Sort<'a> {
     report: bool,
     clear: bool,
     max_length: Option<usize>,
-    theme: &'a dyn Theme,
+    theme: Option<&'a dyn Theme>,
 }
 
 impl Default for Sort<'static> {
@@ -51,7 +51,9 @@ impl Default for Sort<'static> {
 impl Sort<'static> {
     /// Creates a sort prompt with default theme.
     pub fn new() -> Self {
-        Self::with_theme(&SimpleTheme)
+        let mut prompt = Self::with_theme(&SimpleTheme);
+        prompt.theme = None;
+        prompt
     }
 }
 
@@ -358,7 +360,7 @@ impl<'a> Sort<'a> {
             prompt: None,
             report: true,
             max_length: None,
-            theme,
+            theme: Some(theme),
         }
     }
 }
