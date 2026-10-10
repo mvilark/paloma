@@ -132,6 +132,7 @@ pub struct Glyphs {
     pub active: &'static str,
     pub answered: &'static str,
     pub caret: &'static str,
+    pub dot: &'static str,
     pub focus: &'static str,
     pub checked: &'static str,
     pub unchecked: &'static str,
@@ -159,6 +160,7 @@ impl Glyphs {
                 active: "*",
                 answered: "o",
                 caret: ">",
+                dot: "*",
                 focus: ">",
                 checked: "[x]",
                 unchecked: "[ ]",
@@ -183,6 +185,7 @@ impl Glyphs {
                 active: "◆",
                 answered: "◇",
                 caret: "›",
+                dot: "•",
                 focus: "▸",
                 checked: "■",
                 unchecked: "□",
@@ -399,12 +402,18 @@ impl Theme for UltravioletTheme {
         self.collapsed(f, prompt, sel)
     }
 
-    fn format_password_prompt_selection(
+    /// Typed characters show as dots.
+    fn password_mask(&self) -> Option<char> {
+        self.cfg.g.dot.chars().next()
+    }
+
+    fn format_password_prompt_selection_masked(
         &self,
         f: &mut dyn fmt::Write,
         prompt: &str,
+        mask_len: usize,
     ) -> fmt::Result {
-        self.collapsed(f, prompt, &"•".repeat(8))
+        self.collapsed(f, prompt, &self.cfg.g.dot.repeat(mask_len))
     }
 
     fn format_multi_select_prompt_selection(

@@ -203,10 +203,16 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     #[cfg(feature = "password")]
-    pub fn password_prompt_selection(&mut self, prompt: &str) -> Result {
+    pub fn password_prompt_selection(&mut self, prompt: &str, mask_len: usize) -> Result {
         self.write_formatted_prompt(|this, buf| {
-            this.theme.format_password_prompt_selection(buf, prompt)
+            this.theme
+                .format_password_prompt_selection_masked(buf, prompt, mask_len)
         })
+    }
+
+    #[cfg(feature = "password")]
+    pub fn password_mask(&self) -> Option<char> {
+        self.theme.password_mask()
     }
 
     pub fn select_prompt(&mut self, prompt: &str, paging_info: Option<(usize, usize)>) -> Result {

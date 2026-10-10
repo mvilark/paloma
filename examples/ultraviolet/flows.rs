@@ -67,7 +67,7 @@ pub fn setup(args: &Args) -> Result<i32> {
             1 => {
                 let name = label(n, "Password");
                 if args.yes {
-                    ui::answered(&name, &"•".repeat(8));
+                    ui::answered(&name, &theme::cfg().g.dot.repeat(8));
                 } else {
                     Password::new().with_prompt(name).interact()?;
                 }

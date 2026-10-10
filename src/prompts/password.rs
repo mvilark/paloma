@@ -37,6 +37,7 @@ pub struct Password<'a> {
     confirmation_prompt: Option<(String, String)>,
     validator: Option<PasswordValidatorCallback<'a>>,
     mask: Option<char>,
+    report_mask_len: usize,
 }
 
 impl Default for Password<'static> {
@@ -69,6 +70,15 @@ impl Password<'_> {
         self
     }
 
+    /// Sets how many mask characters the one-line result shows after the password is
+    /// confirmed (default 8). The count is fixed, so the result never reveals the
+    /// password's length. Themes decide how the mask is drawn; the default theme
+    /// ignores it.
+    pub fn report_mask_len(mut self, len: usize) -> Self {
+        self.report_mask_len = len;
+        self
+    }
+
     /// Enables confirmation prompting.
     pub fn with_confirmation<A, B>(mut self, prompt: A, mismatch_err: B) -> Self
     where
@@ -89,7 +99,8 @@ impl Password<'_> {
 
     /// Sets the character used to mask each typed character.
     ///
-    /// By default no mask is used and the input is fully hidden (nothing is
+    /// By default no mask is used (unless the theme sets one with
+    /// [`Theme::password_mask`]) and the input is fully hidden (nothing is
     /// echoed). When a mask is set, one mask character is echoed for every
     /// character typed.
     ///
@@ -152,7 +163,7 @@ impl Password<'_> {
             render.clear()?;
 
             if self.report {
-                render.password_prompt_selection(&self.prompt)?;
+                render.password_prompt_selection(&self.prompt, self.report_mask_len)?;
             }
             term.flush()?;
 
@@ -165,7 +176,7 @@ impl Password<'_> {
             render.password_prompt(prompt)?;
             render.term().flush()?;
 
-            let Some(mask) = self.mask else {
+            let Some(mask) = self.mask.or_else(|| render.password_mask()) else {
                 let input = render.term().read_secure_line()?;
                 render.add_line();
 
@@ -274,6 +285,7 @@ impl<'a> Password<'a> {
             confirmation_prompt: None,
             validator: None,
             mask: None,
+            report_mask_len: 8,
         }
     }
 }

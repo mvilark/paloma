@@ -165,6 +165,28 @@ pub trait Theme {
         self.format_input_prompt_selection(f, prompt, "[hidden]")
     }
 
+    /// The character echoed for each typed password character, used when the prompt
+    /// sets none with [`Password::with_mask`](crate::Password::with_mask). `None`
+    /// (the default) echoes nothing.
+    #[cfg(feature = "password")]
+    fn password_mask(&self) -> Option<char> {
+        None
+    }
+
+    /// Formats a password prompt after selection, given how many mask characters the
+    /// prompt asks to show (see [`Password::report_mask_len`](crate::Password::report_mask_len)).
+    /// Defaults to [`format_password_prompt_selection`](Self::format_password_prompt_selection),
+    /// which ignores the length.
+    #[cfg(feature = "password")]
+    fn format_password_prompt_selection_masked(
+        &self,
+        f: &mut dyn fmt::Write,
+        prompt: &str,
+        _mask_len: usize,
+    ) -> fmt::Result {
+        self.format_password_prompt_selection(f, prompt)
+    }
+
     /// Formats a select prompt.
     #[inline]
     fn format_select_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {

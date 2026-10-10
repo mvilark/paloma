@@ -81,6 +81,8 @@ let pw = Password::new()
 ```
 Other options: `allow_empty_password`, `with_mask(char)`, `validate_with` (takes `Fn(&String) -> Result<(), E>`).
 
+While typing, `.with_mask('•')` (or a theme's `password_mask()`) echoes one character per key press. After the password is confirmed, the one-line result shows a fixed number of mask characters, 8 by default, set with `.report_mask_len(n)`; themes draw it in `format_password_prompt_selection_masked`.
+
 ## FuzzySelect (feature `fuzzy-select`)
 Type to filter; returns the index into the original items.
 ```rust
