@@ -10,10 +10,11 @@ fn main() {
     let mut history = MyHistory::default();
 
     loop {
-        if let Ok(cmd) = Input::<String>::with_theme(&ColorfulTheme::default())
-            .with_prompt("paloma")
-            .history_with(&mut history)
-            .interact_text()
+        if let Ok(cmd) = Input::<String>::new()
+            .theme(&ColorfulTheme::default())
+            .label("paloma")
+            .history(&mut history)
+            .interact()
         {
             if cmd == "exit" {
                 process::exit(0);

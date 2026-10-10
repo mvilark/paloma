@@ -5,10 +5,11 @@ fn main() {
 
     let completion = MyCompletion::default();
 
-    Input::<String>::with_theme(&ColorfulTheme::default())
-        .with_prompt("paloma")
-        .completion_with(&completion)
-        .interact_text()
+    Input::<String>::new()
+        .theme(&ColorfulTheme::default())
+        .label("paloma")
+        .completion(&completion)
+        .interact()
         .unwrap();
 }
 

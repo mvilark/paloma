@@ -4,8 +4,8 @@ use console::{Key, Term};
 
 use crate::{
     paging::Paging,
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, Theme},
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
     Result,
 };
 
@@ -22,7 +22,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let ordered = Sort::new()
-///         .with_prompt("Which order do you prefer?")
+///         .label("Which order do you prefer?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -43,20 +43,13 @@ pub struct Sort<'a> {
     base: PromptBase<'a>,
 }
 
-impl Default for Sort<'static> {
+impl Default for Sort<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Sort<'static> {
-    /// Creates a sort prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Self {
-        Self::with_base(PromptBase::app_theme())
-    }
-}
-
-impl Sort<'_> {
+impl<'a> Sort<'a> {
     /// Sets the clear behavior of the menu.
     ///
     /// The default is to clear the menu after user interaction.
@@ -99,12 +92,12 @@ impl Sort<'_> {
     ///
     /// By default, when a prompt is set the system also prints out a confirmation after
     /// the selection. You can opt-out of this with [`report`](#method.report).
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
 
-    report_methods!(sort, |_| true);
+    base_methods!(sort, |_| true);
 
     /// Enables user interaction and returns the result.
     ///
@@ -325,32 +318,16 @@ impl Sort<'_> {
 }
 
 impl<'a> Sort<'a> {
-    /// Creates a sort prompt with a specific theme.
+    /// Creates a sort prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, Sort};
-    ///
-    /// fn main() {
-    ///     let ordered = Sort::with_theme(&ColorfulTheme::default())
-    ///         .items(&["foo", "bar", "baz"])
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
-        Self::with_base(PromptBase::with_theme(theme))
-    }
-
-    /// The built-in defaults, drawn with `base`'s theme.
-    fn with_base(base: PromptBase<'a>) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             items: vec![],
             clear: true,
             prompt: None,
             max_length: None,
-            base,
+            base: PromptBase::new(),
         }
     }
 }
@@ -361,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let sort = Sort::new().with_prompt("Which order do you prefer?");
+        let sort = Sort::new().label("Which order do you prefer?");
 
         let _ = sort.clone();
     }

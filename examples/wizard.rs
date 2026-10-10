@@ -21,24 +21,25 @@ fn init_config() -> Result<Option<Config>, Box<dyn Error>> {
     };
     println!("Welcome to the setup wizard");
 
-    if !Confirm::with_theme(&theme)
-        .with_prompt("Do you want to continue?")
+    if !Confirm::new()
+        .theme(&theme)
+        .label("Do you want to continue?")
         .interact()?
     {
         return Ok(None);
     }
 
-    let interface = Input::with_theme(&theme)
-        .with_prompt("Interface")
+    let interface = Input::new()
+        .theme(&theme)
+        .label("Interface")
         .default("127.0.0.1".parse().unwrap())
         .interact()?;
 
-    let hostname = Input::with_theme(&theme)
-        .with_prompt("Hostname")
-        .interact()?;
+    let hostname = Input::new().theme(&theme).label("Hostname").interact()?;
 
-    let tls = Select::with_theme(&theme)
-        .with_prompt("Configure TLS")
+    let tls = Select::new()
+        .theme(&theme)
+        .label("Configure TLS")
         .default(0)
         .item("automatic with ACME")
         .item("manual")
@@ -49,13 +50,15 @@ fn init_config() -> Result<Option<Config>, Box<dyn Error>> {
         0 => (Some("acme.pkey".into()), Some("acme.cert".into()), true),
         1 => (
             Some(
-                Input::with_theme(&theme)
-                    .with_prompt("  Path to private key")
+                Input::new()
+                    .theme(&theme)
+                    .label("  Path to private key")
                     .interact()?,
             ),
             Some(
-                Input::with_theme(&theme)
-                    .with_prompt("  Path to certificate")
+                Input::new()
+                    .theme(&theme)
+                    .label("  Path to certificate")
                     .interact()?,
             ),
             false,

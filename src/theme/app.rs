@@ -7,14 +7,14 @@ static APP_THEME: RwLock<Option<Arc<dyn Theme + Send + Sync>>> = RwLock::new(Non
 
 /// Sets the theme for every prompt in the app.
 ///
-/// A prompt created with `with_theme` keeps its own theme. Calling this again
+/// A prompt given its own theme with `.theme(&t)` keeps it. Calling this again
 /// replaces the app theme; prompts read it when they are shown.
 ///
 /// ```rust,no_run
 /// use paloma::{theme::ColorfulTheme, Confirm};
 ///
 /// paloma::set_theme(ColorfulTheme::default());
-/// let ok = Confirm::new().with_prompt("Continue?").interact().unwrap();
+/// let ok = Confirm::new().label("Continue?").interact().unwrap();
 /// ```
 pub fn set_theme<T: Theme + Send + Sync + 'static>(theme: T) {
     let mut guard = APP_THEME.write().unwrap_or_else(|e| e.into_inner());

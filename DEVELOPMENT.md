@@ -29,13 +29,13 @@ The golden tests in `tests/` fail on any change to what the built-in themes or t
 
 Prompts need a real terminal. To check one by hand without a terminal of your own, drive it through a pseudo-terminal (for example Python's `pty` with the `pyte` emulator) and look at the final screen, as PAL-005 did.
 
-CI (`.github/workflows/ci.yml`) also runs: tests on Linux/macOS/Windows, MSRV check (Rust 1.85, `cargo check --lib --all-features`), cargo-check-external-types (only `console` and `fuzzy_matcher::skim::SkimMatcherV2` may appear in the public API), and cargo-deny audit. The cargo-semver-checks job is switched off (`if: false`) until the first release on crates.io, since there is nothing to compare against yet. CI only runs if GitHub Actions is enabled for the repository; check that a PR shows its checks before relying on them.
+CI (`.github/workflows/ci.yml`) also runs: tests on Linux/macOS/Windows, MSRV check (Rust 1.85, `cargo check --lib --all-features`), cargo-check-external-types (only `console` and `fuzzy_matcher::skim::SkimMatcherV2` may appear in the public API), and cargo-deny audit. The cargo-semver-checks job is switched off (`if: false`) until the first release on crates.io, since there is nothing to compare against yet. GitHub Actions stays off until the crate is published on crates.io, so nothing runs these checks for you: run the commands above (and the MSRV check, `cargo +1.85.0 check --locked --lib --all-features`) before every push and list them in the PR.
 
 ## Conventions
 - **Not opinionated, sensible defaults.** paloma prescribes no look or behaviour. Every new behaviour is a default with a setting (builder method and `Options`), every new look goes through the theme, and nothing should ever force an app to write its own UI code or work below paloma's interface. At the same time every component must work out of the box with minimal code. A design system's rules (such as Ultraviolet's) belong in its theme and options, never in paloma's defaults or code.
 - MSRV 1.85; do not use newer language/std features.
-- Builder style: `new()`, `with_theme(&dyn Theme)`, `with_prompt(..)`, option setters taking `mut self -> Self`, and `interact` / `interact_opt` / `interact_on` / `interact_on_opt` terminals returning `crate::Result`. Prompts derive/impl `Clone` and `Default` where sensible.
-- Every prompt embeds a `PromptBase` as `base`. The built-in defaults live in one private `with_base(base)` constructor: `new()` calls it with `PromptBase::app_theme()` (the renderer then uses the app theme from `set_theme`) and `with_theme(&t)` with `PromptBase::with_theme(&t)`. New prompts follow the same pattern.
+- Builder style: `new()` is the only constructor; setters are named after what they set (`label`, `theme`, `default`, `validate`), never with a `with_` prefix or `_with` suffix, and take `mut self -> Self`; then and `interact` / `interact_opt` / `interact_on` / `interact_on_opt` terminals returning `crate::Result`. Prompts derive/impl `Clone` and `Default` where sensible.
+- Every prompt embeds a `PromptBase` as `base` (`PromptBase::new()` in its `new()`) and calls `base_methods!` inside an `impl<'a> Prompt<'a>` block, which adds the setters all prompts share (`theme`, `report`). Without `.theme(&t)` the renderer uses the app theme from `set_theme`. New prompts follow the same pattern; a setter that every prompt should have goes in `base_methods!`, not in each prompt.
 - Themes decide how things look; `Options` decide how they work. A behaviour setting is an `Option` resolved in this order: the prompt's builder method, its group in `Options`, `general`, the built-in default. Read the app options once, when the prompt is shown (`crate::options::current()`), not inside loops.
 - Everything paloma draws goes through a `Theme` method (for prompts, via `render.rs`); components never write styled text or layout themselves.
 - Public items need doc comments (`missing_docs` is denied); docs build with warnings denied.
@@ -43,13 +43,13 @@ CI (`.github/workflows/ci.yml`) also runs: tests on Linux/macOS/Windows, MSRV ch
 - Avoid leaking new third-party types in the public API (external-types check).
 
 ## Adding a prompt option
-1. Add a field to the prompt struct and its `with_base` constructor in `src/prompts/<prompt>.rs`. If an app should be able to set it for every prompt of that kind, make the field an `Option` and add the same setting to the prompt's group in `src/options.rs` (and to `GeneralOptions` if it applies to all prompts; shared settings like `report` go in `PromptBase`).
+1. Add a field to the prompt struct and its `new()` constructor in `src/prompts/<prompt>.rs`. If an app should be able to set it for every prompt of that kind, make the field an `Option` and add the same setting to the prompt's group in `src/options.rs` (and to `GeneralOptions` if it applies to all prompts; shared settings like `report` go in `PromptBase`).
 2. Add a documented builder method following the existing pattern.
 3. Use it in `interact_on*`; if it changes rendering, route it through the theme (below).
 4. Add a unit test in the file's `tests` module, update an example if useful, and mention it in `docs/USAGE.md`.
 
 ## Adding a new prompt type
-Create `src/prompts/<name>.rs` with a `base: PromptBase` field and `report_methods!`, register it in `src/prompts/mod.rs`, add its group to `Options`, re-export from `src/lib.rs` (feature-gated if it adds a dependency, plus a `[[example]]` entry with `required-features`), add `format_<name>_*` methods with defaults to `Theme`, extend `tests/themes.rs` with the new hooks, and add an example.
+Create `src/prompts/<name>.rs` with a `base: PromptBase` field and `base_methods!`, register it in `src/prompts/mod.rs`, add its group to `Options`, re-export from `src/lib.rs` (feature-gated if it adds a dependency, plus a `[[example]]` entry with `required-features`), add `format_<name>_*` methods with defaults to `Theme`, extend `tests/themes.rs` with the new hooks, and add an example.
 
 ## Adding or changing theme options
 - New styling field: add it to `ColorfulTheme` (`src/theme/colorful.rs`) and its `Default` impl; use it in the relevant `format_*` override. Adding a public field is a semver break for struct-literal users without `..Default::default()`, so check cargo-semver-checks.

@@ -1,8 +1,9 @@
 use paloma::{theme::ColorfulTheme, Confirm};
 
 fn main() {
-    if Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt("Do you want to continue?")
+    if Confirm::new()
+        .theme(&ColorfulTheme::default())
+        .label("Do you want to continue?")
         .interact()
         .unwrap()
     {
@@ -11,8 +12,9 @@ fn main() {
         println!("nevermind then :(");
     }
 
-    if Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt("Do you really want to continue?")
+    if Confirm::new()
+        .theme(&ColorfulTheme::default())
+        .label("Do you really want to continue?")
         .default(true)
         .interact()
         .unwrap()
@@ -22,8 +24,9 @@ fn main() {
         println!("nevermind then :(");
     }
 
-    if Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt("Do you really really want to continue?")
+    if Confirm::new()
+        .theme(&ColorfulTheme::default())
+        .label("Do you really really want to continue?")
         .default(true)
         .show_default(false)
         .on_shortcut(false)
@@ -35,8 +38,9 @@ fn main() {
         println!("nevermind then :(");
     }
 
-    if Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt("Do you really really really want to continue?")
+    if Confirm::new()
+        .theme(&ColorfulTheme::default())
+        .label("Do you really really really want to continue?")
         .on_shortcut(false)
         .interact()
         .unwrap()
@@ -46,8 +50,9 @@ fn main() {
         println!("nevermind then :(");
     }
 
-    match Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt("Do you really really really really want to continue?")
+    match Confirm::new()
+        .theme(&ColorfulTheme::default())
+        .label("Do you really really really really want to continue?")
         .interact_opt()
         .unwrap()
     {
@@ -56,8 +61,9 @@ fn main() {
         None => println!("Ok, we can start over later"),
     }
 
-    match Confirm::with_theme(&ColorfulTheme::default())
-        .with_prompt("Do you really really really really really want to continue?")
+    match Confirm::new()
+        .theme(&ColorfulTheme::default())
+        .label("Do you really really really really really want to continue?")
         .default(true)
         .on_shortcut(false)
         .interact_opt()

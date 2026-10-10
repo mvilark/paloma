@@ -11,10 +11,10 @@ pub(crate) struct PromptBase<'a> {
     pub(crate) report: Option<bool>,
 }
 
-impl PromptBase<'static> {
-    /// No theme of its own: the renderer uses the app theme from
-    /// [`set_theme`](crate::set_theme).
-    pub(crate) fn app_theme() -> Self {
+impl PromptBase<'_> {
+    /// No theme of its own (the renderer then uses the app theme from
+    /// [`set_theme`](crate::set_theme)) and nothing set.
+    pub(crate) fn new() -> Self {
         PromptBase {
             theme: None,
             report: None,
@@ -22,21 +22,20 @@ impl PromptBase<'static> {
     }
 }
 
-impl<'a> PromptBase<'a> {
-    /// Draws with `theme`, whatever the app theme is.
-    pub(crate) fn with_theme(theme: &'a dyn Theme) -> Self {
-        PromptBase {
-            theme: Some(theme),
-            report: None,
-        }
-    }
-}
-
-/// Adds the shared `report` builder and `report_enabled` to a prompt that embeds a
-/// [`PromptBase`] as `base`. `$group` is the prompt's field in
-/// [`Options`](crate::Options); `$default` is a closure giving the built-in default.
-macro_rules! report_methods {
+/// Adds the builder methods every prompt shares (`theme`, `report`) and
+/// `report_enabled` to a prompt that embeds a [`PromptBase`] as `base`. Use it inside
+/// an `impl<'a> Prompt<'a>` block. `$group` is the prompt's field in
+/// [`Options`](crate::Options); `$default` is a closure giving the built-in default
+/// for `report`.
+macro_rules! base_methods {
     ($group:ident, $default:expr) => {
+        /// Draws this prompt with `theme` instead of the app theme set with
+        /// [`set_theme`](crate::set_theme).
+        pub fn theme(mut self, theme: &'a dyn crate::theme::Theme) -> Self {
+            self.base.theme = Some(theme);
+            self
+        }
+
         /// Indicates whether to report the chosen result after interaction.
         ///
         /// Left unset, the app option applies ([`Options`](crate::Options)); the
@@ -54,4 +53,4 @@ macro_rules! report_methods {
         }
     };
 }
-pub(crate) use report_methods;
+pub(crate) use base_methods;

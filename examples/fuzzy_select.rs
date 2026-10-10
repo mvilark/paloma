@@ -32,8 +32,9 @@ fn main() {
         "Burger",
     ];
 
-    let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
-        .with_prompt("Pick your flavor")
+    let selection = FuzzySelect::new()
+        .theme(&ColorfulTheme::default())
+        .label("Pick your flavor")
         .default(0)
         .items(&selections[..])
         .interact()

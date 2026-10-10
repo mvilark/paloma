@@ -4,8 +4,8 @@ use console::{Key, Term};
 
 use crate::{
     paging::Paging,
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, Theme},
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
     Result,
 };
 
@@ -20,7 +20,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let selection = MultiSelect::new()
-///         .with_prompt("What do you choose?")
+///         .label("What do you choose?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -42,20 +42,13 @@ pub struct MultiSelect<'a> {
     base: PromptBase<'a>,
 }
 
-impl Default for MultiSelect<'static> {
+impl Default for MultiSelect<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MultiSelect<'static> {
-    /// Creates a multi select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Self {
-        Self::with_base(PromptBase::app_theme())
-    }
-}
-
-impl MultiSelect<'_> {
+impl<'a> MultiSelect<'a> {
     /// Sets the clear behavior of the menu.
     ///
     /// The default is to clear the menu.
@@ -127,12 +120,12 @@ impl MultiSelect<'_> {
     ///
     /// By default, when a prompt is set the system also prints out a confirmation after
     /// the selection. You can opt-out of this with [`report`](Self::report).
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
 
-    report_methods!(multi_select, |_| true);
+    base_methods!(multi_select, |_| true);
 
     /// Enables user interaction and returns the result.
     ///
@@ -331,33 +324,17 @@ impl MultiSelect<'_> {
 }
 
 impl<'a> MultiSelect<'a> {
-    /// Creates a multi select prompt with a specific theme.
+    /// Creates a multi select prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, MultiSelect};
-    ///
-    /// fn main() {
-    ///     let selection = MultiSelect::with_theme(&ColorfulTheme::default())
-    ///         .items(&["foo", "bar", "baz"])
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
-        Self::with_base(PromptBase::with_theme(theme))
-    }
-
-    /// The built-in defaults, drawn with `base`'s theme.
-    fn with_base(base: PromptBase<'a>) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             items: vec![],
             defaults: vec![],
             clear: true,
             prompt: None,
             max_length: None,
-            base,
+            base: PromptBase::new(),
         }
     }
 }
@@ -368,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let multi_select = MultiSelect::new().with_prompt("Select your favorite(s)");
+        let multi_select = MultiSelect::new().label("Select your favorite(s)");
 
         let _ = multi_select.clone();
     }

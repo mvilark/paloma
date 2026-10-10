@@ -4,8 +4,8 @@ use console::{Key, Term};
 
 use crate::{
     options::ConfirmStyle,
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, Theme},
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
     Result,
 };
 
@@ -18,7 +18,7 @@ use crate::{
 ///
 /// fn main() {
 ///     let confirmation = Confirm::new()
-///         .with_prompt("Do you want to continue?")
+///         .label("Do you want to continue?")
 ///         .interact()
 ///         .unwrap();
 ///
@@ -37,30 +37,23 @@ pub struct Confirm<'a> {
     style: Option<ConfirmStyle>,
     on_shortcut: Option<bool>,
     base: PromptBase<'a>,
-    show_hint: bool,
+    show_choices: bool,
 }
 
-impl Default for Confirm<'static> {
+impl Default for Confirm<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Confirm<'static> {
-    /// Creates a confirm prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Self {
-        Self::with_base(PromptBase::app_theme())
-    }
-}
-
-impl Confirm<'_> {
+impl<'a> Confirm<'a> {
     /// Sets the confirm prompt.
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn label<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
 
-    report_methods!(confirm, |_| true);
+    base_methods!(confirm, |_| true);
 
     /// Sets how the choices are shown: an inline hint or buttons under the question.
     ///
@@ -81,13 +74,6 @@ impl Confirm<'_> {
     pub fn on_shortcut(mut self, val: bool) -> Self {
         self.on_shortcut = Some(val);
         self
-    }
-
-    /// Sets when to react to user input. `wait_for_newline(true)` is
-    /// `on_shortcut(false)`.
-    #[deprecated(note = "use `on_shortcut` (inverted)")]
-    pub fn wait_for_newline(self, wait: bool) -> Self {
-        self.on_shortcut(!wait)
     }
 
     /// Sets a default.
@@ -111,8 +97,8 @@ impl Confirm<'_> {
     /// Disables or enables the hint display (e.g. `[y/n]`).
     ///
     /// The default is to show the hint.
-    pub fn show_hint(mut self, val: bool) -> Self {
-        self.show_hint = val;
+    pub fn show_choices(mut self, val: bool) -> Self {
+        self.show_choices = val;
         self
     }
 
@@ -195,7 +181,7 @@ impl Confirm<'_> {
             None
         };
 
-        if self.show_hint {
+        if self.show_choices {
             render.confirm_prompt(&self.prompt, default_if_show)?;
         } else {
             render.confirm_prompt_no_hint(&self.prompt)?;
@@ -274,7 +260,7 @@ impl Confirm<'_> {
     }
 }
 
-impl Confirm<'_> {
+impl<'a> Confirm<'a> {
     /// The button layout: the question with `Yes` / `No` buttons on the line under it.
     ///
     /// Left/right arrows and `Tab` move the focus and `Enter` picks the focused button.
@@ -328,33 +314,18 @@ impl Confirm<'_> {
 }
 
 impl<'a> Confirm<'a> {
-    /// Creates a confirm prompt with a specific theme.
+    /// Creates a confirm prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, Confirm};
-    ///
-    /// fn main() {
-    ///     let confirmation = Confirm::with_theme(&ColorfulTheme::default())
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
-        Self::with_base(PromptBase::with_theme(theme))
-    }
-
-    /// The built-in defaults, drawn with `base`'s theme.
-    fn with_base(base: PromptBase<'a>) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             prompt: "".into(),
             default: None,
             show_default: true,
             style: None,
             on_shortcut: None,
-            base,
-            show_hint: true,
+            base: PromptBase::new(),
+            show_choices: true,
         }
     }
 }
@@ -365,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let confirm = Confirm::new().with_prompt("Do you want to continue?");
+        let confirm = Confirm::new().label("Do you want to continue?");
 
         let _ = confirm.clone();
     }
