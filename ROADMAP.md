@@ -18,12 +18,13 @@ _(none yet)_
 
 Scoped and agreed, not started.
 
-_(none yet)_
+- **PAL-002 · Ultraviolet example app.** A fake VPN CLI in `examples/ultraviolet/` themed as faithfully as possible to the [Ultraviolet design system](docs/design/ultraviolet.md), plus a list of what paloma's theming cannot express yet. Plan: [docs/plans/PAL-002-ultraviolet-example.md](docs/plans/PAL-002-ultraviolet-example.md).
 
 ## In progress
 
-- **PAL-001 · App-wide theme.** `paloma::set_theme(t)` sets the theme for every prompt in the app; `with_theme(&t)` overrides it for one prompt. Plan: [docs/plans/PAL-001-set-theme.md](docs/plans/PAL-001-set-theme.md). PR: [#5](https://github.com/mvilark/paloma/pull/5).
+_(none yet)_
 
 ## Done
 
+- **PAL-001 · App-wide theme.** `paloma::set_theme(t)` sets the theme for every prompt in the app; `with_theme(&t)` overrides it for one prompt. Plan: [docs/plans/PAL-001-set-theme.md](docs/plans/PAL-001-set-theme.md) (PR #4). Implemented in PR #5.
 - **PAL-000 · Docs and rename.** Development guide ([DEVELOPMENT.md](DEVELOPMENT.md)), usage docs ([docs/USAGE.md](docs/USAGE.md)) and crate rename to `paloma` (PR #1).
