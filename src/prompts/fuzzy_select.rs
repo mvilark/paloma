@@ -4,6 +4,7 @@ use console::{Key, Term};
 use fuzzy_matcher::FuzzyMatcher;
 
 use crate::{
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     Result,
 };
@@ -35,12 +36,11 @@ pub struct FuzzySelect<'a> {
     default: Option<usize>,
     items: Vec<String>,
     prompt: String,
-    report: Option<bool>,
     clear: bool,
     highlight_matches: bool,
     enable_vim_mode: bool,
     max_length: Option<usize>,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
     /// Search string that a fuzzy search with start with.
     /// Defaults to an empty string.
     initial_text: String,
@@ -56,7 +56,7 @@ impl FuzzySelect<'static> {
     /// Creates a fuzzy select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 }
@@ -109,20 +109,7 @@ impl FuzzySelect<'_> {
         self
     }
 
-    fn report_enabled(&self) -> bool {
-        let options = crate::options::current();
-        options
-            .report(self.report, options.fuzzy_select.report)
-            .unwrap_or(true)
-    }
-
-    /// Indicates whether to report the selected value after interaction.
-    ///
-    /// The default is to report the selection.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
-    }
+    report_methods!(fuzzy_select, |_| true);
 
     /// Indicates whether to highlight matched indices
     ///
@@ -211,7 +198,7 @@ impl FuzzySelect<'_> {
         let mut cursor = self.initial_text.chars().count();
         let mut search_term = self.initial_text.to_owned();
 
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = self.default;
 
         let mut size_vec = Vec::new();
@@ -396,12 +383,11 @@ impl<'a> FuzzySelect<'a> {
             default: None,
             items: vec![],
             prompt: "".into(),
-            report: None,
             clear: true,
             highlight_matches: true,
             enable_vim_mode: false,
             max_length: None,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
             initial_text: "".into(),
         }
     }

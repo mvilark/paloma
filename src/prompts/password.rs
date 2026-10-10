@@ -4,6 +4,7 @@ use console::{Key, Term};
 use zeroize::Zeroizing;
 
 use crate::{
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     validate::PasswordValidator,
     Result,
@@ -31,8 +32,7 @@ type PasswordValidatorCallback<'a> = Arc<dyn Fn(&String) -> Option<String> + 'a>
 #[derive(Clone)]
 pub struct Password<'a> {
     prompt: String,
-    report: Option<bool>,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
     allow_empty_password: bool,
     confirmation_prompt: Option<(String, String)>,
     validator: Option<PasswordValidatorCallback<'a>>,
@@ -51,7 +51,7 @@ impl Password<'static> {
     /// Creates a password input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Password<'static> {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 }
@@ -63,20 +63,7 @@ impl Password<'_> {
         self
     }
 
-    fn report_enabled(&self) -> bool {
-        let options = crate::options::current();
-        options
-            .report(self.report, options.password.report)
-            .unwrap_or(true)
-    }
-
-    /// Indicates whether to report confirmation after interaction.
-    ///
-    /// The default is to report.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
-    }
+    report_methods!(password, |_| true);
 
     /// Sets how many mask characters the one-line result shows after the password is
     /// confirmed (default 8). The count is fixed, so the result never reveals the
@@ -157,7 +144,7 @@ impl Password<'_> {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_prompts_reset_height(false);
 
         loop {
@@ -309,8 +296,7 @@ impl<'a> Password<'a> {
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
         Self {
             prompt: "".into(),
-            report: None,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
             allow_empty_password: false,
             confirmation_prompt: None,
             validator: None,

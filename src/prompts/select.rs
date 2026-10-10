@@ -3,6 +3,7 @@ use std::{io, ops::Rem};
 use console::{Key, Term};
 
 use crate::{
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     Paging, Result,
 };
@@ -34,9 +35,8 @@ pub struct Select<'a> {
     default: usize,
     items: Vec<String>,
     prompt: Option<String>,
-    report: Option<bool>,
     clear: bool,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
     max_length: Option<usize>,
 }
 
@@ -50,7 +50,7 @@ impl Select<'static> {
     /// Creates a select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 }
@@ -126,20 +126,7 @@ impl Select<'_> {
         self
     }
 
-    fn report_enabled(&self) -> bool {
-        let options = crate::options::current();
-        options
-            .report(self.report, options.select.report)
-            .unwrap_or(self.prompt.is_some())
-    }
-
-    /// Indicates whether to report the selected value after interaction.
-    ///
-    /// The default is to report the selection.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
-    }
+    report_methods!(select, |s: &Self| s.prompt.is_some());
 
     /// Enables user interaction and returns the result.
     ///
@@ -208,7 +195,7 @@ impl Select<'_> {
         }
 
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = self.default;
 
         let mut size_vec = Vec::new();
@@ -334,10 +321,9 @@ impl<'a> Select<'a> {
             default: !0,
             items: vec![],
             prompt: None,
-            report: None,
             clear: true,
             max_length: None,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
         }
     }
 }

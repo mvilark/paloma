@@ -4,6 +4,7 @@ use console::{Key, Term};
 
 use crate::{
     options::ConfirmStyle,
+    prompts::base::{report_methods, PromptBase},
     theme::{render::TermThemeRenderer, SimpleTheme, Theme},
     Result,
 };
@@ -31,12 +32,11 @@ use crate::{
 #[derive(Clone)]
 pub struct Confirm<'a> {
     prompt: String,
-    report: Option<bool>,
     default: Option<bool>,
     show_default: bool,
     style: Option<ConfirmStyle>,
     on_shortcut: Option<bool>,
-    theme: Option<&'a dyn Theme>,
+    base: PromptBase<'a>,
     show_hint: bool,
 }
 
@@ -50,7 +50,7 @@ impl Confirm<'static> {
     /// Creates a confirm prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
     pub fn new() -> Self {
         let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.theme = None;
+        prompt.base.theme = None;
         prompt
     }
 }
@@ -62,20 +62,7 @@ impl Confirm<'_> {
         self
     }
 
-    fn report_enabled(&self) -> bool {
-        let options = crate::options::current();
-        options
-            .report(self.report, options.confirm.report)
-            .unwrap_or(true)
-    }
-
-    /// Indicates whether or not to report the chosen selection after interaction.
-    ///
-    /// The default is to report the chosen selection.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
-    }
+    report_methods!(confirm, |_| true);
 
     /// Sets how the choices are shown: an inline hint or buttons under the question.
     ///
@@ -189,7 +176,7 @@ impl Confirm<'_> {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
-        let mut render = TermThemeRenderer::new(term, self.theme);
+        let mut render = TermThemeRenderer::new(term, self.base.theme);
 
         let options = crate::options::current();
         let wait_for_newline = !self
@@ -359,12 +346,11 @@ impl<'a> Confirm<'a> {
     pub fn with_theme(theme: &'a dyn Theme) -> Self {
         Self {
             prompt: "".into(),
-            report: None,
             default: None,
             show_default: true,
             style: None,
             on_shortcut: None,
-            theme: Some(theme),
+            base: PromptBase::with_theme(theme),
             show_hint: true,
         }
     }
