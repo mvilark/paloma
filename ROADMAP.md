@@ -12,13 +12,13 @@ Living tracker for paloma work. Agents and contributors move an item to the next
 
 Rough ideas that are not yet scoped.
 
-- **PAL-001 · Global default theme.** Today every prompt defaults to `SimpleTheme` unless `with_theme()` is called on it (see `examples/input.rs`), so app developers repeat `with_theme()` on every prompt. Idea: let an app set one default theme once (for example a `set_default_theme()` or a `Theme`-holding global/builder) that prompts use when `with_theme()` is not called. Open questions: global state vs. a context object, thread safety, and how it interacts with explicit `with_theme()`.
+_(none yet)_
 
 ## Planned
 
 Scoped and agreed, not started.
 
-_(none yet)_
+- **PAL-001 · Global default theme.** Let an app set one theme at startup with `paloma::theme::set_default_theme(..)` so prompts built with `new()` use it instead of `SimpleTheme`; explicit `with_theme()` still wins. Plan: [docs/plans/PAL-001-global-default-theme.md](docs/plans/PAL-001-global-default-theme.md).
 
 ## In progress
 
