@@ -33,6 +33,8 @@ Every prompt has `new()` (uses the app theme from `set_theme`, `SimpleTheme` by 
 let ok: bool = Confirm::new().with_prompt("Continue?").default(true).interact()?;
 let maybe: Option<bool> = Confirm::new().with_prompt("Continue?").interact_opt()?;
 ```
+
+A theme can opt in to button layout with `Theme::confirm_buttons()`: the choices move to a line under the question, `←`/`→`/`Tab` move the focus, `Enter` picks it, and each button is drawn by `format_confirm_button`. `y` / `n` answer at once, or only move the focus with `.wait_for_newline(true)`. The prompt is erased after the answer and, with `report(true)`, replaced by the one-line selection.
 Other options: `show_default`, `show_hint`, `wait_for_newline`.
 
 ## Input

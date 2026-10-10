@@ -118,6 +118,19 @@ impl<'a> TermThemeRenderer<'a> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt(buf, prompt, default))
     }
 
+    pub fn confirm_buttons_enabled(&self) -> bool {
+        self.theme.confirm_buttons()
+    }
+
+    /// The question, then the buttons on the line under it.
+    pub fn confirm_buttons(&mut self, prompt: &str, yes_focused: bool) -> Result<usize> {
+        self.write_formatted_str(|this, buf| {
+            this.theme.format_confirm_prompt_no_hint(buf, prompt)?;
+            writeln!(buf)?;
+            this.theme.format_confirm_buttons(buf, yes_focused)
+        })
+    }
+
     pub fn confirm_prompt_no_hint(&mut self, prompt: &str) -> Result<usize> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt_no_hint(buf, prompt))
     }

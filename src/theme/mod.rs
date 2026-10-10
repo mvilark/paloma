@@ -60,6 +60,38 @@ pub trait Theme {
         Ok(())
     }
 
+    /// Whether [`Confirm`](crate::Confirm) draws its choices as buttons on a line under
+    /// the question. They are moved with the arrow keys or `Tab`, and the prompt is
+    /// redrawn on every change. Defaults to `false`: choices stay inline in
+    /// [`format_confirm_prompt`](Self::format_confirm_prompt).
+    fn confirm_buttons(&self) -> bool {
+        false
+    }
+
+    /// Formats one confirm button: `yes` tells which of the two it is, `focused`
+    /// whether it is the one `Enter` would pick. Only used when
+    /// [`confirm_buttons`](Self::confirm_buttons) is `true`.
+    fn format_confirm_button(
+        &self,
+        f: &mut dyn fmt::Write,
+        yes: bool,
+        focused: bool,
+    ) -> fmt::Result {
+        let label = if yes { "Yes" } else { "No" };
+        if focused {
+            write!(f, "[{label}]")
+        } else {
+            write!(f, " {label} ")
+        }
+    }
+
+    /// Formats the row of confirm buttons; `yes_focused` says which one has focus.
+    fn format_confirm_buttons(&self, f: &mut dyn fmt::Write, yes_focused: bool) -> fmt::Result {
+        self.format_confirm_button(f, true, yes_focused)?;
+        write!(f, "  ")?;
+        self.format_confirm_button(f, false, !yes_focused)
+    }
+
     /// Formats a confirm prompt after selection.
     fn format_confirm_prompt_selection(
         &self,

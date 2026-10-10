@@ -306,6 +306,42 @@ impl Theme for UltravioletTheme {
         )
     }
 
+    fn confirm_buttons(&self) -> bool {
+        true
+    }
+
+    fn format_confirm_prompt_no_hint(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
+        self.format_prompt(f, prompt)
+    }
+
+    /// `[Y]es` / `[N]o` in `fg-muted`; the focused one in `accent`, bold.
+    fn format_confirm_button(
+        &self,
+        f: &mut dyn fmt::Write,
+        yes: bool,
+        focused: bool,
+    ) -> fmt::Result {
+        let p = &self.cfg.pal;
+        let text = if yes { "[Y]es" } else { "[N]o" };
+        if focused {
+            write!(
+                f,
+                "{}",
+                p.style(Tok::Accent).bold().for_stderr().apply_to(text)
+            )
+        } else {
+            write!(f, "{}", p.e(Tok::Muted, text))
+        }
+    }
+
+    /// Buttons sit on the line under the label, indented to `col-2`.
+    fn format_confirm_buttons(&self, f: &mut dyn fmt::Write, yes_focused: bool) -> fmt::Result {
+        write!(f, "  ")?;
+        self.format_confirm_button(f, true, yes_focused)?;
+        write!(f, " {} ", self.cfg.pal.e(Tok::Subtle, "/"))?;
+        self.format_confirm_button(f, false, !yes_focused)
+    }
+
     fn format_confirm_prompt(
         &self,
         f: &mut dyn fmt::Write,
@@ -328,8 +364,8 @@ impl Theme for UltravioletTheme {
         selection: Option<bool>,
     ) -> fmt::Result {
         match selection {
-            Some(true) => self.collapsed(f, prompt, "yes"),
-            Some(false) => self.collapsed(f, prompt, "no"),
+            Some(true) => self.collapsed(f, prompt, "Yes"),
+            Some(false) => self.collapsed(f, prompt, "No"),
             None => self.collapsed(f, prompt, &hint(&self.cfg.pal, "Skipped")),
         }
     }

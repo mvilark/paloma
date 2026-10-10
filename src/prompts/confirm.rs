@@ -168,6 +168,10 @@ impl Confirm<'_> {
 
         let mut render = TermThemeRenderer::new(term, self.theme);
 
+        if render.confirm_buttons_enabled() {
+            return self.interact_buttons(term, render, allow_quit);
+        }
+
         let default_if_show = if self.show_default {
             self.default
         } else {
@@ -249,6 +253,58 @@ impl Confirm<'_> {
         term.show_cursor()?;
         term.flush()?;
 
+        Ok(rv)
+    }
+}
+
+impl Confirm<'_> {
+    /// The button layout: the question with `Yes` / `No` buttons on the line under it.
+    ///
+    /// Left/right arrows and `Tab` move the focus and `Enter` picks the focused button.
+    /// `y` / `n` pick at once, or only move the focus with
+    /// [`wait_for_newline`](Self::wait_for_newline). The whole prompt is erased
+    /// afterwards.
+    fn interact_buttons(
+        self,
+        term: &Term,
+        mut render: TermThemeRenderer,
+        allow_quit: bool,
+    ) -> Result<Option<bool>> {
+        let mut yes_focused = self.default.unwrap_or(true);
+        term.hide_cursor()?;
+        let rv = loop {
+            render.confirm_buttons(&self.prompt, yes_focused)?;
+            term.flush()?;
+            let picked = match term.read_key()? {
+                Key::ArrowLeft | Key::ArrowRight | Key::Tab => {
+                    yes_focused = !yes_focused;
+                    None
+                }
+                Key::Char('y') | Key::Char('Y') if self.wait_for_newline => {
+                    yes_focused = true;
+                    None
+                }
+                Key::Char('n') | Key::Char('N') if self.wait_for_newline => {
+                    yes_focused = false;
+                    None
+                }
+                Key::Char('y') | Key::Char('Y') => Some(Some(true)),
+                Key::Char('n') | Key::Char('N') => Some(Some(false)),
+                Key::Enter => Some(Some(yes_focused)),
+                Key::Escape | Key::Char('q') if allow_quit => Some(None),
+                _ => None,
+            };
+            term.clear_line()?;
+            render.clear()?;
+            if let Some(rv) = picked {
+                break rv;
+            }
+        };
+        if self.report {
+            render.confirm_prompt_selection(&self.prompt, rv)?;
+        }
+        term.show_cursor()?;
+        term.flush()?;
         Ok(rv)
     }
 }
