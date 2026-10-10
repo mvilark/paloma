@@ -91,7 +91,6 @@ pub fn setup(args: &Args) -> Result<i32> {
                         .with_prompt(name)
                         .items(PROTOCOLS)
                         .default(protocol)
-                        .report(true)
                         .interact_opt()?
                         .map(|i| protocol = i)
                 }
