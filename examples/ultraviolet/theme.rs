@@ -10,8 +10,8 @@ use std::{
 
 use console::{Color, Style};
 use paloma::theme::{
-    ConfirmButtonsView, ConfirmPromptView, Context, FuzzySelectPromptView, InputPromptView,
-    PromptKind, PromptLook, PromptTokens, PromptView, Theme, Tokens,
+    ConfirmButtonsView, ConfirmPromptView, Context, CursorShape, FuzzySelectPromptView,
+    InputPromptView, PromptKind, PromptLook, PromptTokens, PromptView, Theme, Tokens,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -369,9 +369,17 @@ impl Theme for UltravioletTheme {
                     .invalid_suffix_style(p.style(Tok::Error))
             })
             .confirm(|c| c.empty_value("Skipped"))
-            // Typed text is drawn unstyled.
-            .input(|i| i.text_style(Style::new()))
-            .password(|pw| pw.text_style(Style::new()))
+            // Typed text is drawn unstyled, after a blinking block cursor.
+            .input(|i| {
+                i.text_style(Style::new())
+                    .cursor_shape(CursorShape::Block)
+                    .cursor_blink(true)
+            })
+            .password(|pw| {
+                pw.text_style(Style::new())
+                    .cursor_shape(CursorShape::Block)
+                    .cursor_blink(true)
+            })
             .sort(|s| s.checked(g.chosen).unchecked(g.pending));
         Cow::Owned(
             Tokens::default()
@@ -580,6 +588,10 @@ mod tests {
         let error = Palette::new(true, Depth::True).style(Tok::Error);
         assert_eq!((look.invalid_suffix_style, look.message_indent), (error, 2));
         assert_eq!(look.text_style, Style::new());
+        assert_eq!(
+            (look.cursor_shape, look.cursor_blink),
+            (CursorShape::Block, true)
+        );
 
         let mut line = String::new();
         let view = InputPromptView::new(PromptKind::Input, "Email", None, true);

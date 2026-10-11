@@ -77,6 +77,7 @@ mod edit;
 mod error;
 #[cfg(feature = "history")]
 mod history;
+mod keys;
 mod live;
 pub mod options;
 mod output;

@@ -30,10 +30,11 @@ impl PromptBase<'_> {
 }
 
 /// Adds the builder methods every prompt shares (`theme`, `done`, `legend`,
-/// `description`) and `done_mode` / `legend_enabled` (the settings as resolved against
-/// the app options) to a prompt that embeds a [`PromptBase`] as `base`. Use it inside
-/// an `impl<'a> Prompt<'a>` block. `$group` is the prompt's field in
-/// [`Options`](crate::Options).
+/// `description`, and `change_delay` and `pending`, which set the prompt's message
+/// [`Row`](crate::prompts::row::Row), its `row` field) and `done_mode` /
+/// `legend_enabled` (the settings as resolved against the app options) to a prompt
+/// that embeds a [`PromptBase`] as `base`. Use it inside an `impl<'a> Prompt<'a>`
+/// block. `$group` is the prompt's field in [`Options`](crate::Options).
 macro_rules! base_methods {
     ($group:ident) => {
         /// Draws this prompt with `theme` instead of the app theme set with
@@ -70,6 +71,30 @@ macro_rules! base_methods {
         /// `Message::hint("Ports below 1024 need root")`.
         pub fn description(mut self, message: impl crate::IntoMessage) -> Self {
             self.base.description = Some(message.into_message(crate::Status::Description));
+            self
+        }
+
+        /// Runs `on_change` in the background once the user has paused for `ms`
+        /// milliseconds, instead of after every key, for slow checks such as a server
+        /// call. paloma keeps reading keys meanwhile; results for a value that changed
+        /// in the meantime are dropped, and the row keeps what it showed until the
+        /// latest result comes in (or shows [`pending`](Self::pending) while the check
+        /// runs). A prompt that ends while a check runs returns once it has finished.
+        ///
+        /// Where paloma cannot read keys with a timeout (only Unix and Windows are
+        /// supported), the check never runs.
+        pub fn change_delay(mut self, ms: u64) -> Self {
+            self.row.set_delay(std::time::Duration::from_millis(ms));
+            self
+        }
+
+        /// The row while a background check ([`change_delay`](Self::change_delay)) or
+        /// `validate` runs. Plain text is an info message; any
+        /// [`Message`](crate::Message) works too. Left unset, the row keeps what it
+        /// showed.
+        pub fn pending(mut self, message: impl crate::IntoMessage) -> Self {
+            self.row
+                .set_pending(message.into_message(crate::Status::Info));
             self
         }
 

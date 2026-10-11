@@ -720,6 +720,23 @@ impl LiveTokens {
     }
 }
 
+/// The shape of the terminal's own cursor while an input or password prompt is open
+/// (the [`cursor_shape`](PromptStyle::cursor_shape) prompt token). paloma asks the
+/// terminal for it (DECSCUSR) and resets it when the prompt ends.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CursorShape {
+    /// Whatever the terminal shows: paloma does not touch the cursor. The default.
+    #[default]
+    Terminal,
+    /// A block over the character.
+    Block,
+    /// A line under the character.
+    Underline,
+    /// A vertical bar before the character.
+    Bar,
+}
+
 settings! {
     /// How a prompt looks. Unset fields fall back to the family base, then to the
     /// glyphs and palette roles named in each field's docs.
@@ -799,6 +816,12 @@ settings! {
         /// Whether an open confirm shows the answer `Enter` gives after its suffix.
         /// Default true.
         show_default: bool,
+        /// The shape of the terminal cursor while an input or password prompt is open.
+        /// Default [`CursorShape::Terminal`]: paloma does not touch the cursor.
+        cursor_shape: CursorShape,
+        /// Whether that cursor blinks. Ignored with [`CursorShape::Terminal`]. Default
+        /// true.
+        cursor_blink: bool,
         /// The mark of an open prompt. Default: `accent`.
         mark_style: Style,
         /// The question. Default: `text`.
@@ -970,6 +993,10 @@ pub struct PromptLook {
     pub message_indent: usize,
     /// See [`PromptStyle::show_default`].
     pub show_default: bool,
+    /// See [`PromptStyle::cursor_shape`].
+    pub cursor_shape: CursorShape,
+    /// See [`PromptStyle::cursor_blink`].
+    pub cursor_blink: bool,
     /// See [`PromptStyle::mark_style`].
     pub mark_style: Style,
     /// See [`PromptStyle::label_style`].
@@ -1099,6 +1126,8 @@ impl PromptTokens {
             item_description_gap: s.item_description_gap.unwrap_or(2),
             message_indent: s.message_indent.unwrap_or(0),
             show_default: s.show_default.unwrap_or(true),
+            cursor_shape: s.cursor_shape.unwrap_or_default(),
+            cursor_blink: s.cursor_blink.unwrap_or(true),
             mark_style: s.mark_style.unwrap_or_else(|| role(Role::accent)),
             answered_label_style: s
                 .answered_label_style
@@ -1385,5 +1414,25 @@ mod tests {
         );
         let input = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
         assert_eq!(input.invalid_suffix_style, Style::new().bold());
+    }
+
+    #[test]
+    fn the_cursor_is_left_alone_unless_a_shape_is_set() {
+        for tokens in [Tokens::plain(), Tokens::colorful()] {
+            let look = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
+            assert_eq!(
+                (look.cursor_shape, look.cursor_blink),
+                (CursorShape::Terminal, true)
+            );
+        }
+        let tokens = Tokens::default()
+            .prompts(|p| p.password(|pw| pw.cursor_shape(CursorShape::Bar).cursor_blink(false)));
+        let look = tokens.get_prompts().resolve(PromptKind::Password, &tokens);
+        assert_eq!(
+            (look.cursor_shape, look.cursor_blink),
+            (CursorShape::Bar, false)
+        );
+        let look = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
+        assert_eq!(look.cursor_shape, CursorShape::Terminal);
     }
 }

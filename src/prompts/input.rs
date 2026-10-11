@@ -14,7 +14,7 @@ use crate::{
     prompts::{
         base::{base_methods, PromptBase},
         line::{Edit, LineEditor},
-        row::{Row, Validators},
+        row::{Keys, Row, Validators},
     },
     theme::{
         render::{Shown, TermThemeRenderer},
@@ -381,13 +381,15 @@ where
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_legend(self.legend_enabled(&options), allow_back);
+        render.set_cursor_shape(PromptKind::Input)?;
         let default_string = self.default.as_ref().map(ToString::to_string);
         let shown_default = default_string.as_deref().filter(|_| self.show_default);
         let mut editor = LineEditor::new(self.prefill.as_deref().unwrap_or(""));
         #[cfg(feature = "history")]
         let mut hist_pos = 0;
 
-        loop {
+        let worker = self.row.worker();
+        Keys::run(worker, |keys| loop {
             let (before, after) = (editor.before_cursor(), editor.after_cursor());
             let shown = match &self.placeholder {
                 Some(placeholder) if editor.is_empty() => Shown::Placeholder(placeholder),
@@ -405,7 +407,10 @@ where
                 self.row.current(self.base.description.as_ref()),
             )?;
 
-            let changed = match term.read_key_raw()? {
+            let Some(key) = keys.next(term, &mut self.row)? else {
+                continue;
+            };
+            let changed = match key {
                 Key::CtrlC => {
                     return render.cancel(PromptKind::Input, Some(self.completion_prompt()))
                 }
@@ -414,7 +419,12 @@ where
                     return Ok(None);
                 }
                 Key::Enter => {
-                    if let Some(value) = self.submit(&mut render, done, &editor.text())? {
+                    let text = editor.text();
+                    let validates = self.validates(&text);
+                    if keys.defer_submit(&mut self.row, validates) {
+                        continue;
+                    }
+                    if let Some(value) = self.submit(&mut render, done, &text)? {
                         return Ok(Some(value));
                     }
                     false
@@ -459,7 +469,13 @@ where
             if changed {
                 self.row.changed(&editor.text());
             }
-        }
+        })
+    }
+
+    /// Whether `Enter` with `input` typed runs the validators (or ends without them).
+    fn validates(&self, input: &str) -> bool {
+        !self.validators.is_empty()
+            && (!input.is_empty() || self.default.is_some() || self.permit_empty)
     }
 
     /// Replaces the text with its completion, if there is one. Returns whether the text

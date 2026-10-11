@@ -9,7 +9,7 @@ use crate::{
     prompts::{
         base::{base_methods, PromptBase},
         item::{check_index, next_enabled, next_where, IntoItem, Item},
-        row::{Row, Validators},
+        row::{Keys, Row, Validators},
     },
     theme::{
         render::{row_lines, TermThemeRenderer},
@@ -291,7 +291,8 @@ impl<'a> FuzzySelect<'a> {
         let mut highlighted = None;
         let mut opened = false;
 
-        loop {
+        let worker = self.row.worker();
+        Keys::run(worker, |keys| loop {
             let mut byte_indices = search_term
                 .char_indices()
                 .map(|(index, _)| index)
@@ -373,7 +374,10 @@ impl<'a> FuzzySelect<'a> {
                 row,
             )?;
 
-            match (term.read_key_raw()?, sel, vim_mode) {
+            let Some(key) = keys.next(term, &mut self.row)? else {
+                continue;
+            };
+            match (key, sel, vim_mode) {
                 (Key::CtrlC, ..) => {
                     return render.cancel(PromptKind::FuzzySelect, Some(&self.prompt))
                 }
@@ -414,6 +418,10 @@ impl<'a> FuzzySelect<'a> {
                 (Key::Enter, Some(sel), _) if sel < filtered_list.len() => {
                     let (index, item, _) = filtered_list[sel];
 
+                    let validates = !self.validators.is_empty();
+                    if keys.defer_submit(&mut self.row, validates) {
+                        continue;
+                    }
                     if let Some(err) = self.validators.check(&index) {
                         self.row.invalid(err);
                         continue;
@@ -444,7 +452,7 @@ impl<'a> FuzzySelect<'a> {
 
                 _ => {}
             }
-        }
+        })
     }
 
     /// The index an unattended run answers with: the item at the default's index, or the

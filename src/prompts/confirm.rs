@@ -7,7 +7,7 @@ use crate::{
     output::message::Message,
     prompts::{
         base::{base_methods, PromptBase},
-        row::Row,
+        row::{Keys, Row},
     },
     theme::{
         render::TermThemeRenderer,
@@ -217,11 +217,14 @@ impl<'a> Confirm<'a> {
             .or(options.confirm.choices_as_buttons)
             .unwrap_or(false);
 
-        let answer = if buttons {
-            self.read_buttons(term, &mut render, allow_back, wait_for_newline)?
-        } else {
-            self.read_choice(term, &mut render, allow_back, wait_for_newline)?
-        };
+        let worker = self.row.worker();
+        let answer = Keys::run(worker, |keys| {
+            if buttons {
+                self.read_buttons(term, &mut render, keys, allow_back, wait_for_newline)
+            } else {
+                self.read_choice(term, &mut render, keys, allow_back, wait_for_newline)
+            }
+        })?;
         match answer {
             Some(yes) => {
                 render.finish(done, PromptKind::Confirm, &self.prompt, Answer::Bool(yes))?;
@@ -240,6 +243,7 @@ impl<'a> Confirm<'a> {
         &mut self,
         term: &Term,
         render: &mut TermThemeRenderer,
+        keys: &mut Keys<bool>,
         allow_back: bool,
         wait_for_newline: bool,
     ) -> Result<Option<bool>> {
@@ -255,7 +259,10 @@ impl<'a> Confirm<'a> {
         let mut value = default_if_show;
         loop {
             self.draw(render, value, None)?;
-            let new = match term.read_key_raw()? {
+            let Some(key) = keys.next(term, &mut self.row)? else {
+                continue;
+            };
+            let new = match key {
                 Key::CtrlC => return render.cancel(PromptKind::Confirm, Some(&self.prompt)),
                 Key::Char('y') | Key::Char('Y') => true,
                 Key::Char('n') | Key::Char('N') => false,
@@ -305,6 +312,7 @@ impl<'a> Confirm<'a> {
         &mut self,
         term: &Term,
         render: &mut TermThemeRenderer,
+        keys: &mut Keys<bool>,
         allow_back: bool,
         wait_for_newline: bool,
     ) -> Result<Option<bool>> {
@@ -313,7 +321,10 @@ impl<'a> Confirm<'a> {
         loop {
             self.draw(render, None, Some(yes_focused))?;
             let focused = yes_focused;
-            match term.read_key_raw()? {
+            let Some(key) = keys.next(term, &mut self.row)? else {
+                continue;
+            };
+            match key {
                 Key::CtrlC => return render.cancel(PromptKind::Confirm, Some(&self.prompt)),
                 Key::ArrowLeft | Key::ArrowRight | Key::Tab => yes_focused = !yes_focused,
                 Key::Char('y') | Key::Char('Y') if wait_for_newline => yes_focused = true,

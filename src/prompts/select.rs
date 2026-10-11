@@ -9,7 +9,7 @@ use crate::{
     prompts::{
         base::{base_methods, PromptBase},
         item::{check_index, next_enabled, step_enabled, IntoItem, Item},
-        row::{Row, Validators},
+        row::{Keys, Row, Validators},
     },
     theme::{
         render::{row_lines, TermThemeRenderer},
@@ -266,11 +266,15 @@ impl<'a> Select<'a> {
         term.hide_cursor()?;
         paging.update_page(sel);
 
-        loop {
+        let worker = self.row.worker();
+        Keys::run(worker, |keys| loop {
             self.draw(&mut render, &mut paging, sel)?;
             let highlighted = sel;
 
-            match term.read_key_raw()? {
+            let Some(key) = keys.next(term, &mut self.row)? else {
+                continue;
+            };
+            match key {
                 Key::CtrlC => return render.cancel(PromptKind::Select, self.prompt.as_deref()),
                 Key::ArrowDown | Key::Tab | Key::Char('j') => {
                     sel = step_enabled(&self.items, sel, true).unwrap_or(sel);
@@ -298,6 +302,10 @@ impl<'a> Select<'a> {
                 }
 
                 Key::Enter | Key::Char(' ') if sel != !0 => {
+                    let validates = !self.validators.is_empty();
+                    if keys.defer_submit(&mut self.row, validates) {
+                        continue;
+                    }
                     if let Some(err) = self.validators.check(&sel) {
                         self.row.invalid(err);
                         continue;
@@ -321,7 +329,7 @@ impl<'a> Select<'a> {
             }
 
             paging.update(sel);
-        }
+        })
     }
 
     /// The index an unattended run answers with: the default, or the next enabled item
