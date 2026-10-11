@@ -38,6 +38,8 @@ pub(crate) struct TermThemeRenderer<'a> {
     height: usize,
     prompt_height: usize,
     prompts_reset_height: bool,
+    /// Pauses a running live component (a task's spinner) while the prompt is shown.
+    _pause: crate::live::engine::Pause,
     /// An input error waiting to be drawn under the next input prompt.
     pending_error: Option<String>,
     /// An error row is on screen under the input line.
@@ -57,6 +59,7 @@ impl<'a> TermThemeRenderer<'a> {
             prompts_reset_height: true,
             pending_error: None,
             error_shown: false,
+            _pause: crate::live::engine::Pause::new(),
         }
     }
 

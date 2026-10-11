@@ -1,7 +1,8 @@
 //! Design tokens: the values every component is drawn with.
 //!
 //! [`Tokens`] holds three semantic groups ([`Palette`], [`Glyphs`], [`Layout`]) and one
-//! group of component tokens per component family ([`MessageTokens`]). Component tokens
+//! group of component tokens per component family ([`MessageTokens`], [`BlockTokens`],
+//! [`LiveTokens`]). Component tokens
 //! are optional: anything left unset falls back from the member (one status) to the
 //! family base, then to the semantic tokens. Changing a semantic token restyles every
 //! component that has not overridden it.
@@ -105,10 +106,12 @@ impl Palette {
 
 macro_rules! glyphs {
     ($($(#[$meta:meta])* $glyph:ident),* $(,)?) => {
-        /// Named symbols. An empty glyph means "no glyph".
+        /// Named symbols. An empty glyph means "no glyph". The spinner is a list of
+        /// frames; an empty list means "no spinner glyph".
         #[derive(Clone, Debug, Default)]
         pub struct Glyphs {
             $($glyph: &'static str,)*
+            spinner: &'static [&'static str],
         }
 
         impl Glyphs {
@@ -150,9 +153,29 @@ glyphs! {
     box_bl,
     /// Box corner, bottom right.
     box_br,
+    /// Before a nested step line of a task.
+    nested,
 }
 
+/// Spinner frames of the Unicode glyph set.
+const SPINNER_UNICODE: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+/// Spinner frames of the ASCII glyph sets.
+const SPINNER_ASCII: &[&str] = &["-", "\\", "|", "/"];
+
 impl Glyphs {
+    /// The frames a spinner cycles through, one per tick (see
+    /// [`Task`](crate::Task)). An empty list draws no spinner glyph.
+    pub fn spinner(mut self, frames: &'static [&'static str]) -> Self {
+        self.spinner = frames;
+        self
+    }
+
+    /// See [`spinner`](Self::spinner).
+    pub fn get_spinner(&self) -> &'static [&'static str] {
+        self.spinner
+    }
+
     /// No glyphs: messages carry words instead (`error: …`).
     pub fn none() -> Self {
         Self::default()
@@ -168,6 +191,8 @@ impl Glyphs {
             .box_tr("╮")
             .box_bl("╰")
             .box_br("╯")
+            .nested("↳")
+            .spinner(SPINNER_UNICODE)
             .hint("›")
             .info("•")
             .success("✔")
@@ -186,9 +211,11 @@ impl Glyphs {
             .error("x")
     }
 
-    /// Only the ASCII section mark and box parts, no status glyphs.
+    /// Only the ASCII section mark, box parts, step mark and spinner, no status glyphs.
     pub fn ascii_frames() -> Self {
         Self::none()
+            .nested("-")
+            .spinner(SPINNER_ASCII)
             .section("#")
             .box_h("-")
             .box_v("|")
@@ -208,6 +235,7 @@ impl Glyphs {
             GlyphName::BoxTr => self.box_tr,
             GlyphName::BoxBl => self.box_bl,
             GlyphName::BoxBr => self.box_br,
+            GlyphName::Nested => self.nested,
         }
     }
 
@@ -243,6 +271,8 @@ pub enum GlyphName {
     BoxBl,
     /// Box corner, bottom right.
     BoxBr,
+    /// Before a nested step line of a task.
+    Nested,
 }
 
 /// Spacing.
@@ -525,6 +555,104 @@ impl BlockTokens {
     }
 }
 
+settings! {
+    /// How a live component (a spinner) looks. Unset fields fall back to the family
+    /// base, then to the built-in defaults and the palette roles.
+    pub struct LiveStyle {
+        /// The spinner glyph. Default: `accent`.
+        spinner_style: Style,
+        /// The running label. Default: `muted`.
+        label_style: Style,
+        /// Nested step lines. Default: `muted`.
+        step_style: Style,
+        /// The glyph before a step line. Default: `faint`.
+        nested_style: Style,
+        /// The elapsed time. Default: `subtle`.
+        elapsed_style: Style,
+        /// Columns a step line is indented by. Default 4.
+        step_indent: usize,
+        /// Whether the elapsed time is shown. Default true.
+        show_elapsed: bool,
+    }
+}
+
+/// Which live component a style is for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum LiveKind {
+    /// [`Task`](crate::Task).
+    Task,
+}
+
+/// Component tokens for live components: a base for every one, and one group per
+/// component that overrides it.
+#[derive(Clone, Debug, Default)]
+pub struct LiveTokens {
+    base: LiveStyle,
+    task: LiveStyle,
+}
+
+macro_rules! live_groups {
+    ($($(#[$meta:meta])* $group:ident),*) => {
+        impl LiveTokens {
+            $(
+                $(#[$meta])*
+                pub fn $group(mut self, f: impl FnOnce(LiveStyle) -> LiveStyle) -> Self {
+                    self.$group = f(self.$group);
+                    self
+                }
+            )*
+        }
+    };
+}
+
+live_groups! {
+    /// Settings for every live component.
+    base,
+    /// Tasks.
+    task
+}
+
+/// The final look of one live component, after the fallbacks.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct LiveLook {
+    /// The spinner glyph.
+    pub spinner_style: Style,
+    /// The running label.
+    pub label_style: Style,
+    /// Nested step lines.
+    pub step_style: Style,
+    /// The glyph before a step line.
+    pub nested_style: Style,
+    /// The elapsed time.
+    pub elapsed_style: Style,
+    /// Columns a step line is indented by.
+    pub step_indent: usize,
+    /// Whether the elapsed time is shown.
+    pub show_elapsed: bool,
+}
+
+impl LiveTokens {
+    /// Resolves the look of `kind`: its own group, the base, then the defaults.
+    pub fn resolve(&self, kind: LiveKind, tokens: &Tokens) -> LiveLook {
+        let member = match kind {
+            LiveKind::Task => &self.task,
+        };
+        let s = member.merged(&self.base);
+        let role = |r: Role| tokens.palette.get(r).clone();
+        LiveLook {
+            spinner_style: s.spinner_style.unwrap_or_else(|| role(Role::accent)),
+            label_style: s.label_style.unwrap_or_else(|| role(Role::muted)),
+            step_style: s.step_style.unwrap_or_else(|| role(Role::muted)),
+            nested_style: s.nested_style.unwrap_or_else(|| role(Role::faint)),
+            elapsed_style: s.elapsed_style.unwrap_or_else(|| role(Role::subtle)),
+            step_indent: s.step_indent.unwrap_or(4),
+            show_elapsed: s.show_elapsed.unwrap_or(true),
+        }
+    }
+}
+
 /// Every token a theme draws with.
 #[derive(Clone, Debug, Default)]
 pub struct Tokens {
@@ -533,6 +661,7 @@ pub struct Tokens {
     layout: Layout,
     messages: MessageTokens,
     blocks: BlockTokens,
+    live: LiveTokens,
 }
 
 impl Tokens {
@@ -544,6 +673,7 @@ impl Tokens {
             glyphs: Glyphs::ascii_frames(),
             layout: Layout::default(),
             blocks: BlockTokens::default(),
+            live: LiveTokens::default(),
             messages: MessageTokens::default()
                 .hint(|s| s.word(Some("hint:")))
                 .info(|s| s.word(Some("info:")))
@@ -565,6 +695,7 @@ impl Tokens {
                 .section(|s| s.title_style(Style::new().bold()))
                 .table(|s| s.header_style(Style::new().bold()))
                 .panel(|s| s.title_style(Style::new().cyan().bold())),
+            live: LiveTokens::default(),
             messages: MessageTokens::default().error(|s| s.text_style(Style::new().red())),
         }
     }
@@ -597,6 +728,17 @@ impl Tokens {
     pub fn blocks(mut self, f: impl FnOnce(BlockTokens) -> BlockTokens) -> Self {
         self.blocks = f(self.blocks);
         self
+    }
+
+    /// Changes the live component tokens.
+    pub fn live(mut self, f: impl FnOnce(LiveTokens) -> LiveTokens) -> Self {
+        self.live = f(self.live);
+        self
+    }
+
+    /// The live component tokens.
+    pub fn get_live(&self) -> &LiveTokens {
+        &self.live
     }
 
     /// The output block tokens.

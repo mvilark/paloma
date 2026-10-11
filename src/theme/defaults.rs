@@ -19,8 +19,8 @@
 use std::fmt;
 
 use crate::theme::{
-    BlockKind, Context, GlyphName, KeyValueView, MessageView, PanelView, Role, SectionView,
-    TableView,
+    BlockKind, Context, GlyphName, KeyValueView, LiveKind, MessageView, PanelView, Role,
+    SectionView, TableView, TaskState, TaskStepView, TaskView,
 };
 
 /// One message line: the indent for its depth, then the glyph, the word and the text,
@@ -186,6 +186,45 @@ pub fn format_panel(f: &mut dyn fmt::Write, ctx: &Context, view: &PanelView) -> 
         edge(&g(GlyphName::BoxH).repeat(inner)),
         edge(g(GlyphName::BoxBr))
     )
+}
+
+/// A task line. Running: the spinner frame, the label and, if `show_elapsed`, the
+/// elapsed time. Finished: the result drawn like a message of that status
+/// ([`format_message`]) and the elapsed time.
+pub fn format_task(f: &mut dyn fmt::Write, ctx: &Context, view: &TaskView) -> fmt::Result {
+    let tokens = ctx.tokens();
+    let look = tokens.get_live().resolve(LiveKind::Task, tokens);
+    match view.state {
+        TaskState::Running => {
+            let frames = tokens.get_glyphs().get_spinner();
+            if !frames.is_empty() {
+                let glyph = frames[view.frame % frames.len()];
+                write!(f, "{} ", ctx.paint(&look.spinner_style, glyph))?;
+            }
+            write!(f, "{}", ctx.paint(&look.label_style, view.text))?;
+        }
+        TaskState::Finished(status) => {
+            format_message(f, ctx, &MessageView::new(status, view.text, 0))?;
+        }
+    }
+    if look.show_elapsed {
+        let secs = format!("{:.1}s", view.elapsed.as_secs_f64());
+        write!(f, "  {}", ctx.paint(&look.elapsed_style, secs))?;
+    }
+    Ok(())
+}
+
+/// A step line under a task: the `step_indent` token as spaces, the nested glyph and
+/// the text.
+pub fn format_task_step(f: &mut dyn fmt::Write, ctx: &Context, view: &TaskStepView) -> fmt::Result {
+    let tokens = ctx.tokens();
+    let look = tokens.get_live().resolve(LiveKind::Task, tokens);
+    write!(f, "{}", " ".repeat(look.step_indent))?;
+    let glyph = tokens.get_glyphs().get(GlyphName::Nested);
+    if !glyph.is_empty() {
+        write!(f, "{} ", ctx.paint(&look.nested_style, glyph))?;
+    }
+    write!(f, "{}", ctx.paint(&look.step_style, view.text))
 }
 
 #[cfg(test)]

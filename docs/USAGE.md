@@ -127,6 +127,28 @@ Panel::new("Setup complete")
 
 `paloma::text::link(url)` is an OSC 8 hyperlink on a terminal (plain text elsewhere; `.text(..)` for other link text) and `paloma::text::gradient(text, from, to)` colours text along an RGB gradient where 24-bit colour is available. Both are `Display`. See `examples/blocks.rs`.
 
+## Tasks
+A spinner for work that takes a while. `paloma::task(label).start()?` draws the label with a turning spinner and the elapsed time; `step` prints a nested line above it, `label` changes the running label, and `success` / `warning` / `fail` (or `finish(status, text)`) stop the spinner and print the result line. `clear()` stops it and prints no result; dropping a `RunningTask` without finishing does the same.
+```rust
+let task = paloma::task("Installing dependencies...").start()?;
+task.step("Resolved 214 packages")?;
+let elapsed = task.success("Installed dependencies")?;   // returns the Duration
+```
+`SimpleTheme` prints `success: Installed dependencies  1.8s` and steps as `    - Resolved 214 packages`, with an ASCII spinner; `ColorfulTheme` uses a Unicode spinner and glyphs. `.theme(t)` takes the theme by value (the spinner redraws from another thread), `.stream(..)` picks the stream, and `.start_on(&term)` draws on a given terminal.
+
+Motion (the turning spinner) is on when the stream is a terminal and the `CI` environment variable is not set; `Options::live(|l| l.motion(true))` or `.task(..)` overrides `CI` but never turns motion on for a pipe or a file. Without motion nothing is drawn at `start`, and each step and the result line are printed once. Other options: `frame_ms` (default 80) and `stream` (default stderr), in the `live` family group and the `task` group.
+
+One live component runs at a time; a second `start` returns an error. Print only through the task while it runs (`step`, not `println!`). A prompt shown while a task runs pauses the spinner and brings it back below the answer, so a step can ask something in the middle of work.
+
+paloma installs no signal handler. The spinner hides the cursor, so call `paloma::terminal::restore()` from your own Ctrl+C handler before exiting; it erases the spinner line and shows the cursor, and is safe when nothing is running:
+```rust
+ctrlc::set_handler(|| {
+    paloma::terminal::restore();
+    std::process::exit(130);
+})?;
+```
+Finishing the task, dropping it and a panic that unwinds all give the cursor back. A task's look comes from the `live` tokens (`LiveTokens`: `spinner_style`, `label_style`, `step_style`, `nested_style`, `elapsed_style`, `step_indent` and `show_elapsed`, with a `base` and a `task` group) and the `spinner` and `nested` glyphs; themes draw it in `format_task` and `format_task_step`. See `examples/tasks.rs`.
+
 ## Themes
 `SimpleTheme` (plain, default for `new()`) and `ColorfulTheme` (public styled fields, e.g. `prompt_style`, `values_style`; use struct-update syntax):
 ```rust
@@ -166,4 +188,4 @@ paloma::set_options(
 );
 ```
 
-A setting is resolved in this order: the component's own builder method (`Confirm::new().choices_as_buttons(..)`), its member group in `Options`, its family group (`prompts`, `messages`), then the built-in default. Prompt groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`; message groups: `description`, `hint`, `info`, `success`, `warning`, `error`. `general().report` still works but is deprecated in favour of `prompts().report`. Input and password errors (validation, parsing, password mismatch) are drawn on the line under the input and disappear once the user submits again; a theme styles them with `format_error`.
+A setting is resolved in this order: the component's own builder method (`Confirm::new().choices_as_buttons(..)`), its member group in `Options`, its family group (`prompts`, `messages`), then the built-in default. Prompt groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`; message groups: `description`, `hint`, `info`, `success`, `warning`, `error`; block groups: `section`, `key_value`, `table`, `panel` (family `blocks`); live groups: `task` (family `live`). `general().report` still works but is deprecated in favour of `prompts().report`. Input and password errors (validation, parsing, password mismatch) are drawn on the line under the input and disappear once the user submits again; a theme styles them with `format_error`.

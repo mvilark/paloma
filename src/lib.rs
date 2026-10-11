@@ -5,8 +5,8 @@
 //! code, and every look and behaviour can be changed with paloma's own tools.
 //! It is line-oriented: there are no full-screen views.
 //!
-//! The prompts are built; flows, messages, spinners and progress bars are on the
-//! roadmap. paloma draws with [console](https://docs.rs/console), re-exported as
+//! The prompts, messages, output blocks and tasks (spinners) are built; flows and
+//! progress bars are on the roadmap. paloma draws with [console](https://docs.rs/console), re-exported as
 //! [`paloma::console`](console).
 //!
 //! # Crate Contents
@@ -42,6 +42,7 @@ pub use edit::Editor;
 pub use error::{Error, Result};
 #[cfg(feature = "history")]
 pub use history::{BasicHistory, History};
+pub use live::task::{task, RunningTask, Task};
 pub use options::{set_options, Options};
 pub use output::message::{description, error, hint, info, success, warning, Message, Status};
 pub use output::{
@@ -69,6 +70,7 @@ mod edit;
 mod error;
 #[cfg(feature = "history")]
 mod history;
+mod live;
 pub mod options;
 mod output;
 mod paging;

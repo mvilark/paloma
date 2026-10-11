@@ -20,6 +20,7 @@ mod restyle;
 mod simple;
 mod tokens;
 
+pub use crate::live::task::{TaskState, TaskStepView, TaskView};
 pub use crate::output::{
     key_value::KeyValueView,
     message::{MessageView, Status},
@@ -32,8 +33,8 @@ pub use context::Context;
 pub use restyle::Restyled;
 pub use simple::SimpleTheme;
 pub use tokens::{
-    BlockKind, BlockLook, BlockStyle, BlockTokens, GlyphName, Glyphs, Layout, MessageLook,
-    MessageStyle, MessageTokens, Palette, Role, Tokens,
+    BlockKind, BlockLook, BlockStyle, BlockTokens, GlyphName, Glyphs, Layout, LiveKind, LiveLook,
+    LiveStyle, LiveTokens, MessageLook, MessageStyle, MessageTokens, Palette, Role, Tokens,
 };
 
 /// Implements a theme for paloma.
@@ -101,6 +102,24 @@ pub trait Theme {
     /// [`defaults::format_panel`].
     fn format_panel(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &PanelView) -> fmt::Result {
         defaults::format_panel(f, ctx, view)
+    }
+
+    /// Formats the line of a task (see [`Task`](crate::Task)): the spinner and label
+    /// while it runs, the result line once it has finished. The default is
+    /// [`defaults::format_task`].
+    fn format_task(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &TaskView) -> fmt::Result {
+        defaults::format_task(f, ctx, view)
+    }
+
+    /// Formats a nested step line under a running task. The default is
+    /// [`defaults::format_task_step`].
+    fn format_task_step(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &TaskStepView,
+    ) -> fmt::Result {
+        defaults::format_task_step(f, ctx, view)
     }
 
     /// Formats a prompt.

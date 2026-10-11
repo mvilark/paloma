@@ -1,8 +1,8 @@
 //! App-wide behavior options set by [`set_options`].
 //!
 //! Themes decide how things look; options decide how they work. Settings are grouped
-//! by component family (`prompts`, `messages`), with one group per member underneath
-//! (`confirm`, `select`, …, `error`, `warning`, …):
+//! by component family (`prompts`, `messages`, `blocks`, `live`), with one group per
+//! member underneath (`confirm`, `select`, …, `error`, `warning`, …, `task`):
 //!
 //! ```rust,no_run
 //! use paloma::{terminal::Stream, Options};
@@ -19,11 +19,16 @@
 //! ```
 //!
 //! A setting is resolved in this order: the component's own builder method, its member
-//! group (`select`, `error`), its family group (`prompts`, `messages`), then the
+//! group (`select`, `error`), its family group (`prompts`, `messages`, …), then the
 //! built-in default.
 use std::sync::RwLock;
 
-use crate::{output::message::Status, settings::settings, terminal::Stream, theme::BlockKind};
+use crate::{
+    output::message::Status,
+    settings::settings,
+    terminal::Stream,
+    theme::{BlockKind, LiveKind},
+};
 
 static APP_OPTIONS: RwLock<Option<Options>> = RwLock::new(None);
 
@@ -109,6 +114,20 @@ settings! {
     }
 }
 
+settings! {
+    /// Settings for live components ([`Task`](crate::Task)): the `live` family group
+    /// and the group of each component (`task`).
+    pub struct LiveOptions {
+        /// Whether live components redraw (spinners turn). Default: on when the stream
+        /// is a terminal and `CI` is not set. Never on when the stream is not a terminal.
+        motion: bool,
+        /// Milliseconds between frames. Default 80.
+        frame_ms: u64,
+        /// Where live components draw. Default stderr.
+        stream: Stream,
+    }
+}
+
 /// App-wide behavior options. See the [module docs](self).
 #[derive(Clone, Default, Debug)]
 pub struct Options {
@@ -133,6 +152,8 @@ pub struct Options {
     pub(crate) key_value: BlockOptions,
     pub(crate) table: BlockOptions,
     pub(crate) panel: BlockOptions,
+    pub(crate) live: LiveOptions,
+    pub(crate) task: LiveOptions,
 }
 
 macro_rules! groups {
@@ -192,6 +213,10 @@ groups! {
     table: BlockOptions,
     /// Settings for [`Panel`](crate::Panel).
     panel: BlockOptions,
+    /// Settings shared by every live component.
+    live: LiveOptions,
+    /// Settings for [`Task`](crate::Task).
+    task: LiveOptions,
 }
 
 impl Options {
@@ -215,6 +240,13 @@ impl Options {
             BlockKind::KeyValue => &self.key_value,
             BlockKind::Table => &self.table,
             BlockKind::Panel => &self.panel,
+        }
+    }
+
+    /// The group of one live component.
+    pub(crate) fn live_member(&self, kind: LiveKind) -> &LiveOptions {
+        match kind {
+            LiveKind::Task => &self.task,
         }
     }
 
@@ -258,5 +290,16 @@ mod tests {
         let stream = |s: Status| o.status(s).stream.or(o.messages.stream);
         assert_eq!(stream(Status::Error), Some(Stream::Stderr));
         assert_eq!(stream(Status::Info), Some(Stream::Stdout));
+    }
+
+    #[test]
+    fn live_settings_resolve_task_then_live() {
+        let o = Options::new()
+            .live(|l| l.frame_ms(120).motion(false))
+            .task(|t| t.frame_ms(40));
+        let member = o.live_member(LiveKind::Task);
+        assert_eq!(member.frame_ms.or(o.live.frame_ms), Some(40));
+        assert_eq!(member.motion.or(o.live.motion), Some(false));
+        assert_eq!(member.stream.or(o.live.stream), None);
     }
 }
