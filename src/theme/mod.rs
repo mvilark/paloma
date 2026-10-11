@@ -20,12 +20,22 @@ mod restyle;
 mod simple;
 mod tokens;
 
-pub use crate::output::message::{MessageView, Status};
+pub use crate::live::task::{TaskState, TaskStepView, TaskView};
+pub use crate::output::{
+    key_value::KeyValueView,
+    message::{MessageView, Status},
+    panel::PanelView,
+    section::SectionView,
+    table::TableView,
+};
 pub use colorful::ColorfulTheme;
 pub use context::Context;
 pub use restyle::Restyled;
 pub use simple::SimpleTheme;
-pub use tokens::{Glyphs, Layout, MessageLook, MessageStyle, MessageTokens, Palette, Role, Tokens};
+pub use tokens::{
+    BlockKind, BlockLook, BlockStyle, BlockTokens, GlyphName, Glyphs, Layout, LiveKind, LiveLook,
+    LiveStyle, LiveTokens, MessageLook, MessageStyle, MessageTokens, Palette, Role, Tokens,
+};
 
 /// Implements a theme for paloma.
 pub trait Theme {
@@ -58,6 +68,58 @@ pub trait Theme {
         view: &MessageView,
     ) -> fmt::Result {
         defaults::format_message(f, ctx, view)
+    }
+
+    /// Formats a section title (see [`Section`](crate::Section)). The default is
+    /// [`defaults::format_section`].
+    fn format_section(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &SectionView,
+    ) -> fmt::Result {
+        defaults::format_section(f, ctx, view)
+    }
+
+    /// Formats key/value rows (see [`KeyValue`](crate::KeyValue)), one per line. The
+    /// default is [`defaults::format_key_value`].
+    fn format_key_value(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &KeyValueView,
+    ) -> fmt::Result {
+        defaults::format_key_value(f, ctx, view)
+    }
+
+    /// Formats a table (see [`Table`](crate::Table)). The default is
+    /// [`defaults::format_table`].
+    fn format_table(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &TableView) -> fmt::Result {
+        defaults::format_table(f, ctx, view)
+    }
+
+    /// Formats a panel (see [`Panel`](crate::Panel)). The default is
+    /// [`defaults::format_panel`].
+    fn format_panel(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &PanelView) -> fmt::Result {
+        defaults::format_panel(f, ctx, view)
+    }
+
+    /// Formats the line of a task (see [`Task`](crate::Task)): the spinner and label
+    /// while it runs, the result line once it has finished. The default is
+    /// [`defaults::format_task`].
+    fn format_task(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &TaskView) -> fmt::Result {
+        defaults::format_task(f, ctx, view)
+    }
+
+    /// Formats a nested step line under a running task. The default is
+    /// [`defaults::format_task_step`].
+    fn format_task_step(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &TaskStepView,
+    ) -> fmt::Result {
+        defaults::format_task_step(f, ctx, view)
     }
 
     /// Formats a prompt.

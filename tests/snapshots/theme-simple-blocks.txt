@@ -1,0 +1,4 @@
+section(Setup) => "# Setup"
+key_value => "State    Connected\nServer   es-bcn-01"
+table => "Server      Load\nus-nyc-01   42% "
+panel(Done) => "+- Done -------------------------------------------------------+\n| Signed in                                               1.8s |\n| Kill switch is off                                           |\n| Plain row                                                    |\n+--------------------------------------------------------------+"

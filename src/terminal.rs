@@ -7,6 +7,8 @@ use std::env;
 
 use console::Term;
 
+pub use crate::live::engine::restore;
+
 /// Where a component writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Stream {

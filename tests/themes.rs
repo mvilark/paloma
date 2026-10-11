@@ -5,11 +5,16 @@
 //! here is a visible change for every app that uses `SimpleTheme` or `ColorfulTheme`.
 mod common;
 
-use std::fmt::{self, Write};
+use std::{
+    fmt::{self, Write},
+    time::Duration,
+};
 
 use paloma::{
     terminal::Stream,
     theme::{ColorfulTheme, Context, MessageView, SimpleTheme, Status, Theme},
+    theme::{KeyValueView, PanelView, SectionView, TableView, TaskState, TaskStepView, TaskView},
+    PanelRow,
 };
 
 /// One line per hook call: `name(args) => output`.
@@ -178,6 +183,79 @@ fn message_sheet(theme: &dyn Theme) -> String {
     s.0
 }
 
+fn block_sheet(theme: &dyn Theme) -> String {
+    let mut s = Sheet(String::new());
+    let tokens = theme.tokens();
+    let ctx = Context::new(&tokens, Stream::Stderr);
+    s.line("section(Setup)", |f| {
+        theme.format_section(f, &ctx, &SectionView::new("Setup"))
+    });
+    let rows = [
+        ("State".to_string(), "Connected".to_string()),
+        ("Server".into(), "es-bcn-01".into()),
+    ];
+    s.line("key_value", |f| {
+        theme.format_key_value(f, &ctx, &KeyValueView::new(&rows))
+    });
+    let header = ["Server".to_string(), "Load".to_string()];
+    let cells = vec![vec!["us-nyc-01".to_string(), "42%".to_string()]];
+    s.line("table", |f| {
+        theme.format_table(f, &ctx, &TableView::new(&header, &cells))
+    });
+    let panel = [
+        PanelRow::new("Signed in")
+            .status(Status::Success)
+            .trailing("1.8s"),
+        PanelRow::new("Kill switch is off").status(Status::Warning),
+        PanelRow::new("Plain row"),
+    ];
+    s.line("panel(Done)", |f| {
+        theme.format_panel(f, &ctx, &PanelView::new("Done", &panel))
+    });
+    s.0
+}
+
+fn task_sheet(theme: &dyn Theme) -> String {
+    let mut s = Sheet(String::new());
+    let tokens = theme.tokens();
+    let ctx = Context::new(&tokens, Stream::Stderr);
+    let elapsed = Duration::from_millis(1250);
+    for frame in [0, 3] {
+        s.line(&format!("task(Working, running, {frame})"), |f| {
+            let view = TaskView::new("Working", TaskState::Running, elapsed, frame);
+            theme.format_task(f, &ctx, &view)
+        });
+    }
+    for status in [
+        Status::Description,
+        Status::Hint,
+        Status::Info,
+        Status::Success,
+        Status::Warning,
+        Status::Error,
+    ] {
+        s.line(&format!("task(Text, {status:?})"), |f| {
+            let view = TaskView::new("Text", TaskState::Finished(status), elapsed, 0);
+            theme.format_task(f, &ctx, &view)
+        });
+    }
+    // What `restyle(|t| t.live(|l| l.task(|t| t.show_elapsed(false))))` changes: hooks
+    // read their tokens from the context.
+    let quiet = tokens
+        .clone()
+        .into_owned()
+        .live(|l| l.task(|t| t.show_elapsed(false)));
+    let quiet_ctx = Context::new(&quiet, Stream::Stderr);
+    s.line("task(Working, running, 0, no elapsed)", |f| {
+        let view = TaskView::new("Working", TaskState::Running, elapsed, 0);
+        theme.format_task(f, &quiet_ctx, &view)
+    });
+    s.line("task_step(Generated device key)", |f| {
+        theme.format_task_step(f, &ctx, &TaskStepView::new("Generated device key"))
+    });
+    s.0
+}
+
 // One test function: colour support is global to the test binary.
 #[test]
 fn built_in_themes_render_unchanged() {
@@ -188,10 +266,28 @@ fn built_in_themes_render_unchanged() {
     common::assert_snapshot("theme-colorful", &sheet(&colorful));
     common::assert_snapshot("theme-simple-messages", &message_sheet(&SimpleTheme));
     common::assert_snapshot("theme-colorful-messages", &message_sheet(&colorful));
+    common::assert_snapshot("theme-simple-blocks", &block_sheet(&SimpleTheme));
+    common::assert_snapshot("theme-colorful-blocks", &block_sheet(&colorful));
+    common::assert_snapshot("theme-simple-tasks", &task_sheet(&SimpleTheme));
+    common::assert_snapshot("theme-colorful-tasks", &task_sheet(&colorful));
     // A restyled theme keeps every hook of the theme it wraps.
     let restyled = ColorfulTheme::default().restyle(|t| t);
     assert_eq!(sheet(&restyled), sheet(&colorful));
     assert_eq!(message_sheet(&restyled), message_sheet(&colorful));
+    assert_eq!(block_sheet(&restyled), block_sheet(&colorful));
+    assert_eq!(task_sheet(&restyled), task_sheet(&colorful));
+    // `restyle` reaches the live tokens: a task without the elapsed time.
+    let quiet = ColorfulTheme::default().restyle(|t| t.live(|l| l.task(|s| s.show_elapsed(false))));
+    let running_line = |theme: &dyn Theme| {
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let view = TaskView::new("Working", TaskState::Running, Duration::from_secs(1), 0);
+        let mut out = String::new();
+        theme.format_task(&mut out, &ctx, &view).unwrap();
+        out
+    };
+    assert!(running_line(&colorful).contains("1.0s"));
+    assert!(!running_line(&quiet).contains("1.0s"));
     #[cfg(feature = "password")]
     {
         common::assert_snapshot("theme-simple-password", &password_sheet(&SimpleTheme));

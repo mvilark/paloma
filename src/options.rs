@@ -1,8 +1,8 @@
 //! App-wide behavior options set by [`set_options`].
 //!
 //! Themes decide how things look; options decide how they work. Settings are grouped
-//! by component family (`prompts`, `messages`), with one group per member underneath
-//! (`confirm`, `select`, …, `error`, `warning`, …):
+//! by component family (`prompts`, `messages`, `blocks`, `live`), with one group per
+//! member underneath (`confirm`, `select`, …, `error`, `warning`, …, `task`):
 //!
 //! ```rust,no_run
 //! use paloma::{terminal::Stream, Options};
@@ -19,11 +19,16 @@
 //! ```
 //!
 //! A setting is resolved in this order: the component's own builder method, its member
-//! group (`select`, `error`), its family group (`prompts`, `messages`), then the
+//! group (`select`, `error`), its family group (`prompts`, `messages`, …), then the
 //! built-in default.
 use std::sync::RwLock;
 
-use crate::{output::message::Status, settings::settings, terminal::Stream};
+use crate::{
+    output::message::Status,
+    settings::settings,
+    terminal::Stream,
+    theme::{BlockKind, LiveKind},
+};
 
 static APP_OPTIONS: RwLock<Option<Options>> = RwLock::new(None);
 
@@ -98,6 +103,31 @@ settings! {
     }
 }
 
+settings! {
+    /// Settings for output blocks ([`Section`](crate::Section),
+    /// [`KeyValue`](crate::KeyValue), [`Table`](crate::Table), [`Panel`](crate::Panel)):
+    /// the `blocks` family group and the group of each block.
+    pub struct BlockOptions {
+        /// Where blocks are printed. The default is stderr for sections and panels and
+        /// stdout for key/value rows and tables, which are usually results.
+        stream: Stream,
+    }
+}
+
+settings! {
+    /// Settings for live components ([`Task`](crate::Task)): the `live` family group
+    /// and the group of each component (`task`).
+    pub struct LiveOptions {
+        /// Whether live components redraw (spinners turn). Default: on when the stream
+        /// is a terminal and `CI` is not set. Never on when the stream is not a terminal.
+        motion: bool,
+        /// Milliseconds between frames. Default 80.
+        frame_ms: u64,
+        /// Where live components draw. Default stderr.
+        stream: Stream,
+    }
+}
+
 /// App-wide behavior options. See the [module docs](self).
 #[derive(Clone, Default, Debug)]
 pub struct Options {
@@ -117,6 +147,13 @@ pub struct Options {
     pub(crate) success: MessageOptions,
     pub(crate) warning: MessageOptions,
     pub(crate) error: MessageOptions,
+    pub(crate) blocks: BlockOptions,
+    pub(crate) section: BlockOptions,
+    pub(crate) key_value: BlockOptions,
+    pub(crate) table: BlockOptions,
+    pub(crate) panel: BlockOptions,
+    pub(crate) live: LiveOptions,
+    pub(crate) task: LiveOptions,
 }
 
 macro_rules! groups {
@@ -166,6 +203,20 @@ groups! {
     warning: MessageOptions,
     /// Settings for error messages.
     error: MessageOptions,
+    /// Settings shared by every output block.
+    blocks: BlockOptions,
+    /// Settings for [`Section`](crate::Section).
+    section: BlockOptions,
+    /// Settings for [`KeyValue`](crate::KeyValue).
+    key_value: BlockOptions,
+    /// Settings for [`Table`](crate::Table).
+    table: BlockOptions,
+    /// Settings for [`Panel`](crate::Panel).
+    panel: BlockOptions,
+    /// Settings shared by every live component.
+    live: LiveOptions,
+    /// Settings for [`Task`](crate::Task).
+    task: LiveOptions,
 }
 
 impl Options {
@@ -180,6 +231,23 @@ impl Options {
         own.or(group)
             .or(self.prompts.report)
             .or(self.general.report)
+    }
+
+    /// The group of one output block.
+    pub(crate) fn block(&self, kind: BlockKind) -> &BlockOptions {
+        match kind {
+            BlockKind::Section => &self.section,
+            BlockKind::KeyValue => &self.key_value,
+            BlockKind::Table => &self.table,
+            BlockKind::Panel => &self.panel,
+        }
+    }
+
+    /// The group of one live component.
+    pub(crate) fn live_member(&self, kind: LiveKind) -> &LiveOptions {
+        match kind {
+            LiveKind::Task => &self.task,
+        }
     }
 
     /// The group of one message status.
@@ -222,5 +290,16 @@ mod tests {
         let stream = |s: Status| o.status(s).stream.or(o.messages.stream);
         assert_eq!(stream(Status::Error), Some(Stream::Stderr));
         assert_eq!(stream(Status::Info), Some(Stream::Stdout));
+    }
+
+    #[test]
+    fn live_settings_resolve_task_then_live() {
+        let o = Options::new()
+            .live(|l| l.frame_ms(120).motion(false))
+            .task(|t| t.frame_ms(40));
+        let member = o.live_member(LiveKind::Task);
+        assert_eq!(member.frame_ms.or(o.live.frame_ms), Some(40));
+        assert_eq!(member.motion.or(o.live.motion), Some(false));
+        assert_eq!(member.stream.or(o.live.stream), None);
     }
 }
