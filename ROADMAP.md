@@ -21,7 +21,6 @@ Rough ideas that are not yet scoped.
 Scoped and agreed, not started.
 
 - **PAL-004 · CLI UI framework.** Umbrella plan: build the rest of paloma's CLI UI framework (flows, messages, output blocks, spinners, progress bars) next to the existing prompts, with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
-- **PAL-006 · Foundations and messages.** Options families, terminal layer, tokens, `Context`, `restyle`, and `Message` (hint / info / success / warning / error, nestable). Plan: [PAL-004, Phase 1](docs/plans/PAL-004-ui-framework.md#pal-006--phase-1-foundations-and-messages).
 - **PAL-007 · Output blocks.** `Section`, `KeyValue`, `Table`, `Panel`, `link`, `gradient`. Plan: [PAL-004, Phase 2](docs/plans/PAL-004-ui-framework.md#pal-007--phase-2-output-blocks).
 - **PAL-008 · Live tasks.** `Task` with spinner, steps and elapsed time; motion off for CI and pipes. Plan: [PAL-004, Phase 3](docs/plans/PAL-004-ui-framework.md#pal-008--phase-3-live-tasks).
 - **PAL-009 · Theme v2 for prompts.** Prompt hooks take a context and a view; token-driven default layout. Breaking. Plan: [PAL-004, Phase 4](docs/plans/PAL-004-ui-framework.md#pal-009--phase-4-theme-v2-for-prompts).
@@ -31,10 +30,12 @@ Scoped and agreed, not started.
 
 ## In progress
 
-- **PAL-005 · Housekeeping and safety nets.** Convention fixes, golden tests for the built-in themes and the Ultraviolet example, builder names without `with_` and a single `Input::interact`. Plan: [PAL-004, Phase 0](docs/plans/PAL-004-ui-framework.md#pal-005--phase-0-housekeeping-and-safety-nets). Branch: `claude/dazzling-galileo-dqa12c`.
+_(none)_
 
 ## Done
 
+- **PAL-005 · Housekeeping and safety nets.** Convention fixes, golden tests for the built-in themes and the Ultraviolet example, builder names without `with_` and a single `Input::interact`. Plan: [PAL-004, Phase 0](docs/plans/PAL-004-ui-framework.md#pal-005--phase-0-housekeeping-and-safety-nets). PR #9.
+- **PAL-006 · Foundations and messages.** Options families, terminal layer, tokens, `Context`, `restyle`, and `Message` (hint / info / success / warning / error, nestable). Plan: [docs/plans/PAL-006-foundations-and-messages.md](docs/plans/PAL-006-foundations-and-messages.md) (from [PAL-004, Phase 1](docs/plans/PAL-004-ui-framework.md#pal-006--phase-1-foundations-and-messages)). PR #9.
 - **PAL-016 · Ultraviolet example uses paloma's current tools.** Answered lines for flags and `--yes` drawn by the theme's hooks, earlier answers kept when going back, ASCII fallback for the info glyph. Plan: [docs/plans/PAL-016-ultraviolet-uses-paloma.md](docs/plans/PAL-016-ultraviolet-uses-paloma.md). PR #9.
 - **PAL-003 · App-wide options.** `paloma::set_options` with per-prompt groups and `general`, `PromptBase` shared by all prompts, `Confirm` buttons and `on_shortcut`, `Password` mask and fixed-length result, input on its own line with errors under it. Recorded after the fact: it had no plan. PR #8.
 - **PAL-002 · Ultraviolet example app.** A fake VPN CLI in `examples/ultraviolet/` themed as faithfully as possible to the [Ultraviolet design system](docs/design/ultraviolet.md), plus a list of what paloma's theming cannot express yet. Plan: [docs/plans/PAL-002-ultraviolet-example.md](docs/plans/PAL-002-ultraviolet-example.md). Plan in PR #6, implemented in PR #7.

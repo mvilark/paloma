@@ -1,6 +1,6 @@
 # Using the library
 
-This crate, `paloma`, is a fork of dialoguer. Every prompt is a builder: configure it, then call `interact()`. All of them return `paloma::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
+This crate, `paloma`, is a fork of dialoguer. Every component is a builder: configure a prompt, then call `interact()`; configure a message, then call `print()`. All of them return `paloma::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
 
 ```toml
 [dependencies]
@@ -99,6 +99,17 @@ let text: Option<String> = Editor::new().extension(".md").edit("initial text")?;
 ## History and completion
 `BasicHistory::new().max_entries(8).no_duplicates(true)` implements `History`; pass `&mut` via `Input::history`. Implement `Completion::get(&self, input: &str) -> Option<String>` for tab-completion via `Input::completion`. See `examples/history.rs`, `history_custom.rs`, `completion.rs`.
 
+## Messages
+Status messages: `paloma::description / hint / info / success / warning / error(text)` (or `Message::error(..)` and friends) return a builder; `.print()` writes it.
+```rust
+use paloma::Message;
+
+paloma::error("Port 3000 is already in use")
+    .nest(Message::hint("Stop the other server or pick another port"))
+    .print()?;
+```
+`SimpleTheme` prints words (`error: …`, `  hint: …`), `ColorfulTheme` coloured glyphs (`✘ …`). `.nest(child)` draws a message indented under its parent, at any depth. `.stream(Stream::Stdout)` and `.theme(&t)` change one message; `.print_on(&term)` writes to a given terminal. See `examples/messages.rs`.
+
 ## Themes
 `SimpleTheme` (plain, default for `new()`) and `ColorfulTheme` (public styled fields, e.g. `prompt_style`, `values_style`; use struct-update syntax):
 ```rust
@@ -109,7 +120,17 @@ Set one theme for the whole app with `paloma::set_theme(theme)` (the theme must 
 
 For a full design system in practice, see `examples/ultraviolet/`: a fake VPN CLI whose `UltravioletTheme` implements `Theme` directly and is installed once with `set_theme` (`cargo run --example ultraviolet --all-features -- setup`).
 
-For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need.
+Every theme draws with design tokens (`paloma::theme::Tokens`): a `Palette` of colour roles (`text`, `subtle`, `accent`, `success`, `warning`, `error`, …), `Glyphs`, a `Layout`, and component tokens such as `MessageTokens` (a `base` style for every status, overridden per status). `restyle` changes the tokens of any theme without implementing the trait:
+```rust
+use paloma::{console::Style, theme::{ColorfulTheme, Theme}};
+paloma::set_theme(ColorfulTheme::default().restyle(|t| t
+    .palette(|p| p.info(Style::new().magenta()))
+    .glyphs(|g| g.warning("▲"))
+    .messages(|m| m.error(|e| e.word(Some("error:"))))));
+```
+Presets: `Tokens::plain()` (`SimpleTheme`) and `Tokens::colorful()` (`ColorfulTheme`). `paloma::terminal::capabilities(Stream::Stderr)` reports whether the terminal shows colours and Unicode and its colour depth, to choose tokens from.
+
+For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need. Hooks that take a `Context` (such as `format_message`) read tokens from it, and their defaults are public in `paloma::theme::defaults` so an override can wrap them.
 
 More runnable samples live in `examples/` (`cargo run --example wizard`).
 
@@ -119,11 +140,13 @@ Themes decide how prompts look; options decide how they work. Set them once, nex
 ```rust
 paloma::set_options(
     paloma::Options::new()
-        .general(|g| g.report(true))                       // every prompt
+        .prompts(|p| p.report(true))                       // every prompt
         .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
         .password(|p| p.mask(true).result_len(8))
-        .select(|s| s.report(false)),                      // overrides general for Select
+        .select(|s| s.report(false))                       // overrides prompts for Select
+        .messages(|m| m.stream(Stream::Stderr))            // every message
+        .success(|s| s.stream(Stream::Stdout)),            // overrides messages for success
 );
 ```
 
-A setting is resolved in this order: the prompt's own builder method (`Confirm::new().choices_as_buttons(..)`), the prompt's group in `Options`, `general`, then the built-in default. Groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`. Input and password errors (validation, parsing, password mismatch) are drawn on the line under the input and disappear once the user submits again; a theme styles them with `format_error`.
+A setting is resolved in this order: the component's own builder method (`Confirm::new().choices_as_buttons(..)`), its member group in `Options`, its family group (`prompts`, `messages`), then the built-in default. Prompt groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`; message groups: `description`, `hint`, `info`, `success`, `warning`, `error`. `general().report` still works but is deprecated in favour of `prompts().report`. Input and password errors (validation, parsing, password mismatch) are drawn on the line under the input and disappear once the user submits again; a theme styles them with `format_error`.

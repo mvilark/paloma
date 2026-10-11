@@ -5,8 +5,10 @@ No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API us
 ## Layout
 - `src/lib.rs` - public re-exports, module declarations and feature gates (`#![deny(clippy::all, missing_docs)]`). Nothing else lives there.
 - `src/prompts/` - one file per prompt: `confirm`, `input`, `select`, `multi_select`, `sort`, `password`, `fuzzy_select`; `base.rs` holds `PromptBase` (state every prompt shares) and the `report_methods!` macro.
-- `src/options.rs` - app-wide behaviour (`set_options`, `Options` and its per-prompt groups).
-- `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, and `app.rs` (app-wide theme, `set_theme`) and `render.rs` (internal `TermThemeRenderer` that prompts draw through).
+- `src/output/` - components that print once: `message.rs` (`Message`, `Status`, `MessageView`).
+- `src/options.rs` - app-wide behaviour (`set_options`, `Options`, family groups `prompts` / `messages` and member groups). `src/settings.rs` - the crate-private `settings!` macro every option group and component-token group is declared with.
+- `src/terminal.rs` - `Stream`, `Capabilities`, `capabilities()`.
+- `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, `tokens.rs` (`Tokens`, `Palette`, `Glyphs`, `Layout`, component tokens), `context.rs` (`Context` passed to new-style hooks), `defaults.rs` (public default bodies of those hooks), `restyle.rs` (`Restyled`, which must forward every `Theme` method), `app.rs` (app-wide theme, `set_theme`) and `render.rs` (internal `TermThemeRenderer` that prompts draw through).
 - `src/validate.rs`, `history.rs`, `completion.rs`, `edit.rs` (`Editor`), `paging.rs`, `error.rs`.
 - `examples/` - one runnable example per feature (`cargo run --example wizard`). `examples/ultraviolet/` is a larger fake VPN CLI themed with the Ultraviolet design system (`cargo run --example ultraviolet --all-features -- <command>`); its `ui.rs` draws the non-prompt output and its gaps are listed in [docs/plans/PAL-002-ultraviolet-example.md](docs/plans/PAL-002-ultraviolet-example.md).
 - `tests/` - integration tests: golden output of every `Theme` hook for the built-in themes (`themes.rs`) and transcripts of the Ultraviolet example's non-interactive commands (`ultraviolet.rs`, Unix only). Expected output lives in `tests/snapshots/`.
@@ -53,7 +55,8 @@ Create `src/prompts/<name>.rs` with a `base: PromptBase` field and `base_methods
 
 ## Adding or changing theme options
 - New styling field: add it to `ColorfulTheme` (`src/theme/colorful.rs`) and its `Default` impl; use it in the relevant `format_*` override. Adding a public field is a semver break for struct-literal users without `..Default::default()`, so check cargo-semver-checks.
-- New rendering hook: add a `format_*` method with a default implementation on `Theme` in `src/theme/mod.rs` (so existing themes keep compiling), call it via `render.rs`, and add it to `tests/themes.rs`.
+- New rendering hook: add a `format_*` method with a default implementation on `Theme` in `src/theme/mod.rs` (so existing themes keep compiling), forward it in `src/theme/restyle.rs`, call it via `render.rs`, and add it to `tests/themes.rs`. New hooks take `(f, ctx: &Context, view: &XView)`, read tokens from `ctx`, and keep their default body as a public function in `src/theme/defaults.rs`.
+- New token: add it to the right group in `src/theme/tokens.rs` (settings groups use `settings!`) and to the presets `Tokens::plain()` / `Tokens::colorful()` if they need a value.
 - A whole new theme: a struct implementing `Theme`, overriding only what differs, exported from `src/theme/mod.rs`.
 
 ## Releases
