@@ -1,7 +1,7 @@
 use paloma::{theme::ColorfulTheme, KeyValue, Message, Panel, PanelRow, Status, Table};
 
 fn main() -> paloma::Result {
-    paloma::set_theme(ColorfulTheme::default());
+    paloma::set_theme(ColorfulTheme);
 
     paloma::section("Status").print()?;
     KeyValue::new()

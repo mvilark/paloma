@@ -13,7 +13,7 @@ static APP_THEME: RwLock<Option<Arc<dyn Theme + Send + Sync>>> = RwLock::new(Non
 /// ```rust,no_run
 /// use paloma::{theme::ColorfulTheme, Confirm};
 ///
-/// paloma::set_theme(ColorfulTheme::default());
+/// paloma::set_theme(ColorfulTheme);
 /// let ok = Confirm::new().prompt("Continue?").interact().unwrap();
 /// ```
 pub fn set_theme<T: Theme + Send + Sync + 'static>(theme: T) {
@@ -33,14 +33,19 @@ pub(crate) fn current() -> Arc<dyn Theme + Send + Sync> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::theme::ColorfulTheme;
+    use crate::{
+        terminal::Stream,
+        theme::{ColorfulTheme, Context, ItemView, PromptKind, PromptView},
+    };
 
     fn prompt_with(theme: &dyn Theme) -> String {
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
         let mut out = String::new();
-        theme.format_prompt(&mut out, "Name").unwrap();
-        theme
-            .format_select_prompt_item(&mut out, "item", true)
-            .unwrap();
+        let view = PromptView::new(PromptKind::Select, "Name", None);
+        theme.format_prompt(&mut out, &ctx, &view).unwrap();
+        let view = ItemView::new(PromptKind::Select, "item", true, None, None);
+        theme.format_item(&mut out, &ctx, &view).unwrap();
         out
     }
 
@@ -49,8 +54,8 @@ mod tests {
     fn app_theme_defaults_to_simple_then_follows_set_theme() {
         assert_eq!(prompt_with(&*current()), prompt_with(&SimpleTheme));
 
-        let custom = ColorfulTheme::default();
-        set_theme(ColorfulTheme::default());
+        let custom = ColorfulTheme;
+        set_theme(ColorfulTheme);
         assert_eq!(prompt_with(&*current()), prompt_with(&custom));
         assert_ne!(prompt_with(&*current()), prompt_with(&SimpleTheme));
     }

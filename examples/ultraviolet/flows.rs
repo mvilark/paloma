@@ -1,9 +1,11 @@
 //! One function per command, with canned data.
-use std::{fmt, io::Write};
+use std::io::Write;
 
 use console::Term;
 use paloma::{
-    theme::Theme, Confirm, Error, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort,
+    terminal::Stream,
+    theme::{Answer, AnsweredView, Context, PromptKind, Theme},
+    Confirm, Error, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort,
 };
 
 use crate::{
@@ -41,9 +43,13 @@ fn valid_email(s: &String) -> std::result::Result<(), String> {
 
 /// Prints the line a prompt leaves once answered, for flags and `--yes`, drawn by the
 /// theme's own answered-prompt hook so it matches a real answer exactly.
-fn answered(hook: impl FnOnce(&theme::UltravioletTheme, &mut String) -> fmt::Result) {
+fn answered(kind: PromptKind, prompt: &str, answer: Answer) {
+    let theme = theme::app_theme();
+    let tokens = theme.tokens();
+    let ctx = Context::new(&tokens, Stream::Stderr);
     let mut line = String::new();
-    if hook(&theme::app_theme(), &mut line).is_ok() {
+    let view = AnsweredView::new(kind, prompt, answer);
+    if theme.format_answered(&mut line, &ctx, &view).is_ok() {
         let _ = writeln!(Term::stderr(), "{line}");
     }
 }
@@ -67,10 +73,10 @@ pub fn setup(args: &Args) -> Result<i32> {
                 let name = label(n, "Account email");
                 if let Some(preset) = &args.email {
                     email = preset.clone();
-                    answered(|t, f| t.format_input_prompt_selection(f, &name, &email));
+                    answered(PromptKind::Input, &name, Answer::Text(&email));
                 } else if args.yes {
                     email = "ada@example.com".into();
-                    answered(|t, f| t.format_input_prompt_selection(f, &name, &email));
+                    answered(PromptKind::Input, &name, Answer::Text(&email));
                 } else {
                     email = Input::new().prompt(name).validate(valid_email).interact()?;
                 }
@@ -79,7 +85,7 @@ pub fn setup(args: &Args) -> Result<i32> {
             1 => {
                 let name = label(n, "Password");
                 if args.yes {
-                    answered(|t, f| t.format_password_prompt_selection_masked(f, &name, 8));
+                    answered(PromptKind::Password, &name, Answer::Hidden(8));
                 } else {
                     Password::new().prompt(name).interact()?;
                 }
@@ -93,12 +99,10 @@ pub fn setup(args: &Args) -> Result<i32> {
                     .and_then(|p| PROTOCOLS.iter().position(|x| x.eq_ignore_ascii_case(p)))
                 {
                     protocol = preset;
-                    answered(|t, f| {
-                        t.format_select_prompt_selection(f, &name, PROTOCOLS[protocol])
-                    });
+                    answered(PromptKind::Select, &name, Answer::Text(PROTOCOLS[protocol]));
                     Some(())
                 } else if args.yes {
-                    answered(|t, f| t.format_select_prompt_selection(f, &name, PROTOCOLS[0]));
+                    answered(PromptKind::Select, &name, Answer::Text(PROTOCOLS[0]));
                     Some(())
                 } else {
                     Select::new()
@@ -113,7 +117,7 @@ pub fn setup(args: &Args) -> Result<i32> {
                 let name = label(n, "Features");
                 if args.yes {
                     let picked: Vec<&str> = features.iter().map(|&i| FEATURES[i]).collect();
-                    answered(|t, f| t.format_multi_select_prompt_selection(f, &name, &picked));
+                    answered(PromptKind::MultiSelect, &name, Answer::List(&picked));
                     Some(())
                 } else {
                     let checked: Vec<bool> =
@@ -129,7 +133,7 @@ pub fn setup(args: &Args) -> Result<i32> {
             _ => {
                 let name = label(n, "Connect on startup?");
                 if args.yes {
-                    answered(|t, f| t.format_confirm_prompt_selection(f, &name, Some(startup)));
+                    answered(PromptKind::Confirm, &name, Answer::Bool(startup));
                     Some(())
                 } else {
                     Confirm::new()
@@ -201,7 +205,7 @@ pub fn connect(args: &Args) -> Result<i32> {
     let idx = match &args.server {
         Some(id) => match SERVERS.iter().position(|s| s.0 == id) {
             Some(i) => {
-                answered(|t, f| t.format_select_prompt_selection(f, "Server", &places[i]));
+                answered(PromptKind::Select, "Server", Answer::Text(&places[i]));
                 i
             }
             None => {
@@ -211,7 +215,7 @@ pub fn connect(args: &Args) -> Result<i32> {
             }
         },
         None if args.yes => {
-            answered(|t, f| t.format_select_prompt_selection(f, "Server", &places[0]));
+            answered(PromptKind::Select, "Server", Answer::Text(&places[0]));
             0
         }
         None => match FuzzySelect::new()
@@ -269,7 +273,7 @@ pub fn connect(args: &Args) -> Result<i32> {
 pub fn favorites(args: &Args) -> Result<i32> {
     let items = ["es-bcn-01", "de-fra-02", "us-nyc-01", "jp-tyo-03"];
     let order: Vec<usize> = if args.yes {
-        answered(|t, f| t.format_sort_prompt_selection(f, "Favourites", &items));
+        answered(PromptKind::Sort, "Favourites", Answer::List(&items));
         (0..items.len()).collect()
     } else {
         match Sort::new()

@@ -2,7 +2,10 @@ use std::error::Error;
 use std::net::IpAddr;
 
 use console::Style;
-use paloma::{theme::ColorfulTheme, Confirm, Input, Select};
+use paloma::{
+    theme::{ColorfulTheme, Theme},
+    Confirm, Input, Select,
+};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -15,10 +18,8 @@ struct Config {
 }
 
 fn init_config() -> Result<Option<Config>, Box<dyn Error>> {
-    let theme = ColorfulTheme {
-        values_style: Style::new().yellow().dim(),
-        ..ColorfulTheme::default()
-    };
+    let theme = ColorfulTheme
+        .restyle(|t| t.prompts(|p| p.base(|b| b.value_style(Style::new().yellow().dim()))));
     println!("Welcome to the setup wizard");
 
     if !Confirm::new()

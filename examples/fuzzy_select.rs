@@ -33,7 +33,7 @@ fn main() {
     ];
 
     let selection = FuzzySelect::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Pick your flavor")
         .default(0)
         .items(&selections[..])

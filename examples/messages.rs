@@ -13,7 +13,7 @@ fn main() -> paloma::Result {
         .print()?;
 
     // A built-in theme, restyled without implementing `Theme`.
-    paloma::set_theme(ColorfulTheme::default().restyle(|t| {
+    paloma::set_theme(ColorfulTheme.restyle(|t| {
         t.palette(|p| p.info(Style::new().magenta()))
             .messages(|m| m.warning(|w| w.word(Some("careful:"))))
     }));

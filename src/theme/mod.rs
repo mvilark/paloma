@@ -3,18 +3,16 @@
 //!
 //! Three layers, from cheapest to most powerful: change the [`Tokens`] (with
 //! [`Theme::restyle`]), change one component's tokens (for example
-//! [`MessageTokens`]), or override a `format_*` hook.
+//! [`PromptTokens`] or [`MessageTokens`]), or override a `format_*` hook. Every hook
+//! takes a [`Context`] (the tokens, the stream and what its terminal can show) and a
+//! view of what to draw, and its default body is public in [`defaults`].
 use std::{borrow::Cow, fmt};
-
-#[cfg(feature = "fuzzy-select")]
-use console::style;
-#[cfg(feature = "fuzzy-select")]
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
 pub(crate) mod app;
 mod colorful;
 mod context;
 pub mod defaults;
+mod prompt;
 pub(crate) mod render;
 mod restyle;
 mod simple;
@@ -30,11 +28,16 @@ pub use crate::output::{
 };
 pub use colorful::ColorfulTheme;
 pub use context::Context;
+pub use prompt::{
+    Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, FuzzySelectPromptView,
+    InputPromptView, ItemView, PromptKind, PromptView,
+};
 pub use restyle::Restyled;
 pub use simple::SimpleTheme;
 pub use tokens::{
     BlockKind, BlockLook, BlockStyle, BlockTokens, GlyphName, Glyphs, Layout, LiveKind, LiveLook,
-    LiveStyle, LiveTokens, MessageLook, MessageStyle, MessageTokens, Palette, Role, Tokens,
+    LiveStyle, LiveTokens, MessageLook, MessageStyle, MessageTokens, Palette, PromptLook,
+    PromptStyle, PromptTokens, Role, Tokens,
 };
 
 /// Implements a theme for paloma.
@@ -50,7 +53,7 @@ pub trait Theme {
     /// ```rust
     /// use paloma::theme::{ColorfulTheme, Theme};
     ///
-    /// paloma::set_theme(ColorfulTheme::default().restyle(|t| t.glyphs(|g| g.warning("▲"))));
+    /// paloma::set_theme(ColorfulTheme.restyle(|t| t.glyphs(|g| g.warning("▲"))));
     /// ```
     fn restyle(self, f: impl FnOnce(Tokens) -> Tokens) -> Restyled<Self>
     where
@@ -122,306 +125,79 @@ pub trait Theme {
         defaults::format_task_step(f, ctx, view)
     }
 
-    /// Formats a prompt.
-    #[inline]
-    fn format_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        write!(f, "{}:", prompt)
-    }
-
-    /// Formats an input error (validation, parsing, password mismatch). The default
-    /// draws an error [`Message`](crate::Message) line with this theme's tokens.
-    fn format_error(&self, f: &mut dyn fmt::Write, err: &str) -> fmt::Result {
-        let tokens = self.tokens();
-        let ctx = Context::new(&tokens, crate::terminal::Stream::Stderr);
-        self.format_message(f, &ctx, &MessageView::new(Status::Error, err, 0))
-    }
-
-    /// Formats a confirm prompt.
-    fn format_confirm_prompt(
+    /// Formats the question line of a list prompt (select, multi select, sort), with
+    /// its paging counter. The default is [`defaults::format_prompt`].
+    fn format_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        prompt: &str,
-        default: Option<bool>,
+        ctx: &Context,
+        view: &PromptView,
     ) -> fmt::Result {
-        if !prompt.is_empty() {
-            write!(f, "{} ", prompt)?;
-        }
-        match default {
-            None => write!(f, "[y/n] ")?,
-            Some(true) => write!(f, "[Y/n] ")?,
-            Some(false) => write!(f, "[y/N] ")?,
-        }
-        Ok(())
+        defaults::format_prompt(f, ctx, view)
     }
 
-    /// Formats a confirm prompt without the hint ([y/n]).
-    fn format_confirm_prompt_no_hint(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        if !prompt.is_empty() {
-            write!(f, "{} ", prompt)?;
-        }
-        Ok(())
-    }
-
-    /// Formats one confirm button: `yes` tells which of the two it is, `focused`
-    /// whether it is the one `Enter` would pick. Only used for
-    /// [`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons).
-    fn format_confirm_button(
-        &self,
-        f: &mut dyn fmt::Write,
-        yes: bool,
-        focused: bool,
-    ) -> fmt::Result {
-        let label = if yes { "Yes" } else { "No" };
-        if focused {
-            write!(f, "[{label}]")
-        } else {
-            write!(f, " {label} ")
-        }
-    }
-
-    /// Formats the row of confirm buttons; `yes_focused` says which one has focus.
-    fn format_confirm_buttons(&self, f: &mut dyn fmt::Write, yes_focused: bool) -> fmt::Result {
-        self.format_confirm_button(f, true, yes_focused)?;
-        write!(f, "  ")?;
-        self.format_confirm_button(f, false, !yes_focused)
-    }
-
-    /// Formats a confirm prompt after selection.
-    fn format_confirm_prompt_selection(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        selection: Option<bool>,
-    ) -> fmt::Result {
-        let selection = selection.map(|b| if b { "yes" } else { "no" });
-
-        match selection {
-            Some(selection) if prompt.is_empty() => {
-                write!(f, "{}", selection)
-            }
-            Some(selection) => {
-                write!(f, "{} {}", prompt, selection)
-            }
-            None if prompt.is_empty() => Ok(()),
-            None => {
-                write!(f, "{}", prompt)
-            }
-        }
-    }
-
-    /// Formats an input prompt.
+    /// Formats the line of an input or password prompt, up to where the typed text
+    /// goes. It may span lines (the text then goes on the last one). The default is
+    /// [`defaults::format_input_prompt`].
     fn format_input_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        prompt: &str,
-        default: Option<&str>,
+        ctx: &Context,
+        view: &InputPromptView,
     ) -> fmt::Result {
-        match default {
-            Some(default) if prompt.is_empty() => write!(f, "[{}]: ", default),
-            Some(default) => write!(f, "{} [{}]: ", prompt, default),
-            None => write!(f, "{}: ", prompt),
-        }
+        defaults::format_input_prompt(f, ctx, view)
     }
 
-    /// Formats an input prompt after selection.
-    #[inline]
-    fn format_input_prompt_selection(
+    /// Formats the line of a confirm prompt; with buttons, only its question (the
+    /// buttons go on the line under it, see
+    /// [`format_confirm_buttons`](Self::format_confirm_buttons)). The default is
+    /// [`defaults::format_confirm_prompt`].
+    fn format_confirm_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        prompt: &str,
-        sel: &str,
+        ctx: &Context,
+        view: &ConfirmPromptView,
     ) -> fmt::Result {
-        write!(f, "{}: {}", prompt, sel)
+        defaults::format_confirm_prompt(f, ctx, view)
     }
 
-    /// Formats a password prompt.
-    #[inline]
-    #[cfg(feature = "password")]
-    fn format_password_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        self.format_input_prompt(f, prompt, None)
-    }
-
-    /// Formats a password prompt after selection.
-    #[inline]
-    #[cfg(feature = "password")]
-    fn format_password_prompt_selection(
+    /// Formats the `Yes` / `No` buttons of a confirm prompt
+    /// ([`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons)). The
+    /// default is [`defaults::format_confirm_buttons`].
+    fn format_confirm_buttons(
         &self,
         f: &mut dyn fmt::Write,
-        prompt: &str,
+        ctx: &Context,
+        view: &ConfirmButtonsView,
     ) -> fmt::Result {
-        self.format_input_prompt_selection(f, prompt, "[hidden]")
+        defaults::format_confirm_buttons(f, ctx, view)
     }
 
-    /// The character echoed for each typed password character when the prompt masks
-    /// its input (see [`Password::mask`](crate::Password::mask)). Defaults to `*`.
-    #[cfg(feature = "password")]
-    fn password_mask_glyph(&self) -> char {
-        '*'
-    }
-
-    /// Formats a password prompt after selection, given how many mask characters the
-    /// prompt asks to show (see [`Password::result_len`](crate::Password::result_len)).
-    /// Defaults to [`format_password_prompt_selection`](Self::format_password_prompt_selection),
-    /// which ignores the length.
-    #[cfg(feature = "password")]
-    fn format_password_prompt_selection_masked(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        _mask_len: usize,
-    ) -> fmt::Result {
-        self.format_password_prompt_selection(f, prompt)
-    }
-
-    /// Formats a select prompt.
-    #[inline]
-    fn format_select_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        self.format_prompt(f, prompt)
-    }
-
-    /// Formats a select prompt after selection.
-    #[inline]
-    fn format_select_prompt_selection(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        sel: &str,
-    ) -> fmt::Result {
-        self.format_input_prompt_selection(f, prompt, sel)
-    }
-
-    /// Formats a multi select prompt.
-    #[inline]
-    fn format_multi_select_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        self.format_prompt(f, prompt)
-    }
-
-    /// Formats a sort prompt.
-    #[inline]
-    fn format_sort_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        self.format_prompt(f, prompt)
-    }
-
-    /// Formats a multi_select prompt after selection.
-    fn format_multi_select_prompt_selection(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        selections: &[&str],
-    ) -> fmt::Result {
-        write!(f, "{}: ", prompt)?;
-        for (idx, sel) in selections.iter().enumerate() {
-            write!(f, "{}{}", if idx == 0 { "" } else { ", " }, sel)?;
-        }
-        Ok(())
-    }
-
-    /// Formats a sort prompt after selection.
-    #[inline]
-    fn format_sort_prompt_selection(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        selections: &[&str],
-    ) -> fmt::Result {
-        self.format_multi_select_prompt_selection(f, prompt, selections)
-    }
-
-    /// Formats a select prompt item.
-    fn format_select_prompt_item(
-        &self,
-        f: &mut dyn fmt::Write,
-        text: &str,
-        active: bool,
-    ) -> fmt::Result {
-        write!(f, "{} {}", if active { ">" } else { " " }, text)
-    }
-
-    /// Formats a multi select prompt item.
-    fn format_multi_select_prompt_item(
-        &self,
-        f: &mut dyn fmt::Write,
-        text: &str,
-        checked: bool,
-        active: bool,
-    ) -> fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            match (checked, active) {
-                (true, true) => "> [x]",
-                (true, false) => "  [x]",
-                (false, true) => "> [ ]",
-                (false, false) => "  [ ]",
-            },
-            text
-        )
-    }
-
-    /// Formats a sort prompt item.
-    fn format_sort_prompt_item(
-        &self,
-        f: &mut dyn fmt::Write,
-        text: &str,
-        picked: bool,
-        active: bool,
-    ) -> fmt::Result {
-        write!(
-            f,
-            "{} {}",
-            match (picked, active) {
-                (true, true) => "> [x]",
-                (false, true) => "> [ ]",
-                (_, false) => "  [ ]",
-            },
-            text
-        )
-    }
-
-    /// Formats a fuzzy select prompt item.
-    #[cfg(feature = "fuzzy-select")]
-    fn format_fuzzy_select_prompt_item(
-        &self,
-        f: &mut dyn fmt::Write,
-        text: &str,
-        active: bool,
-        highlight_matches: bool,
-        matcher: &SkimMatcherV2,
-        search_term: &str,
-    ) -> fmt::Result {
-        write!(f, "{} ", if active { ">" } else { " " })?;
-
-        if highlight_matches {
-            if let Some((_score, indices)) = matcher.fuzzy_indices(text, search_term) {
-                for (idx, c) in text.chars().enumerate() {
-                    if indices.contains(&idx) {
-                        write!(f, "{}", style(c).for_stderr().bold())?;
-                    } else {
-                        write!(f, "{}", c)?;
-                    }
-                }
-
-                return Ok(());
-            }
-        }
-
-        write!(f, "{}", text)
-    }
-
-    /// Formats a fuzzy select prompt.
-    #[cfg(feature = "fuzzy-select")]
+    /// Formats the search line of a fuzzy select, with its cursor. The default is
+    /// [`defaults::format_fuzzy_select_prompt`].
     fn format_fuzzy_select_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        prompt: &str,
-        search_term: &str,
-        bytes_pos: usize,
+        ctx: &Context,
+        view: &FuzzySelectPromptView,
     ) -> fmt::Result {
-        if !prompt.is_empty() {
-            write!(f, "{prompt} ")?;
-        }
+        defaults::format_fuzzy_select_prompt(f, ctx, view)
+    }
 
-        let (st_head, st_tail) = search_term.split_at(bytes_pos);
-        write!(f, "{st_head}|{st_tail}")
+    /// Formats one item of a list prompt (select, multi select, sort, fuzzy select).
+    /// The default is [`defaults::format_item`].
+    fn format_item(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &ItemView) -> fmt::Result {
+        defaults::format_item(f, ctx, view)
+    }
+
+    /// Formats the line a prompt leaves once answered (when it reports its answer).
+    /// The default is [`defaults::format_answered`].
+    fn format_answered(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &AnsweredView,
+    ) -> fmt::Result {
+        defaults::format_answered(f, ctx, view)
     }
 }

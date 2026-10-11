@@ -21,7 +21,6 @@ Rough ideas that are not yet scoped.
 Scoped and agreed, not started.
 
 - **PAL-004 · CLI UI framework.** Umbrella plan: build the rest of paloma's CLI UI framework (flows, messages, output blocks, spinners, progress bars) next to the existing prompts, with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
-- **PAL-009 · Theme v2 for prompts.** Prompt hooks take a context and a view; token-driven default layout. Breaking. Plan: [PAL-004, Phase 4](docs/plans/PAL-004-ui-framework.md#pal-009--phase-4-theme-v2-for-prompts).
 - **PAL-010 · Prompt gaps.** A message row under every prompt (description, live message while typing, error on submit), what an answered prompt leaves (`done`), rich items, cancel and back results, presets and unattended mode. Breaking (`Error`). Plan: [PAL-004, Phase 5](docs/plans/PAL-004-ui-framework.md#pal-010--phase-5-prompt-gaps-from-pal-002).
 - **PAL-015 · Flows.** `Flow` runs named steps (prompts plus any app code) in order: step counter, `Esc` back, `back_to` a chosen step with a message, what stays on screen (`step_done`, `keep_last`, `done`), `^C` cancels the flow, unattended runs. Plan: [PAL-004, Phase 6](docs/plans/PAL-004-ui-framework.md#pal-015--phase-6-flows).
 - **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars).
@@ -32,6 +31,7 @@ _(none)_
 
 ## Done
 
+- **PAL-009 · Theme v2 for prompts.** Seven prompt hooks of the shape `(f, ctx, view)` (one answered layout and one item layout for every prompt), `PromptTokens` with a group per prompt, prompt glyphs, `SimpleTheme` and `ColorfulTheme` as token presets (`ColorfulTheme` lost its fields), the paging counter through the theme, input errors as messages, no matcher type in the public API. Breaking. Plan: [docs/plans/PAL-009-theme-v2-prompts.md](docs/plans/PAL-009-theme-v2-prompts.md) (from [PAL-004, Phase 4](docs/plans/PAL-004-ui-framework.md#pal-009--phase-4-theme-v2-for-prompts)).
 - **PAL-008 · Live tasks.** `Task` with a spinner, nested steps and elapsed time; motion off for CI and pipes, `terminal::restore` for Ctrl+C, and a prompt shown mid-task pauses the spinner. Plan: [docs/plans/PAL-008-live-tasks.md](docs/plans/PAL-008-live-tasks.md) (from [PAL-004, Phase 3](docs/plans/PAL-004-ui-framework.md#pal-008--phase-3-live-tasks)).
 - **PAL-007 · Output blocks.** `Section`, `KeyValue`, `Table`, `Panel`, `link`, `gradient`. Plan: [docs/plans/PAL-007-output-blocks.md](docs/plans/PAL-007-output-blocks.md) (from [PAL-004, Phase 2](docs/plans/PAL-004-ui-framework.md#pal-007--phase-2-output-blocks)).
 - **PAL-005 · Housekeeping and safety nets.** Convention fixes, golden tests for the built-in themes and the Ultraviolet example, builder names without `with_` and a single `Input::interact`. Plan: [PAL-004, Phase 0](docs/plans/PAL-004-ui-framework.md#pal-005--phase-0-housekeeping-and-safety-nets). PR #9.

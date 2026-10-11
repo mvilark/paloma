@@ -4,7 +4,10 @@ use console::{Key, Term};
 
 use crate::{
     prompts::base::{base_methods, PromptBase},
-    theme::render::TermThemeRenderer,
+    theme::{
+        render::TermThemeRenderer,
+        {Answer, PromptKind},
+    },
     Result,
 };
 
@@ -239,7 +242,11 @@ impl<'a> Confirm<'a> {
 
         term.clear_line()?;
         if self.report_enabled() {
-            render.confirm_prompt_selection(&self.prompt, rv)?;
+            render.answered(
+                PromptKind::Confirm,
+                &self.prompt,
+                rv.map_or(Answer::Skipped, Answer::Bool),
+            )?;
         }
         term.show_cursor()?;
         term.flush()?;
@@ -293,7 +300,11 @@ impl<'a> Confirm<'a> {
             }
         };
         if self.report_enabled() {
-            render.confirm_prompt_selection(&self.prompt, rv)?;
+            render.answered(
+                PromptKind::Confirm,
+                &self.prompt,
+                rv.map_or(Answer::Skipped, Answer::Bool),
+            )?;
         }
         term.show_cursor()?;
         term.flush()?;

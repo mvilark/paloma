@@ -5,7 +5,10 @@ use console::{Key, Term};
 use crate::{
     paging::Paging,
     prompts::base::{base_methods, PromptBase},
-    theme::render::TermThemeRenderer,
+    theme::{
+        render::TermThemeRenderer,
+        {Answer, PromptKind},
+    },
     Result,
 };
 
@@ -180,7 +183,9 @@ impl<'a> Sort<'a> {
 
         loop {
             if let Some(ref prompt) = self.prompt {
-                paging.render_prompt(|paging_info| render.sort_prompt(prompt, paging_info))?;
+                paging.render_prompt(|paging_info| {
+                    render.prompt(PromptKind::Sort, prompt, paging_info)
+                })?;
             }
 
             for (idx, item) in order
@@ -189,7 +194,13 @@ impl<'a> Sort<'a> {
                 .skip(paging.current_page * paging.capacity)
                 .take(paging.capacity)
             {
-                render.sort_prompt_item(&self.items[*item], checked, sel == idx)?;
+                render.item(
+                    PromptKind::Sort,
+                    &self.items[*item],
+                    sel == idx,
+                    Some(checked),
+                    None,
+                )?;
             }
 
             term.flush()?;
@@ -294,7 +305,7 @@ impl<'a> Sort<'a> {
                                 .iter()
                                 .map(|item| self.items[*item].as_str())
                                 .collect();
-                            render.sort_prompt_selection(prompt, &list[..])?;
+                            render.answered(PromptKind::Sort, prompt, Answer::List(&list))?;
                         }
                     }
 

@@ -9,7 +9,7 @@ fn main() {
     ];
 
     let selection = Select::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Pick your flavor")
         .default(0)
         .items(&selections[..])
@@ -19,7 +19,7 @@ fn main() {
     println!("Enjoy your {}!", selections[selection]);
 
     let selection = Select::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Optionally pick your flavor")
         .default(0)
         .items(&selections[..])
@@ -33,7 +33,7 @@ fn main() {
     }
 
     let selection = Select::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Pick your flavor, hint it might be on the second page")
         .default(0)
         .max_length(2)

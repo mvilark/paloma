@@ -8,7 +8,7 @@ fn main() {
         "A Pile of sweet, sweet mustard",
     ];
     let sorted = Sort::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Order your foods by preference")
         .items(&list[..])
         .interact()
@@ -20,7 +20,7 @@ fn main() {
     println!("  {}", list[sorted[sorted.len() - 1]]);
 
     let sorted = Sort::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Order your foods by preference")
         .items(&list[..])
         .max_length(2)

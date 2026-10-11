@@ -6,7 +6,7 @@ fn main() {
     let completion = MyCompletion::default();
 
     Input::<String>::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("paloma")
         .completion(&completion)
         .interact()

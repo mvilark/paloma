@@ -85,8 +85,8 @@ settings! {
         /// Whether the prompt prints its one-line result after it is answered.
         report: bool,
         /// Whether typed characters are echoed as mask characters (`true`) or not at
-        /// all (`false`, the default). The theme picks the character with
-        /// [`password_mask_glyph`](crate::theme::Theme::password_mask_glyph).
+        /// all (`false`, the default). The theme picks the character: the password
+        /// prompt's `mask` token ([`PromptStyle`](crate::theme::PromptStyle)).
         mask: bool,
         /// How many mask characters the one-line result shows, whatever the password's
         /// length. The default is 8.

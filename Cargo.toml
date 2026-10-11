@@ -70,5 +70,5 @@ all-features = true
 
 [package.metadata.cargo_check_external_types]
 allowed_external_types = [
-    "console", "console::*", "fuzzy_matcher::skim::SkimMatcherV2",
+    "console", "console::*",
 ]

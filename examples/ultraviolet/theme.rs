@@ -1,5 +1,6 @@
 //! Ultraviolet palette, glyphs and the `Theme` implementation.
 use std::{
+    borrow::Cow,
     fmt,
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -8,8 +9,10 @@ use std::{
 };
 
 use console::{Color, Style};
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
-use paloma::theme::Theme;
+use paloma::theme::{
+    ConfirmButtonsView, ConfirmPromptView, Context, FuzzySelectPromptView, InputPromptView,
+    PromptKind, PromptLook, PromptTokens, PromptView, Theme, Tokens,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Depth {
@@ -240,17 +243,8 @@ pub fn app_theme() -> UltravioletTheme {
     UltravioletTheme::new(cfg().clone())
 }
 
-/// `fg-subtle` + italic: hints, `cancelled`, `skipped`.
-fn hint(pal: &Palette, text: &str) -> String {
-    pal.style(Tok::Subtle)
-        .italic()
-        .for_stderr()
-        .apply_to(text)
-        .to_string()
-}
-
-/// Current flow step as `n << 8 | total`, or 0 outside a flow. The `Theme` trait has no
-/// notion of a flow (Gap 6), so the example hands the step to the theme out of band.
+/// Current flow step as `n << 8 | total`, or 0 outside a flow. Prompt views carry no
+/// flow step yet (PAL-015), so the example hands the step to the theme out of band.
 static STEP: AtomicU32 = AtomicU32::new(0);
 
 pub fn set_step(n: u32, total: u32) {
@@ -261,6 +255,9 @@ pub fn clear_step() {
     STEP.store(0, Ordering::Relaxed);
 }
 
+/// The Ultraviolet design system as paloma tokens, plus the hooks whose layout the
+/// tokens cannot express: the step counter after the label, the input on its own line,
+/// and the confirm choices and buttons.
 pub struct UltravioletTheme {
     cfg: Config,
 }
@@ -270,13 +267,19 @@ impl UltravioletTheme {
         UltravioletTheme { cfg }
     }
 
-    fn label(&self, f: &mut dyn fmt::Write, prompt: &str, glyph: &str, tok: Tok) -> fmt::Result {
-        let p = &self.cfg.pal;
+    /// `◆ Label  01/05`: the open prompt's mark and question, then the flow step.
+    fn label(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        look: &PromptLook,
+        prompt: &str,
+    ) -> fmt::Result {
         write!(
             f,
             "{} {}",
-            p.e(tok, glyph),
-            p.style(Tok::Fg).bold().for_stderr().apply_to(prompt)
+            ctx.paint(&look.mark_style, look.mark),
+            ctx.paint(&look.label_style, prompt)
         )?;
         // `01/05` step counter: `fg-subtle`, regular weight, after the label.
         match STEP.load(Ordering::Relaxed) {
@@ -284,291 +287,188 @@ impl UltravioletTheme {
             s => write!(
                 f,
                 "  {}",
-                p.e(Tok::Subtle, format!("{:02}/{:02}", s >> 8, s & 0xff))
+                ctx.paint(&look.hint_style, format!("{:02}/{:02}", s >> 8, s & 0xff))
             ),
         }
     }
+}
 
-    /// `◇ Label · value`, the collapsed form of an answered prompt.
-    fn collapsed(&self, f: &mut dyn fmt::Write, prompt: &str, value: &str) -> fmt::Result {
-        let p = &self.cfg.pal;
-        write!(
-            f,
-            "{} {} {} {}",
-            p.e(Tok::Subtle, self.cfg.g.answered),
-            p.e(Tok::Muted, prompt),
-            p.e(Tok::Subtle, "·"),
-            p.e(Tok::Fg, value)
-        )
-    }
+fn look(ctx: &Context, kind: PromptKind) -> PromptLook {
+    ctx.tokens().get_prompts().resolve(kind, ctx.tokens())
 }
 
 impl Theme for UltravioletTheme {
-    fn format_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        self.label(f, prompt, self.cfg.g.active, Tok::Accent)
-    }
-
-    fn format_error(&self, f: &mut dyn fmt::Write, err: &str) -> fmt::Result {
+    fn tokens(&self) -> Cow<'_, Tokens> {
         let p = &self.cfg.pal;
-        write!(
-            f,
-            "{} {}",
-            p.e(Tok::Error, self.cfg.g.err),
-            p.e(Tok::Fg, err)
+        let g = &self.cfg.g;
+        let palette = paloma::theme::Palette::plain()
+            .text(p.style(Tok::Fg))
+            .muted(p.style(Tok::Muted))
+            .subtle(p.style(Tok::Subtle))
+            .faint(p.style(Tok::Faint))
+            .accent(p.style(Tok::Accent))
+            .accent_strong(p.style(Tok::Strong))
+            .success(p.style(Tok::Success))
+            .info(p.style(Tok::Accent))
+            .warning(p.style(Tok::Warning))
+            .error(p.style(Tok::Error));
+        let glyphs = paloma::theme::Glyphs::none()
+            .info(g.info)
+            .success(g.ok)
+            .warning(g.warn)
+            .error(g.err)
+            .section("#")
+            .nested(g.nested)
+            .spinner(g.spinner)
+            .box_h(g.box_h)
+            .box_v(g.box_v)
+            .box_tl(g.box_tl)
+            .box_tr(g.box_tr)
+            .box_bl(g.box_bl)
+            .box_br(g.box_br)
+            .prompt(g.active)
+            .answered(g.answered)
+            .answered_separator("·")
+            .focus(g.focus)
+            .checked(g.checked)
+            .unchecked(g.unchecked)
+            .cursor(g.cursor)
+            .mask(g.dot);
+        let prompts = PromptTokens::default()
+            .base(|b| {
+                b.label_style(p.style(Tok::Fg).bold())
+                    .answered_mark_style(p.style(Tok::Subtle))
+                    .answered_label_style(p.style(Tok::Muted))
+                    .active_style(p.style(Tok::Strong))
+                    .item_style(p.style(Tok::Muted))
+                    .match_style(p.style(Tok::Accent).bold())
+                    .empty_style(p.style(Tok::Subtle).italic())
+                    .list_separator_style(p.style(Tok::Fg))
+                    .paging_style(p.style(Tok::Subtle))
+                    .empty_value("none")
+                    .item_indent(2)
+                    .yes("Yes")
+                    .no("No")
+                    .choices("[Y]es / [N]o")
+                    .choices_yes("[Y]es / [n]o")
+                    .choices_no("[y]es / [N]o")
+                    .yes_button("[Y]es")
+                    .no_button("[N]o")
+                    .button_style(p.style(Tok::Muted))
+                    .focused_button_style(p.style(Tok::Accent).bold())
+                    .suffix(g.caret)
+            })
+            .confirm(|c| c.empty_value("Skipped"))
+            .sort(|s| s.checked(g.chosen).unchecked(g.pending));
+        Cow::Owned(
+            Tokens::default()
+                .palette(|_| palette)
+                .glyphs(|_| glyphs)
+                .prompts(|_| prompts),
         )
     }
 
-    fn format_confirm_prompt_no_hint(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
-        self.format_prompt(f, prompt)
-    }
-
-    /// `[Y]es` / `[N]o` in `fg-muted`; the focused one in `accent`, bold.
-    fn format_confirm_button(
+    /// The label and step only; the paging counter in `fg-subtle`.
+    fn format_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        yes: bool,
-        focused: bool,
+        ctx: &Context,
+        view: &PromptView,
     ) -> fmt::Result {
-        let p = &self.cfg.pal;
-        let text = if yes { "[Y]es" } else { "[N]o" };
-        if focused {
+        let look = look(ctx, view.kind);
+        self.label(f, ctx, &look, view.prompt)?;
+        if let Some((page, pages)) = view.paging {
             write!(
                 f,
-                "{}",
-                p.style(Tok::Accent).bold().for_stderr().apply_to(text)
-            )
-        } else {
-            write!(f, "{}", p.e(Tok::Muted, text))
+                " {} ",
+                ctx.paint(&look.paging_style, format!("[Page {page}/{pages}]"))
+            )?;
         }
+        Ok(())
     }
 
-    /// Buttons sit on the line under the label, indented to `col-2`.
-    fn format_confirm_buttons(&self, f: &mut dyn fmt::Write, yes_focused: bool) -> fmt::Result {
-        write!(f, "  ")?;
-        self.format_confirm_button(f, true, yes_focused)?;
-        write!(f, " {} ", self.cfg.pal.e(Tok::Subtle, "/"))?;
-        self.format_confirm_button(f, false, !yes_focused)
-    }
-
-    fn format_confirm_prompt(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        default: Option<bool>,
-    ) -> fmt::Result {
-        self.format_prompt(f, prompt)?;
-        let choices = match default {
-            Some(true) => "[Y]es / [n]o",
-            Some(false) => "[y]es / [N]o",
-            None => "[Y]es / [N]o",
-        };
-        write!(f, "  {} ", self.cfg.pal.e(Tok::Subtle, choices))
-    }
-
-    fn format_confirm_prompt_selection(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        selection: Option<bool>,
-    ) -> fmt::Result {
-        match selection {
-            Some(true) => self.collapsed(f, prompt, "Yes"),
-            Some(false) => self.collapsed(f, prompt, "No"),
-            None => self.collapsed(f, prompt, &hint(&self.cfg.pal, "Skipped")),
-        }
-    }
-
+    /// The input sits on its own line, indented to `col-2`, after the caret.
     fn format_input_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        prompt: &str,
-        default: Option<&str>,
+        ctx: &Context,
+        view: &InputPromptView,
     ) -> fmt::Result {
-        let p = &self.cfg.pal;
-        self.format_prompt(f, prompt)?;
-        if let Some(default) = default {
-            write!(f, " {}", p.e(Tok::Subtle, format!("({default})")))?;
-        }
-        // The input sits on its own line, indented to `col-2`.
-        write!(f, "\n  {} ", p.e(Tok::Accent, self.cfg.g.caret))
-    }
-
-    fn format_input_prompt_selection(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        sel: &str,
-    ) -> fmt::Result {
-        self.collapsed(f, prompt, sel)
-    }
-
-    /// Typed characters show as dots.
-    fn password_mask_glyph(&self) -> char {
-        self.cfg.g.dot.chars().next().unwrap_or('*')
-    }
-
-    fn format_password_prompt_selection_masked(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        mask_len: usize,
-    ) -> fmt::Result {
-        self.collapsed(f, prompt, &self.cfg.g.dot.repeat(mask_len))
-    }
-
-    fn format_multi_select_prompt_selection(
-        &self,
-        f: &mut dyn fmt::Write,
-        prompt: &str,
-        selections: &[&str],
-    ) -> fmt::Result {
-        if selections.is_empty() {
-            self.collapsed(f, prompt, &hint(&self.cfg.pal, "none"))
-        } else {
-            self.collapsed(f, prompt, &selections.join(", "))
-        }
-    }
-
-    fn format_select_prompt_item(
-        &self,
-        f: &mut dyn fmt::Write,
-        text: &str,
-        active: bool,
-    ) -> fmt::Result {
-        let p = &self.cfg.pal;
-        if active {
+        let look = look(ctx, view.kind);
+        self.label(f, ctx, &look, view.prompt)?;
+        if let Some(default) = view.default {
             write!(
                 f,
-                "  {} {}",
-                p.e(Tok::Accent, self.cfg.g.focus),
-                p.e(Tok::Strong, text)
-            )
-        } else {
-            write!(f, "    {}", p.e(Tok::Muted, text))
+                " {}",
+                ctx.paint(&look.hint_style, format!("({default})"))
+            )?;
         }
+        write!(f, "\n  {} ", ctx.paint(&look.mark_style, look.suffix))
     }
 
-    fn format_multi_select_prompt_item(
+    /// `◆ Label  [Y]es / [n]o`, or only the label above the buttons.
+    fn format_confirm_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        text: &str,
-        checked: bool,
-        active: bool,
+        ctx: &Context,
+        view: &ConfirmPromptView,
     ) -> fmt::Result {
-        let p = &self.cfg.pal;
-        let g = &self.cfg.g;
-        let cursor = if active {
-            p.e(Tok::Accent, g.focus)
-        } else {
-            " ".repeat(g.focus.chars().count())
+        let look = look(ctx, PromptKind::Confirm);
+        self.label(f, ctx, &look, view.prompt)?;
+        if view.buttons {
+            return Ok(());
+        }
+        let choices = match view.default {
+            Some(true) => look.choices_yes,
+            Some(false) => look.choices_no,
+            None => look.choices,
         };
-        let (mark, mark_tok) = if checked {
-            (g.checked, Tok::Accent)
-        } else {
-            (g.unchecked, Tok::Subtle)
-        };
-        let text_tok = if active { Tok::Strong } else { Tok::Muted };
-        write!(
-            f,
-            "  {} {} {}",
-            cursor,
-            p.e(mark_tok, mark),
-            p.e(text_tok, text)
-        )
+        write!(f, "  {} ", ctx.paint(&look.hint_style, choices))
     }
 
-    fn format_sort_prompt_item(
+    /// `[Y]es / [N]o` under the label, indented to `col-2`; the focused one in `accent`,
+    /// bold.
+    fn format_confirm_buttons(
         &self,
         f: &mut dyn fmt::Write,
-        text: &str,
-        picked: bool,
-        active: bool,
+        ctx: &Context,
+        view: &ConfirmButtonsView,
     ) -> fmt::Result {
-        let p = &self.cfg.pal;
-        let g = &self.cfg.g;
-        let cursor = if active {
-            p.e(Tok::Accent, g.focus)
-        } else {
-            " ".repeat(g.focus.chars().count())
-        };
-        let (mark, mark_tok) = if picked {
-            (g.chosen, Tok::Accent)
-        } else {
-            (g.pending, Tok::Subtle)
-        };
-        let text_tok = if active || picked {
-            Tok::Strong
-        } else {
-            Tok::Muted
+        let look = look(ctx, PromptKind::Confirm);
+        let button = |label, focused| {
+            let style = if focused {
+                &look.focused_button_style
+            } else {
+                &look.button_style
+            };
+            ctx.paint(style, label)
         };
         write!(
             f,
             "  {} {} {}",
-            cursor,
-            p.e(mark_tok, mark),
-            p.e(text_tok, text)
+            button(look.yes_button, view.yes_focused),
+            ctx.paint(&look.hint_style, "/"),
+            button(look.no_button, !view.yes_focused)
         )
     }
 
-    fn format_fuzzy_select_prompt_item(
-        &self,
-        f: &mut dyn fmt::Write,
-        text: &str,
-        active: bool,
-        highlight_matches: bool,
-        matcher: &SkimMatcherV2,
-        search_term: &str,
-    ) -> fmt::Result {
-        let p = &self.cfg.pal;
-        if active {
-            write!(f, "  {} ", p.e(Tok::Accent, self.cfg.g.focus))?;
-        } else {
-            write!(f, "    ")?;
-        }
-        let base = if active { Tok::Strong } else { Tok::Muted };
-        let indices = if highlight_matches {
-            matcher.fuzzy_indices(text, search_term).map(|(_, i)| i)
-        } else {
-            None
-        };
-        match indices {
-            Some(indices) => {
-                for (idx, c) in text.chars().enumerate() {
-                    let style = p.style(if indices.contains(&idx) {
-                        Tok::Accent
-                    } else {
-                        base
-                    });
-                    let style = if indices.contains(&idx) {
-                        style.bold()
-                    } else {
-                        style
-                    };
-                    write!(f, "{}", style.for_stderr().apply_to(c))?;
-                }
-                Ok(())
-            }
-            None => write!(f, "{}", p.e(base, text)),
-        }
-    }
-
+    /// `◆ Label › search` with a block cursor in `accent`.
     fn format_fuzzy_select_prompt(
         &self,
         f: &mut dyn fmt::Write,
-        prompt: &str,
-        search_term: &str,
-        bytes_pos: usize,
+        ctx: &Context,
+        view: &FuzzySelectPromptView,
     ) -> fmt::Result {
-        let p = &self.cfg.pal;
-        self.format_prompt(f, prompt)?;
-        let (head, tail) = search_term.split_at(bytes_pos);
+        let look = look(ctx, PromptKind::FuzzySelect);
+        self.label(f, ctx, &look, view.prompt)?;
+        let (head, tail) = view.search.split_at(view.cursor);
         write!(
             f,
             " {} {}{}{}",
-            p.e(Tok::Accent, self.cfg.g.caret),
-            p.e(Tok::Fg, head),
-            p.e(Tok::Accent, self.cfg.g.cursor),
-            p.e(Tok::Fg, tail)
+            ctx.paint(&look.mark_style, look.suffix),
+            ctx.paint(&look.text_style, head),
+            ctx.paint(&look.cursor_style, look.cursor),
+            ctx.paint(&look.text_style, tail)
         )
     }
 }
@@ -576,6 +476,10 @@ impl Theme for UltravioletTheme {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use paloma::{
+        terminal::Stream,
+        theme::{Answer, AnsweredView, MessageView, Status},
+    };
 
     fn plain(cfg: Config) -> UltravioletTheme {
         console::set_colors_enabled(false);
@@ -632,23 +536,30 @@ mod tests {
     #[test]
     fn answered_prompt_collapses_to_one_line() {
         let theme = plain(config(false));
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
         let mut out = String::new();
-        theme
-            .format_input_prompt_selection(&mut out, "Name", "Ada")
-            .unwrap();
+        let view = AnsweredView::new(PromptKind::Input, "Name", Answer::Text("Ada"));
+        theme.format_answered(&mut out, &ctx, &view).unwrap();
         assert_eq!(out, "◇ Name · Ada");
 
         let theme = plain(config(true));
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
         let mut out = String::new();
-        theme.format_prompt(&mut out, "Name").unwrap();
+        let view = PromptView::new(PromptKind::Select, "Name", None);
+        theme.format_prompt(&mut out, &ctx, &view).unwrap();
         assert_eq!(out, "* Name");
     }
 
     #[test]
     fn errors_carry_only_a_glyph() {
         let theme = plain(config(false));
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
         let mut out = String::new();
-        theme.format_error(&mut out, "Enter a valid email").unwrap();
+        let view = MessageView::new(Status::Error, "Enter a valid email", 0);
+        theme.format_message(&mut out, &ctx, &view).unwrap();
         assert_eq!(out, "✕ Enter a valid email");
     }
 }
