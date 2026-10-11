@@ -42,7 +42,7 @@ mod tests {
         let tokens = theme.tokens();
         let ctx = Context::new(&tokens, Stream::Stderr);
         let mut out = String::new();
-        let view = PromptView::new(PromptKind::Select, "Name", None);
+        let view = PromptView::new(PromptKind::Select, "Name", None, false);
         theme.format_prompt(&mut out, &ctx, &view).unwrap();
         let view = ItemView::new(PromptKind::Select, "item", true, None, None);
         theme.format_item(&mut out, &ctx, &view).unwrap();

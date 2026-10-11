@@ -4,10 +4,14 @@ use console::{Key, Term};
 use fuzzy_matcher::FuzzyMatcher;
 
 use crate::{
-    prompts::base::{base_methods, PromptBase},
+    output::message::{IntoMessage, Message, Status},
+    prompts::{
+        base::{base_methods, PromptBase},
+        row::{Row, Validators},
+    },
     theme::{
-        render::TermThemeRenderer,
-        {Answer, PromptKind},
+        render::{row_lines, TermThemeRenderer},
+        {Answer, ItemView, PromptKind},
     },
     Result,
 };
@@ -47,6 +51,9 @@ pub struct FuzzySelect<'a> {
     /// Search string that a fuzzy search with start with.
     /// Defaults to an empty string.
     prefill: String,
+    placeholder: Option<String>,
+    validators: Validators<'a, usize>,
+    row: Row<'a, usize>,
 }
 
 impl Default for FuzzySelect<'_> {
@@ -104,6 +111,44 @@ impl<'a> FuzzySelect<'a> {
     }
 
     base_methods!(fuzzy_select, |_| true);
+
+    /// Shows `text` in place of the search while it is empty, in the theme's
+    /// `placeholder_style`. It goes away at the first key and is never searched for
+    /// (unlike [`prefill`](Self::prefill)).
+    pub fn placeholder<S: Into<String>>(mut self, text: S) -> Self {
+        self.placeholder = Some(text.into());
+        self
+    }
+
+    /// Called each time the highlighted item changes, with its index in the items
+    /// (not in the filtered list), once an item is highlighted. `Some(message)` shows
+    /// in the row under the items; `None` brings the
+    /// [`description`](Self::description) back.
+    ///
+    /// A later call replaces an earlier closure.
+    pub fn on_change(
+        mut self,
+        f: impl FnMut(&usize) -> Option<Message<'static>> + Send + 'a,
+    ) -> Self {
+        self.row.on_change(f);
+        self
+    }
+
+    /// Registers a validator, run with the chosen item's index (in the items) when the
+    /// user picks it. An error keeps the prompt open and shows in the row under the
+    /// items until the highlighted item changes. Several validators run in order; the
+    /// first error wins.
+    ///
+    /// The error can be any `Display` value (shown as an error message) or a
+    /// [`Message`] of any kind (see [`IntoMessage`]).
+    pub fn validate<E: IntoMessage>(
+        mut self,
+        mut f: impl FnMut(&usize) -> std::result::Result<(), E> + 'a,
+    ) -> Self {
+        self.validators
+            .push(move |i: &usize| f(i).err().map(|e| e.into_message(Status::Error)));
+        self
+    }
 
     /// Indicates whether to highlight matched indices
     ///
@@ -187,7 +232,7 @@ impl<'a> FuzzySelect<'a> {
         self._interact_on(term, true)
     }
 
-    fn _interact_on(self, term: &Term, allow_quit: bool) -> Result<Option<usize>> {
+    fn _interact_on(mut self, term: &Term, allow_quit: bool) -> Result<Option<usize>> {
         // Place cursor at the end of the search term
         let mut cursor = self.prefill.chars().count();
         let mut search_term = self.prefill.to_owned();
@@ -210,6 +255,9 @@ impl<'a> FuzzySelect<'a> {
         term.hide_cursor()?;
 
         let mut vim_mode = false;
+        // The highlighted item (its index in the items) the row last heard of.
+        let mut highlighted = None;
+        let mut opened = false;
 
         loop {
             let mut byte_indices = search_term
@@ -218,9 +266,6 @@ impl<'a> FuzzySelect<'a> {
                 .collect::<Vec<_>>();
 
             byte_indices.push(search_term.len());
-
-            render.clear()?;
-            render.fuzzy_select_prompt(self.prompt.as_str(), &search_term, byte_indices[cursor])?;
 
             // Maps all items to a tuple of item and its match score.
             let mut filtered_list = self
@@ -233,26 +278,55 @@ impl<'a> FuzzySelect<'a> {
             // Renders all matching items, from best match to worst.
             filtered_list.sort_unstable_by(|(_, s1), (_, s2)| s2.cmp(s1));
 
-            for (idx, (item, _)) in filtered_list
+            let now = sel
+                .and_then(|sel| filtered_list.get(sel))
+                .and_then(|(item, _)| self.index_of(item));
+            if let (true, true, Some(now)) = (opened, now != highlighted, now) {
+                self.row.changed(&now);
+            }
+            highlighted = now;
+            opened = true;
+
+            // The row takes rows from the list, so the whole prompt fits.
+            let row = self.row.current(self.base.description.as_ref());
+            let visible_rows = visible_term_rows.saturating_sub(row_lines(row)).max(1);
+            if let Some(sel) = sel {
+                if sel >= starting_row + visible_rows {
+                    starting_row = sel + 1 - visible_rows;
+                }
+            }
+
+            let shown: Vec<_> = filtered_list
                 .iter()
                 .enumerate()
                 .skip(starting_row)
-                .take(visible_term_rows)
-            {
-                let matches = self
-                    .highlight_matches
-                    .then(|| matcher.fuzzy_indices(item, &search_term))
-                    .flatten()
-                    .map(|(_, indices)| indices);
-                render.item(
-                    PromptKind::FuzzySelect,
-                    item,
-                    Some(idx) == sel,
-                    None,
-                    matches.as_deref(),
-                )?;
-            }
-            term.flush()?;
+                .take(visible_rows)
+                .map(|(idx, (item, _))| {
+                    let matches = self
+                        .highlight_matches
+                        .then(|| matcher.fuzzy_indices(item, &search_term))
+                        .flatten()
+                        .map(|(_, indices)| indices);
+                    (idx, *item, matches)
+                })
+                .collect();
+            render.fuzzy_frame(
+                self.prompt.as_str(),
+                &search_term,
+                byte_indices[cursor],
+                self.placeholder.as_deref(),
+                self.row.is_invalid(),
+                shown.iter().map(|(idx, item, matches)| {
+                    ItemView::new(
+                        PromptKind::FuzzySelect,
+                        item,
+                        Some(*idx) == sel,
+                        None,
+                        matches.as_deref(),
+                    )
+                }),
+                row,
+            )?;
 
             match (term.read_key()?, sel, vim_mode) {
                 (Key::Escape, _, false) if self.enable_vim_mode => {
@@ -260,9 +334,11 @@ impl<'a> FuzzySelect<'a> {
                 }
                 (Key::Escape, _, false) | (Key::Char('q'), _, true) if allow_quit => {
                     if self.clear {
-                        render.clear()?;
-                        term.flush()?;
+                        render.erase()?;
+                    } else {
+                        render.commit()?;
                     }
+                    term.flush()?;
                     term.show_cursor()?;
                     return Ok(None);
                 }
@@ -273,8 +349,7 @@ impl<'a> FuzzySelect<'a> {
                     if !filtered_list.is_empty() =>
                 {
                     if sel == Some(0) {
-                        starting_row =
-                            filtered_list.len().max(visible_term_rows) - visible_term_rows;
+                        starting_row = filtered_list.len().max(visible_rows) - visible_rows;
                     } else if sel == Some(starting_row) {
                         starting_row -= 1;
                     }
@@ -286,7 +361,6 @@ impl<'a> FuzzySelect<'a> {
                                 as usize,
                         ),
                     };
-                    term.flush()?;
                 }
                 (Key::ArrowDown | Key::Tab, _, _) | (Key::Char('j'), _, true)
                     if !filtered_list.is_empty() =>
@@ -297,39 +371,44 @@ impl<'a> FuzzySelect<'a> {
                             Some((sel as u64 + 1).rem(filtered_list.len() as u64) as usize)
                         }
                     };
-                    if sel == Some(visible_term_rows + starting_row) {
+                    if sel == Some(visible_rows + starting_row) {
                         starting_row += 1;
                     } else if sel == Some(0) {
                         starting_row = 0;
                     }
-                    term.flush()?;
                 }
                 (Key::ArrowLeft, _, _) | (Key::Char('h'), _, true) if cursor > 0 => {
                     cursor -= 1;
-                    term.flush()?;
                 }
                 (Key::ArrowRight, _, _) | (Key::Char('l'), _, true)
                     if cursor < byte_indices.len() - 1 =>
                 {
                     cursor += 1;
-                    term.flush()?;
                 }
                 (Key::Enter, Some(sel), _) if !filtered_list.is_empty() => {
+                    let sel_string = filtered_list[sel].0;
+                    let sel_string_pos_in_items = self.index_of(sel_string);
+
+                    if let Some(err) =
+                        sel_string_pos_in_items.and_then(|i| self.validators.check(&i))
+                    {
+                        self.row.invalid(err);
+                        continue;
+                    }
+
                     if self.clear {
-                        render.clear()?;
+                        render.erase()?;
+                    } else {
+                        render.commit()?;
                     }
 
                     if self.report_enabled() {
                         render.answered(
                             PromptKind::FuzzySelect,
                             self.prompt.as_str(),
-                            Answer::Text(filtered_list[sel].0),
+                            Answer::Text(sel_string),
                         )?;
                     }
-
-                    let sel_string = filtered_list[sel].0;
-                    let sel_string_pos_in_items =
-                        self.items.iter().position(|item| item.eq(sel_string));
 
                     term.show_cursor()?;
                     return Ok(sel_string_pos_in_items);
@@ -337,25 +416,25 @@ impl<'a> FuzzySelect<'a> {
                 (Key::Backspace, _, _) if cursor > 0 => {
                     cursor -= 1;
                     search_term.remove(byte_indices[cursor]);
-                    term.flush()?;
                 }
                 (Key::Del, _, _) if cursor < byte_indices.len() - 1 => {
                     search_term.remove(byte_indices[cursor]);
-                    term.flush()?;
                 }
                 (Key::Char(chr), _, _) if !chr.is_ascii_control() => {
                     search_term.insert(byte_indices[cursor], chr);
                     cursor += 1;
-                    term.flush()?;
                     sel = Some(0);
                     starting_row = 0;
                 }
 
                 _ => {}
             }
-
-            render.clear_preserve_prompt()?;
         }
+    }
+
+    /// The index in the items of `item` (the first item equal to it).
+    fn index_of(&self, item: &str) -> Option<usize> {
+        self.items.iter().position(|i| i == item)
     }
 }
 
@@ -374,6 +453,9 @@ impl<'a> FuzzySelect<'a> {
             max_length: None,
             base: PromptBase::new(),
             prefill: "".into(),
+            placeholder: None,
+            validators: Validators::default(),
+            row: Row::default(),
         }
     }
 }

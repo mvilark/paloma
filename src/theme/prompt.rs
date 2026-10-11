@@ -32,15 +32,23 @@ pub struct PromptView<'a> {
     pub prompt: &'a str,
     /// The current page and the number of pages, when the items do not fit.
     pub paging: Option<(usize, usize)>,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> PromptView<'a> {
     /// A view of the question line.
-    pub fn new(kind: PromptKind, prompt: &'a str, paging: Option<(usize, usize)>) -> Self {
+    pub fn new(
+        kind: PromptKind,
+        prompt: &'a str,
+        paging: Option<(usize, usize)>,
+        invalid: bool,
+    ) -> Self {
         PromptView {
             kind,
             prompt,
             paging,
+            invalid,
         }
     }
 }
@@ -56,15 +64,18 @@ pub struct InputPromptView<'a> {
     pub prompt: &'a str,
     /// The value `Enter` gives on an empty input, when it is shown.
     pub default: Option<&'a str>,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> InputPromptView<'a> {
     /// A view of the input line.
-    pub fn new(kind: PromptKind, prompt: &'a str, default: Option<&'a str>) -> Self {
+    pub fn new(kind: PromptKind, prompt: &'a str, default: Option<&'a str>, invalid: bool) -> Self {
         InputPromptView {
             kind,
             prompt,
             default,
+            invalid,
         }
     }
 }
@@ -82,15 +93,18 @@ pub struct ConfirmPromptView<'a> {
     /// ([`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons)), so this
     /// line holds only the question.
     pub buttons: bool,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> ConfirmPromptView<'a> {
     /// A view of the confirm line.
-    pub fn new(prompt: &'a str, default: Option<bool>, buttons: bool) -> Self {
+    pub fn new(prompt: &'a str, default: Option<bool>, buttons: bool, invalid: bool) -> Self {
         ConfirmPromptView {
             prompt,
             default,
             buttons,
+            invalid,
         }
     }
 }
@@ -122,15 +136,29 @@ pub struct FuzzySelectPromptView<'a> {
     pub search: &'a str,
     /// The cursor, as a byte offset into `search`.
     pub cursor: usize,
+    /// The placeholder to show in place of the search: `Some` only while the search
+    /// is empty and the prompt has one
+    /// ([`FuzzySelect::placeholder`](crate::FuzzySelect::placeholder)).
+    pub placeholder: Option<&'a str>,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> FuzzySelectPromptView<'a> {
     /// A view of the search line.
-    pub fn new(prompt: &'a str, search: &'a str, cursor: usize) -> Self {
+    pub fn new(
+        prompt: &'a str,
+        search: &'a str,
+        cursor: usize,
+        placeholder: Option<&'a str>,
+        invalid: bool,
+    ) -> Self {
         FuzzySelectPromptView {
             prompt,
             search,
             cursor,
+            placeholder,
+            invalid,
         }
     }
 }
@@ -169,6 +197,55 @@ impl<'a> ItemView<'a> {
             active,
             checked,
             matches,
+        }
+    }
+}
+
+/// Where the message row under a prompt got its message from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MessageSource {
+    /// The prompt's `description(..)`, shown while nothing newer applies.
+    Description,
+    /// What the prompt's `on_change(..)` closure returned for the current value.
+    Change,
+    /// A failed validation (or a parse error), shown until the value changes.
+    Validation,
+}
+
+/// One line of the message row under a prompt: the message or one of its nested
+/// messages; see
+/// [`Theme::format_prompt_message`](crate::theme::Theme::format_prompt_message).
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct PromptMessageView<'a> {
+    /// Which prompt.
+    pub kind: PromptKind,
+    /// The message's kind.
+    pub status: crate::Status,
+    /// The message's text.
+    pub text: &'a str,
+    /// 0 for the message, 1 and more for nested messages.
+    pub depth: usize,
+    /// Where the message came from.
+    pub source: MessageSource,
+}
+
+impl<'a> PromptMessageView<'a> {
+    /// A view of one line of the message row.
+    pub fn new(
+        kind: PromptKind,
+        status: crate::Status,
+        text: &'a str,
+        depth: usize,
+        source: MessageSource,
+    ) -> Self {
+        PromptMessageView {
+            kind,
+            status,
+            text,
+            depth,
+            source,
         }
     }
 }

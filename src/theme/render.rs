@@ -5,10 +5,12 @@ use console::{measure_text_width, Term, TermTarget};
 #[cfg(feature = "fuzzy-select")]
 use crate::theme::FuzzySelectPromptView;
 use crate::{
+    output::message::Message,
     terminal::Stream,
     theme::{
         Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, Context, InputPromptView,
-        ItemView, MessageView, PromptKind, PromptView, Status, Theme, Tokens,
+        ItemView, MessageSource, PromptKind, PromptLook, PromptMessageView, PromptView, Theme,
+        Tokens,
     },
     Result,
 };
@@ -33,12 +35,66 @@ impl<'a> std::ops::Deref for ThemeHandle<'a> {
 /// How many screen rows `text` takes once written as whole lines on a terminal `width`
 /// columns wide, counting the rows of lines that wrap.
 fn rows(text: &str, width: usize) -> usize {
-    text.split('\n')
-        .map(|line| measure_text_width(line).max(1).div_ceil(width.max(1)))
-        .sum()
+    text.split('\n').map(|line| line_rows(line, width)).sum()
 }
 
-/// Helper struct to conveniently render a theme.
+/// How many screen rows one line takes on a terminal `width` columns wide.
+fn line_rows(line: &str, width: usize) -> usize {
+    measure_text_width(line).max(1).div_ceil(width.max(1))
+}
+
+/// Where the terminal cursor goes for column `column` (in display columns) of line
+/// `line` of a frame made of `lines`, on a terminal `width` columns wide: the screen
+/// row (counted from the frame's first row, with the rows of wrapped lines) and
+/// column. `extra_row` is true when that row is past the rows the line itself takes:
+/// the cursor sits right after a line that exactly fills the width, so the frame
+/// needs one more row for it, right after that line.
+fn cursor_position(
+    lines: &[&str],
+    line: usize,
+    column: usize,
+    width: usize,
+) -> (usize, usize, bool) {
+    let width = width.max(1);
+    let before: usize = lines[..line].iter().map(|l| line_rows(l, width)).sum();
+    let extra_row = column / width >= line_rows(lines[line], width);
+    (before + column / width, column % width, extra_row)
+}
+
+/// What an input or password prompt shows where the typed text goes.
+#[cfg_attr(not(feature = "password"), allow(dead_code))]
+pub(crate) enum Shown<'s> {
+    /// The typed text, split at the cursor.
+    Text { before: &'s str, after: &'s str },
+    /// The input is empty: the placeholder, with the cursor before it.
+    Placeholder(&'s str),
+    /// A masked password: one glyph per typed char, split at the cursor.
+    Mask {
+        before: usize,
+        after: usize,
+        glyph: char,
+    },
+    /// A hidden password: nothing.
+    Hidden,
+}
+
+/// The message row of a prompt, if it shows anything, and where it comes from.
+pub(crate) type RowMessage<'m> = Option<(&'m Message<'static>, MessageSource)>;
+
+/// How many lines the row takes: the message and every nested message.
+pub(crate) fn row_lines(row: RowMessage) -> usize {
+    fn count(message: &Message) -> usize {
+        1 + message.children().iter().map(count).sum::<usize>()
+    }
+    row.map_or(0, |(message, _)| count(message))
+}
+
+/// Draws prompts through a theme, as frames.
+///
+/// A prompt draws its whole state as one frame (question, items, typed text, message
+/// row) on every key, and the new frame replaces the previous one on screen. A frame
+/// can be committed (it stays on screen, still part of the prompt, and the next frame
+/// goes under it) and the whole prompt can be erased.
 pub(crate) struct TermThemeRenderer<'a> {
     term: &'a Term,
     theme: ThemeHandle<'a>,
@@ -46,15 +102,14 @@ pub(crate) struct TermThemeRenderer<'a> {
     tokens: Tokens,
     /// The stream `term` writes to, so styles follow its terminal.
     stream: Stream,
-    height: usize,
-    prompt_height: usize,
-    prompts_reset_height: bool,
+    /// Rows of committed frames above the live one, still part of the prompt.
+    kept: usize,
+    /// Rows of the live frame.
+    rows: usize,
+    /// The row of the live frame the terminal cursor is on.
+    cursor_row: usize,
     /// Pauses a running live component (a task's spinner) while the prompt is shown.
     _pause: crate::live::engine::Pause,
-    /// An input error waiting to be drawn under the next input prompt.
-    pending_error: Option<String>,
-    /// An error row is on screen under the input line.
-    error_shown: bool,
 }
 
 impl<'a> TermThemeRenderer<'a> {
@@ -71,76 +126,11 @@ impl<'a> TermThemeRenderer<'a> {
                 _ => Stream::Stderr,
             },
             theme,
-            height: 0,
-            prompt_height: 0,
-            prompts_reset_height: true,
-            pending_error: None,
-            error_shown: false,
+            kept: 0,
+            rows: 0,
+            cursor_row: 0,
             _pause: crate::live::engine::Pause::new(),
         }
-    }
-
-    #[cfg(feature = "password")]
-    pub fn set_prompts_reset_height(&mut self, val: bool) {
-        self.prompts_reset_height = val;
-    }
-
-    #[cfg(feature = "password")]
-    pub fn term(&self) -> &Term {
-        self.term
-    }
-
-    /// The terminal read a line, so the cursor is now on the row under the input. If
-    /// that row holds the input error, it is cleared and reused; otherwise it is a new row.
-    #[cfg(feature = "password")]
-    pub fn input_submitted(&mut self) -> Result {
-        if self.error_shown {
-            self.term.clear_line()?;
-            self.error_shown = false;
-        } else {
-            self.height += 1;
-        }
-        Ok(())
-    }
-
-    fn write_formatted_str<
-        F: FnOnce(&mut TermThemeRenderer, &mut dyn fmt::Write) -> fmt::Result,
-    >(
-        &mut self,
-        f: F,
-    ) -> Result<usize> {
-        let mut buf = String::new();
-        f(self, &mut buf).map_err(io::Error::other)?;
-        self.height += buf.chars().filter(|&x| x == '\n').count();
-        self.term.write_str(&buf)?;
-        // A prompt may span lines; the cursor sits after the last one.
-        Ok(measure_text_width(buf.rsplit('\n').next().unwrap_or("")))
-    }
-
-    fn write_formatted_line<
-        F: FnOnce(&mut TermThemeRenderer, &mut dyn fmt::Write) -> fmt::Result,
-    >(
-        &mut self,
-        f: F,
-    ) -> Result {
-        let mut buf = String::new();
-        f(self, &mut buf).map_err(io::Error::other)?;
-        self.height += rows(&buf, self.term.size().1 as usize);
-        Ok(self.term.write_line(&buf)?)
-    }
-
-    fn write_formatted_prompt<
-        F: FnOnce(&mut TermThemeRenderer, &mut dyn fmt::Write) -> fmt::Result,
-    >(
-        &mut self,
-        f: F,
-    ) -> Result {
-        self.write_formatted_line(f)?;
-        if self.prompts_reset_height {
-            self.prompt_height = self.height;
-            self.height = 0;
-        }
-        Ok(())
     }
 
     /// The context hooks draw with: this renderer's tokens and the term's stream.
@@ -149,148 +139,291 @@ impl<'a> TermThemeRenderer<'a> {
     }
 
     /// The resolved look of one prompt.
-    #[cfg(feature = "password")]
-    fn look(&self, kind: PromptKind) -> crate::theme::PromptLook {
+    pub fn look(&self, kind: PromptKind) -> PromptLook {
         self.tokens.get_prompts().resolve(kind, &self.tokens)
     }
 
-    /// The question line of a list prompt, with its paging counter.
-    pub fn prompt(
+    /// Replaces the live frame with `text` (the whole frame, without a final newline)
+    /// and puts the terminal cursor at `cursor`, a line index in `text` and a column
+    /// in display columns, or leaves it after the last line when `None`.
+    fn frame(&mut self, text: &str, cursor: Option<(usize, usize)>) -> Result {
+        let width = self.term.size().1 as usize;
+        if self.rows > 0 {
+            self.term.move_cursor_up(self.cursor_row)?;
+            // `\r`, then clear to the end of the screen.
+            self.term.clear_to_end_of_screen()?;
+        }
+        let lines: Vec<&str> = text.split('\n').collect();
+        let mut rows = rows(text, width);
+        let target = cursor.map(|(line, column)| {
+            let line = line.min(lines.len() - 1);
+            (line, cursor_position(&lines, line, column, width))
+        });
+        let mut out = String::with_capacity(text.len() + 2);
+        match target {
+            // The cursor needs a row of its own after its line.
+            Some((line, (_, _, true))) => {
+                rows += 1;
+                for (i, l) in lines.iter().enumerate() {
+                    if i > 0 {
+                        out.push('\n');
+                    }
+                    out.push_str(l);
+                    if i == line {
+                        out.push_str(if i + 1 == lines.len() { "\r\n" } else { "\n" });
+                    }
+                }
+            }
+            _ => out.push_str(text),
+        }
+        self.term.write_str(&out)?;
+        let last = rows - 1;
+        self.cursor_row = last;
+        if let Some((_, (row, column, _))) = target {
+            self.term.move_cursor_up(last - row)?;
+            self.term.write_str("\r")?;
+            self.term.move_cursor_right(column)?;
+            self.cursor_row = row;
+        }
+        self.rows = rows;
+        self.term.flush()?;
+        Ok(())
+    }
+
+    /// Keeps the live frame on screen as part of the prompt: the next frame is drawn
+    /// under it, and [`erase`](Self::erase) still removes it.
+    pub fn commit(&mut self) -> Result {
+        if self.rows > 0 {
+            self.term
+                .move_cursor_down(self.rows - 1 - self.cursor_row)?;
+            self.term.write_str("\r\n")?;
+        }
+        self.kept += self.rows;
+        self.rows = 0;
+        self.cursor_row = 0;
+        Ok(())
+    }
+
+    /// Erases the whole prompt: the live frame and the committed ones above it. The
+    /// cursor ends where the prompt started.
+    pub fn erase(&mut self) -> Result {
+        self.term.move_cursor_up(self.cursor_row + self.kept)?;
+        self.term.clear_to_end_of_screen()?;
+        self.kept = 0;
+        self.rows = 0;
+        self.cursor_row = 0;
+        Ok(())
+    }
+
+    /// Appends the lines of the message row to a frame: the message, then its nested
+    /// messages one level deeper each, like [`Message`] prints them.
+    fn push_row(&self, lines: &mut Vec<String>, kind: PromptKind, row: RowMessage) -> fmt::Result {
+        fn push(
+            this: &TermThemeRenderer,
+            ctx: &Context,
+            lines: &mut Vec<String>,
+            kind: PromptKind,
+            message: &Message,
+            source: MessageSource,
+            depth: usize,
+        ) -> fmt::Result {
+            let mut line = String::new();
+            let view =
+                PromptMessageView::new(kind, message.status(), message.text(), depth, source);
+            this.theme.format_prompt_message(&mut line, ctx, &view)?;
+            lines.push(line);
+            for child in message.children() {
+                push(this, ctx, lines, kind, child, source, depth + 1)?;
+            }
+            Ok(())
+        }
+        if let Some((message, source)) = row {
+            push(self, &self.ctx(), lines, kind, message, source, 0)?;
+        }
+        Ok(())
+    }
+
+    /// The frame of a list prompt (select, multi select, sort): the question line
+    /// with its paging counter (when there is a question), the items, then the row.
+    pub fn prompt_frame<'i>(
+        &mut self,
+        kind: PromptKind,
+        prompt: Option<&str>,
+        paging: Option<(usize, usize)>,
+        invalid: bool,
+        items: impl Iterator<Item = ItemView<'i>>,
+        row: RowMessage,
+    ) -> Result {
+        let text = (|| -> std::result::Result<String, fmt::Error> {
+            let ctx = self.ctx();
+            let mut lines = Vec::new();
+            if let Some(prompt) = prompt {
+                let mut line = String::new();
+                let view = PromptView::new(kind, prompt, paging, invalid);
+                self.theme.format_prompt(&mut line, &ctx, &view)?;
+                lines.push(line);
+            }
+            for item in items {
+                let mut line = String::new();
+                self.theme.format_item(&mut line, &ctx, &item)?;
+                lines.push(line);
+            }
+            self.push_row(&mut lines, kind, row)?;
+            Ok(lines.join("\n"))
+        })()
+        .map_err(io::Error::other)?;
+        self.frame(&text, None)
+    }
+
+    /// Leaves a list prompt that was cancelled with `clear(false)`: the items and the
+    /// row go, the question line stays (nothing stays without a question).
+    pub fn keep_question(
+        &mut self,
+        kind: PromptKind,
+        prompt: Option<&str>,
+        paging: Option<(usize, usize)>,
+        invalid: bool,
+    ) -> Result {
+        match prompt {
+            Some(prompt) => {
+                self.prompt_frame(
+                    kind,
+                    Some(prompt),
+                    paging,
+                    invalid,
+                    std::iter::empty(),
+                    None,
+                )?;
+                self.commit()
+            }
+            None => self.erase(),
+        }
+    }
+
+    /// The frame of an input or password prompt: the input line with the typed text
+    /// (or what stands for it), then the row. The terminal cursor goes where the next
+    /// typed char will be.
+    pub fn input_frame(
         &mut self,
         kind: PromptKind,
         prompt: &str,
-        paging: Option<(usize, usize)>,
+        default: Option<&str>,
+        invalid: bool,
+        shown: Shown,
+        row: RowMessage,
     ) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            let view = PromptView::new(kind, prompt, paging);
-            this.theme.format_prompt(buf, &this.ctx(), &view)
-        })
+        let (text, cursor) = (|| -> std::result::Result<(String, (usize, usize)), fmt::Error> {
+            let ctx = self.ctx();
+            let look = self.look(kind);
+            let mut head = String::new();
+            let view = InputPromptView::new(kind, prompt, default, invalid);
+            self.theme.format_input_prompt(&mut head, &ctx, &view)?;
+            let line = head.matches('\n').count();
+            let start = measure_text_width(head.rsplit('\n').next().unwrap_or(""));
+            let mut paint = |style: &console::Style, text: &str| {
+                if !text.is_empty() {
+                    head.push_str(&ctx.paint(style, text).to_string());
+                }
+            };
+            let column = match shown {
+                Shown::Text { before, after } => {
+                    paint(&look.text_style, &format!("{before}{after}"));
+                    start + measure_text_width(before)
+                }
+                Shown::Placeholder(placeholder) => {
+                    paint(&look.placeholder_style, placeholder);
+                    start
+                }
+                Shown::Mask {
+                    before,
+                    after,
+                    glyph,
+                } => {
+                    let glyph = glyph.to_string();
+                    paint(&look.text_style, &glyph.repeat(before + after));
+                    start + before * measure_text_width(&glyph)
+                }
+                Shown::Hidden => start,
+            };
+            let mut lines = vec![head];
+            self.push_row(&mut lines, kind, row)?;
+            Ok((lines.join("\n"), (line, column)))
+        })()
+        .map_err(io::Error::other)?;
+        self.frame(&text, Some(cursor))
     }
 
-    /// The line an answered prompt leaves.
-    pub fn answered(&mut self, kind: PromptKind, prompt: &str, answer: Answer) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            let view = AnsweredView::new(kind, prompt, answer);
-            this.theme.format_answered(buf, &this.ctx(), &view)
-        })
-    }
-
-    /// One item of a list prompt.
-    pub fn item(
+    /// The frame of a confirm prompt: its line, or its question with the buttons on
+    /// the line under it (`buttons` says whether `Yes` has the focus), then the row.
+    pub fn confirm_frame(
         &mut self,
-        kind: PromptKind,
-        text: &str,
-        active: bool,
-        checked: Option<bool>,
-        matches: Option<&[usize]>,
+        prompt: &str,
+        default: Option<bool>,
+        invalid: bool,
+        buttons: Option<bool>,
+        row: RowMessage,
     ) -> Result {
-        self.write_formatted_line(|this, buf| {
-            let view = ItemView::new(kind, text, active, checked, matches);
-            this.theme.format_item(buf, &this.ctx(), &view)
-        })
+        let text = (|| -> std::result::Result<String, fmt::Error> {
+            let ctx = self.ctx();
+            let mut line = String::new();
+            let view = ConfirmPromptView::new(prompt, default, buttons.is_some(), invalid);
+            self.theme.format_confirm_prompt(&mut line, &ctx, &view)?;
+            if let Some(yes_focused) = buttons {
+                line.push('\n');
+                let view = ConfirmButtonsView::new(yes_focused);
+                self.theme.format_confirm_buttons(&mut line, &ctx, &view)?;
+            }
+            let mut lines = vec![line];
+            self.push_row(&mut lines, PromptKind::Confirm, row)?;
+            Ok(lines.join("\n"))
+        })()
+        .map_err(io::Error::other)?;
+        self.frame(&text, None)
     }
 
-    pub fn confirm_prompt(&mut self, prompt: &str, default: Option<bool>) -> Result<usize> {
-        self.write_formatted_str(|this, buf| {
-            let view = ConfirmPromptView::new(prompt, default, false);
-            this.theme.format_confirm_prompt(buf, &this.ctx(), &view)
-        })
-    }
-
-    /// The question, then the buttons on the line under it.
-    pub fn confirm_buttons(&mut self, prompt: &str, yes_focused: bool) -> Result<usize> {
-        self.write_formatted_str(|this, buf| {
-            let ctx = this.ctx();
-            let view = ConfirmPromptView::new(prompt, None, true);
-            this.theme.format_confirm_prompt(buf, &ctx, &view)?;
-            writeln!(buf)?;
-            let view = ConfirmButtonsView::new(yes_focused);
-            this.theme.format_confirm_buttons(buf, &ctx, &view)
-        })
-    }
-
+    /// The frame of a fuzzy select: the search line, the matching items, then the row.
+    /// `cursor` is a byte offset into `search`.
     #[cfg(feature = "fuzzy-select")]
-    pub fn fuzzy_select_prompt(&mut self, prompt: &str, search: &str, cursor: usize) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            let view = FuzzySelectPromptView::new(prompt, search, cursor);
-            this.theme
-                .format_fuzzy_select_prompt(buf, &this.ctx(), &view)
-        })
+    #[allow(clippy::too_many_arguments)]
+    pub fn fuzzy_frame<'i>(
+        &mut self,
+        prompt: &str,
+        search: &str,
+        cursor: usize,
+        placeholder: Option<&str>,
+        invalid: bool,
+        items: impl Iterator<Item = ItemView<'i>>,
+        row: RowMessage,
+    ) -> Result {
+        let text = (|| -> std::result::Result<String, fmt::Error> {
+            let ctx = self.ctx();
+            let mut line = String::new();
+            let placeholder = placeholder.filter(|_| search.is_empty());
+            let view = FuzzySelectPromptView::new(prompt, search, cursor, placeholder, invalid);
+            self.theme
+                .format_fuzzy_select_prompt(&mut line, &ctx, &view)?;
+            let mut lines = vec![line];
+            for item in items {
+                let mut line = String::new();
+                self.theme.format_item(&mut line, &ctx, &item)?;
+                lines.push(line);
+            }
+            self.push_row(&mut lines, PromptKind::FuzzySelect, row)?;
+            Ok(lines.join("\n"))
+        })()
+        .map_err(io::Error::other)?;
+        self.frame(&text, None)
     }
 
-    pub fn input_prompt(&mut self, prompt: &str, default: Option<&str>) -> Result<usize> {
-        let len = self.write_formatted_str(|this, buf| {
-            let view = InputPromptView::new(PromptKind::Input, prompt, default);
-            this.theme.format_input_prompt(buf, &this.ctx(), &view)
-        })?;
-        self.draw_pending_error(len)?;
-        Ok(len)
-    }
-
-    /// Draws a pending input error on the row under the input, then puts the cursor
-    /// back after the prompt, `len` columns in.
-    fn draw_pending_error(&mut self, len: usize) -> Result {
-        if let Some(err) = self.pending_error.take() {
-            self.write_formatted_str(|this, buf| {
-                writeln!(buf)?;
-                let view = MessageView::new(Status::Error, &err, 0);
-                this.theme.format_message(buf, &this.ctx(), &view)
-            })?;
-            self.term.move_cursor_up(1)?;
-            self.term.write_str("\r")?;
-            self.term.move_cursor_right(len)?;
-            self.error_shown = true;
-        }
-        Ok(())
-    }
-
-    /// Reports an input error: it is drawn under the input line when the prompt
-    /// (input or password) is shown again.
-    pub fn input_error(&mut self, err: &str) -> Result {
-        self.pending_error = Some(err.to_string());
-        Ok(())
-    }
-
-    #[cfg(feature = "password")]
-    pub fn password_prompt(&mut self, prompt: &str) -> Result<usize> {
-        let len = self.write_formatted_str(|this, buf| {
-            write!(buf, "\r")?;
-            let view = InputPromptView::new(PromptKind::Password, prompt, None);
-            this.theme.format_input_prompt(buf, &this.ctx(), &view)
-        })?;
-        self.draw_pending_error(len)?;
-        Ok(len)
-    }
-
-    /// The character a masked password shows for each typed character.
-    #[cfg(feature = "password")]
-    pub fn password_mask_glyph(&self) -> char {
-        self.look(PromptKind::Password)
-            .mask
-            .chars()
-            .next()
-            .unwrap_or('*')
-    }
-
-    pub fn clear(&mut self) -> Result {
-        if self.error_shown {
-            // The cursor is on the input line; step down so the error row is cleared too.
-            self.term.move_cursor_down(1)?;
-            self.term.clear_line()?;
-            self.error_shown = false;
-        }
-        self.term
-            .clear_last_lines(self.height + self.prompt_height)?;
-        self.height = 0;
-        self.prompt_height = 0;
-        Ok(())
-    }
-
-    /// Clears what was drawn since the last prompt line, keeping the prompt.
-    pub fn clear_preserve_prompt(&mut self) -> Result {
-        self.term.clear_last_lines(self.height)?;
-        self.height = 0;
-        Ok(())
+    /// The line an answered prompt leaves, written as a line of its own where the
+    /// cursor is (after [`erase`](Self::erase), where the prompt was).
+    pub fn answered(&mut self, kind: PromptKind, prompt: &str, answer: Answer) -> Result {
+        let mut line = String::new();
+        let view = AnsweredView::new(kind, prompt, answer);
+        self.theme
+            .format_answered(&mut line, &self.ctx(), &view)
+            .map_err(io::Error::other)?;
+        Ok(self.term.write_line(&line)?)
     }
 }
 
@@ -306,6 +439,44 @@ mod tests {
         assert_eq!(rows(&"ñ".repeat(10), 10), 1); // 20 bytes, 10 columns
         assert_eq!(rows(&"a".repeat(11), 10), 2);
         assert_eq!(rows("\x1b[31mred\x1b[0m", 3), 1); // escape codes take no room
+    }
+
+    #[test]
+    fn the_cursor_follows_wrapped_lines() {
+        let lines = ["0123456789abc", "x"];
+        // Line 0 takes rows 0 and 1 on a 10-column terminal.
+        assert_eq!(cursor_position(&lines, 0, 3, 10), (0, 3, false));
+        assert_eq!(cursor_position(&lines, 0, 12, 10), (1, 2, false));
+        assert_eq!(cursor_position(&lines, 1, 1, 10), (2, 1, false));
+        // Escape codes and wide chars count by display width.
+        let lines = ["\x1b[1m日本\x1b[0m", "ab"];
+        assert_eq!(cursor_position(&lines, 0, 4, 10), (0, 4, false));
+        assert_eq!(cursor_position(&lines, 1, 2, 10), (1, 2, false));
+    }
+
+    #[test]
+    fn a_line_that_fills_the_width_needs_a_row_for_the_cursor() {
+        let lines = ["0123456789", "x"];
+        // Right after the 10th column: a row of its own after line 0.
+        assert_eq!(cursor_position(&lines, 0, 10, 10), (1, 0, true));
+        assert_eq!(cursor_position(&lines, 0, 9, 10), (0, 9, false));
+        // The same at the end of the last line, and after two full rows.
+        let lines = ["ab", "0123456789"];
+        assert_eq!(cursor_position(&lines, 1, 10, 10), (2, 0, true));
+        let lines = ["01234567890123456789"];
+        assert_eq!(cursor_position(&lines, 0, 20, 10), (2, 0, true));
+        assert_eq!(cursor_position(&lines, 0, 15, 10), (1, 5, false));
+        // An empty line still takes a row.
+        assert_eq!(cursor_position(&[""], 0, 0, 10), (0, 0, false));
+    }
+
+    #[test]
+    fn row_lines_count_nested_messages() {
+        let message = Message::error("weak")
+            .nest(Message::hint("8 chars").nest(Message::hint("deeper")))
+            .nest(Message::hint("a digit"));
+        assert_eq!(row_lines(Some((&message, MessageSource::Change))), 4);
+        assert_eq!(row_lines(None), 0);
     }
 
     #[test]

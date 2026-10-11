@@ -44,7 +44,9 @@ pub use error::{Error, Result};
 pub use history::{BasicHistory, History};
 pub use live::task::{task, RunningTask, Task};
 pub use options::{set_options, Options};
-pub use output::message::{description, error, hint, info, success, warning, Message, Status};
+pub use output::message::{
+    description, error, hint, info, success, warning, IntoMessage, Message, Status,
+};
 pub use output::{
     key_value::KeyValue,
     panel::{Panel, PanelRow},

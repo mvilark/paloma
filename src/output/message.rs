@@ -63,6 +63,8 @@ impl<'a> MessageView<'a> {
 /// # Ok(())
 /// # }
 /// ```
+// `Message` must never implement `Display`: `IntoMessage` has one impl for `Message`
+// and a blanket impl for every `Display` type, and the two would overlap.
 #[derive(Clone)]
 pub struct Message<'a> {
     status: Status,
@@ -199,6 +201,35 @@ impl<'a> Message<'a> {
     }
 }
 
+/// A value that can be shown as a message: a [`Message`] keeps its own status, any
+/// other `Display` value becomes a message of the status the caller picks.
+///
+/// Prompt descriptions and validation errors take it, so a plain string works as
+/// well as a [`Message`] of any kind:
+///
+/// ```rust
+/// use paloma::{IntoMessage, Message, Status};
+///
+/// assert_eq!("Too short".into_message(Status::Error).status(), Status::Error);
+/// assert_eq!(Message::hint("Try 8").into_message(Status::Error).status(), Status::Hint);
+/// ```
+pub trait IntoMessage {
+    /// The message; `status` applies when `self` is plain text.
+    fn into_message(self, status: Status) -> Message<'static>;
+}
+
+impl IntoMessage for Message<'static> {
+    fn into_message(self, _status: Status) -> Message<'static> {
+        self
+    }
+}
+
+impl<T: std::fmt::Display> IntoMessage for T {
+    fn into_message(self, status: Status) -> Message<'static> {
+        Message::new(status, self.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,6 +252,17 @@ mod tests {
             plain(&message),
             "error: Port 3000 is already in use\n  hint: Stop the other server\n    or pick a port"
         );
+    }
+
+    #[test]
+    fn text_takes_the_callers_status_and_messages_keep_theirs() {
+        let text = "x".into_message(Status::Error);
+        assert_eq!((text.status(), text.text()), (Status::Error, "x"));
+        let hint = Message::hint("x").into_message(Status::Error);
+        assert_eq!((hint.status(), hint.text()), (Status::Hint, "x"));
+        let nested = error("a").nest(hint).into_message(Status::Description);
+        assert_eq!(nested.children().len(), 1);
+        assert_eq!(42.into_message(Status::Info).text(), "42");
     }
 
     #[test]

@@ -23,8 +23,8 @@ use console::Style;
 use crate::theme::{
     Answer, AnsweredView, BlockKind, ConfirmButtonsView, ConfirmPromptView, Context,
     FuzzySelectPromptView, GlyphName, InputPromptView, ItemView, KeyValueView, LiveKind,
-    MessageView, PanelView, PromptKind, PromptLook, PromptView, Role, SectionView, TableView,
-    TaskState, TaskStepView, TaskView,
+    MessageView, PanelView, PromptKind, PromptLook, PromptMessageView, PromptView, Role,
+    SectionView, TableView, TaskState, TaskStepView, TaskView,
 };
 
 /// One message line: the indent for its depth, then the glyph, the word and the text,
@@ -297,13 +297,22 @@ fn prompt_look(ctx: &Context, kind: PromptKind) -> PromptLook {
     tokens.get_prompts().resolve(kind, tokens)
 }
 
+/// The suffix style: `invalid_suffix_style` while the row shows a validation error.
+fn suffix_style(look: &PromptLook, invalid: bool) -> &Style {
+    if invalid {
+        &look.invalid_suffix_style
+    } else {
+        &look.suffix_style
+    }
+}
+
 /// The question line of a list prompt: mark, question and suffix, then the paging
 /// counter (` [Page 1/3] `) in `paging_style`.
 pub fn format_prompt(f: &mut dyn fmt::Write, ctx: &Context, view: &PromptView) -> fmt::Result {
     let look = prompt_look(ctx, view.kind);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if let Some((page, pages)) = view.paging {
         let counter = format!("[Page {page}/{pages}]");
         write!(f, " {} ", ctx.paint(&look.paging_style, counter))?;
@@ -312,7 +321,8 @@ pub fn format_prompt(f: &mut dyn fmt::Write, ctx: &Context, view: &PromptView) -
 }
 
 /// The input line: mark, question, the default in `default_brackets` and `hint_style`,
-/// the suffix, then a space for the typed text.
+/// the suffix (in `invalid_suffix_style` while the row shows an error), then a space
+/// for the typed text.
 pub fn format_input_prompt(
     f: &mut dyn fmt::Write,
     ctx: &Context,
@@ -325,7 +335,7 @@ pub fn format_input_prompt(
         let (open, close) = look.default_brackets;
         line.part(&look.hint_style, &format!("{open}{default}{close}"))?;
     }
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if line.wrote {
         write!(f, " ")?;
     }
@@ -351,7 +361,7 @@ pub fn format_confirm_prompt(
         };
         line.part(&look.hint_style, choices)?;
     }
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if let (false, true, Some(default)) = (view.buttons, look.show_default, view.default) {
         line.part(
             &look.default_style,
@@ -392,7 +402,8 @@ pub fn format_confirm_buttons(
 /// The search line: mark, question and suffix, a space, then the search in
 /// `text_style` with the cursor glyph in `cursor_style` at the cursor. With an empty
 /// cursor glyph the character under the cursor (a space at the end) is drawn in
-/// `cursor_style` instead.
+/// `cursor_style` instead. An empty search with a placeholder shows the cursor, then
+/// the placeholder in `placeholder_style`.
 pub fn format_fuzzy_select_prompt(
     f: &mut dyn fmt::Write,
     ctx: &Context,
@@ -401,9 +412,22 @@ pub fn format_fuzzy_select_prompt(
     let look = prompt_look(ctx, PromptKind::FuzzySelect);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if line.wrote {
         write!(f, " ")?;
+    }
+    if let (true, Some(placeholder)) = (view.search.is_empty(), view.placeholder) {
+        let cursor = if look.cursor.is_empty() {
+            " "
+        } else {
+            look.cursor
+        };
+        return write!(
+            f,
+            "{}{}",
+            ctx.paint(&look.cursor_style, cursor),
+            ctx.paint(&look.placeholder_style, placeholder)
+        );
     }
     let (head, tail) = view.search.split_at(view.cursor.min(view.search.len()));
     let text = |s: &str| ctx.paint(&look.text_style, s.to_string());
@@ -474,6 +498,31 @@ pub fn format_item(f: &mut dyn fmt::Write, ctx: &Context, view: &ItemView) -> fm
         }
         None => write!(f, "{}", ctx.paint(style, view.text)),
     }
+}
+
+/// The `message_indent` token of the view's prompt, as spaces.
+pub(crate) fn prompt_message_indent(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &PromptMessageView,
+) -> fmt::Result {
+    let indent = prompt_look(ctx, view.kind).message_indent;
+    write!(f, "{}", " ".repeat(indent))
+}
+
+/// One line of the message row under a prompt: the `message_indent` token as spaces,
+/// then the line as [`format_message`] draws it (a nested message at its depth).
+pub fn format_prompt_message(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &PromptMessageView,
+) -> fmt::Result {
+    prompt_message_indent(f, ctx, view)?;
+    format_message(
+        f,
+        ctx,
+        &MessageView::new(view.status, view.text, view.depth),
+    )
 }
 
 /// The line an answered prompt leaves: answered mark, question, separator, then the
@@ -641,7 +690,7 @@ mod tests {
             plain_with(
                 |p| p.fuzzy_select(|s| s.cursor("")),
                 |f, ctx| {
-                    let view = FuzzySelectPromptView::new("Find", "ab", cursor);
+                    let view = FuzzySelectPromptView::new("Find", "ab", cursor, None, false);
                     format_fuzzy_select_prompt(f, ctx, &view)
                 },
             )
@@ -649,5 +698,42 @@ mod tests {
         // Plain tokens draw no style, so the character stays where it was.
         assert_eq!(search(0), "Find ab");
         assert_eq!(search(2), "Find ab ");
+    }
+
+    #[test]
+    fn an_empty_search_shows_the_cursor_then_the_placeholder() {
+        let search = |cursor: &'static str| {
+            plain_with(
+                |p| p.fuzzy_select(|s| s.cursor(cursor)),
+                |f, ctx| {
+                    let view = FuzzySelectPromptView::new("Find", "", 0, Some("fruit"), false);
+                    format_fuzzy_select_prompt(f, ctx, &view)
+                },
+            )
+        };
+        assert_eq!(search("|"), "Find |fruit");
+        assert_eq!(search(""), "Find  fruit");
+    }
+
+    #[test]
+    fn prompt_messages_are_indented_messages() {
+        use crate::theme::MessageSource;
+        let line = |depth| {
+            plain_with(
+                |p| p.input(|i| i.message_indent(2)),
+                |f, ctx| {
+                    let view = PromptMessageView::new(
+                        PromptKind::Input,
+                        Status::Error,
+                        "Bad",
+                        depth,
+                        MessageSource::Validation,
+                    );
+                    format_prompt_message(f, ctx, &view)
+                },
+            )
+        };
+        assert_eq!(line(0), "  error: Bad");
+        assert_eq!(line(1), "    error: Bad");
     }
 }

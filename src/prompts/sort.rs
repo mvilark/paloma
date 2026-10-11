@@ -3,11 +3,15 @@ use std::{io, ops::Rem};
 use console::{Key, Term};
 
 use crate::{
+    output::message::{IntoMessage, Message, Status},
     paging::Paging,
-    prompts::base::{base_methods, PromptBase},
+    prompts::{
+        base::{base_methods, PromptBase},
+        row::{Row, Validators},
+    },
     theme::{
-        render::TermThemeRenderer,
-        {Answer, PromptKind},
+        render::{row_lines, TermThemeRenderer},
+        {Answer, ItemView, PromptKind},
     },
     Result,
 };
@@ -44,6 +48,8 @@ pub struct Sort<'a> {
     clear: bool,
     max_length: Option<usize>,
     base: PromptBase<'a>,
+    validators: Validators<'a, [usize]>,
+    row: Row<'a, [usize]>,
 }
 
 impl Default for Sort<'_> {
@@ -101,6 +107,34 @@ impl<'a> Sort<'a> {
     }
 
     base_methods!(sort, |_| true);
+
+    /// Called each time the order changes, with the item indices from first to last.
+    /// `Some(message)` shows in the row under the items; `None` brings the
+    /// [`description`](Self::description) back.
+    ///
+    /// A later call replaces an earlier closure.
+    pub fn on_change(
+        mut self,
+        f: impl FnMut(&[usize]) -> Option<Message<'static>> + Send + 'a,
+    ) -> Self {
+        self.row.on_change(f);
+        self
+    }
+
+    /// Registers a validator, run with the order (item indices, first to last) when the user submits. An error keeps the prompt open and shows in
+    /// the row under the items until they change. Several validators run in order;
+    /// the first error wins.
+    ///
+    /// The error can be any `Display` value (shown as an error message) or a
+    /// [`Message`] of any kind (see [`IntoMessage`]).
+    pub fn validate<E: IntoMessage>(
+        mut self,
+        mut f: impl FnMut(&[usize]) -> std::result::Result<(), E> + 'a,
+    ) -> Self {
+        self.validators
+            .push(move |v: &[usize]| f(v).err().map(|e| e.into_message(Status::Error)));
+        self
+    }
 
     /// Enables user interaction and returns the result.
     ///
@@ -163,7 +197,7 @@ impl<'a> Sort<'a> {
         self._interact_on(term, true)
     }
 
-    fn _interact_on(self, term: &Term, allow_quit: bool) -> Result<Option<Vec<usize>>> {
+    fn _interact_on(mut self, term: &Term, allow_quit: bool) -> Result<Option<Vec<usize>>> {
         if !term.is_term() {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
@@ -182,28 +216,8 @@ impl<'a> Sort<'a> {
         term.hide_cursor()?;
 
         loop {
-            if let Some(ref prompt) = self.prompt {
-                paging.render_prompt(|paging_info| {
-                    render.prompt(PromptKind::Sort, prompt, paging_info)
-                })?;
-            }
-
-            for (idx, item) in order
-                .iter()
-                .enumerate()
-                .skip(paging.current_page * paging.capacity)
-                .take(paging.capacity)
-            {
-                render.item(
-                    PromptKind::Sort,
-                    &self.items[*item],
-                    sel == idx,
-                    Some(checked),
-                    None,
-                )?;
-            }
-
-            term.flush()?;
+            self.draw(&mut render, &mut paging, sel, &order, checked)?;
+            let before = order.clone();
 
             match term.read_key()? {
                 Key::ArrowDown | Key::Tab | Key::Char('j') => {
@@ -283,9 +297,14 @@ impl<'a> Sort<'a> {
                 Key::Escape | Key::Char('q') => {
                     if allow_quit {
                         if self.clear {
-                            render.clear()?;
+                            render.erase()?;
                         } else {
-                            term.clear_last_lines(paging.capacity)?;
+                            render.keep_question(
+                                PromptKind::Sort,
+                                self.prompt.as_deref(),
+                                paging.counter(),
+                                self.row.is_invalid(),
+                            )?;
                         }
 
                         term.show_cursor()?;
@@ -295,8 +314,15 @@ impl<'a> Sort<'a> {
                     }
                 }
                 Key::Enter => {
+                    if let Some(err) = self.validators.check(&order) {
+                        self.row.invalid(err);
+                        continue;
+                    }
+
                     if self.clear {
-                        render.clear()?;
+                        render.erase()?;
+                    } else {
+                        render.commit()?;
                     }
 
                     if let Some(ref prompt) = self.prompt {
@@ -317,14 +343,50 @@ impl<'a> Sort<'a> {
                 _ => {}
             }
 
-            paging.update(sel)?;
-
-            if paging.active {
-                render.clear()?;
-            } else {
-                render.clear_preserve_prompt()?;
+            if order != before {
+                self.row.changed(&order);
             }
+
+            paging.update(sel);
         }
+    }
+}
+
+impl Sort<'_> {
+    /// Draws the question, the items of the current page in their current order and
+    /// the row.
+    fn draw(
+        &self,
+        render: &mut TermThemeRenderer,
+        paging: &mut Paging,
+        sel: usize,
+        order: &[usize],
+        checked: bool,
+    ) -> Result {
+        let row = self.row.current(self.base.description.as_ref());
+        paging.set_reserved(row_lines(row), sel);
+        let items = order
+            .iter()
+            .enumerate()
+            .skip(paging.current_page * paging.capacity)
+            .take(paging.capacity)
+            .map(|(idx, item)| {
+                ItemView::new(
+                    PromptKind::Sort,
+                    &self.items[*item],
+                    sel == idx,
+                    Some(checked),
+                    None,
+                )
+            });
+        render.prompt_frame(
+            PromptKind::Sort,
+            self.prompt.as_deref(),
+            paging.counter(),
+            self.row.is_invalid(),
+            items,
+            row,
+        )
     }
 }
 
@@ -339,6 +401,8 @@ impl<'a> Sort<'a> {
             prompt: None,
             max_length: None,
             base: PromptBase::new(),
+            validators: Validators::default(),
+            row: Row::default(),
         }
     }
 }

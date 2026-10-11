@@ -1,19 +1,48 @@
-use std::{io, sync::Arc};
+use std::{
+    io,
+    ops::{Deref, DerefMut},
+};
 
 use console::{Key, Term};
 use zeroize::Zeroizing;
 
 use crate::{
-    prompts::base::{base_methods, PromptBase},
+    output::message::{IntoMessage, Message, Status},
+    prompts::{
+        base::{base_methods, PromptBase},
+        line::{Edit, LineEditor},
+        row::{Row, Validators},
+    },
     theme::{
-        render::TermThemeRenderer,
+        render::{Shown, TermThemeRenderer},
         {Answer, PromptKind},
     },
     validate::PasswordValidator,
     Result,
 };
 
-type PasswordValidatorCallback<'a> = Arc<dyn Fn(&String) -> Option<String> + 'a>;
+/// A line editor holding a secret: its text is overwritten when it is dropped.
+struct Secret(LineEditor);
+
+impl Drop for Secret {
+    fn drop(&mut self) {
+        self.0.zeroize();
+    }
+}
+
+impl Deref for Secret {
+    type Target = LineEditor;
+
+    fn deref(&self) -> &LineEditor {
+        &self.0
+    }
+}
+
+impl DerefMut for Secret {
+    fn deref_mut(&mut self) -> &mut LineEditor {
+        &mut self.0
+    }
+}
 
 /// Renders a password input prompt.
 ///
@@ -38,7 +67,8 @@ pub struct Password<'a> {
     base: PromptBase<'a>,
     allow_empty_password: bool,
     confirmation_prompt: Option<(String, String)>,
-    validator: Option<PasswordValidatorCallback<'a>>,
+    validators: Validators<'a, String>,
+    row: Row<'a, str>,
     mask: Option<char>,
     mask_input: Option<bool>,
     result_len: Option<usize>,
@@ -58,6 +88,37 @@ impl<'a> Password<'a> {
     }
 
     base_methods!(password, |_| true);
+
+    /// Called each time the typed password changes, with the password. `Some(message)`
+    /// shows in the row under the prompt; `None` brings the
+    /// [`description`](Self::description) back. paloma passes the password to the
+    /// closure and never prints it.
+    ///
+    /// Only the first entry has a row; the confirmation
+    /// ([`confirmation`](Self::confirmation)) has none.
+    ///
+    /// A later call replaces an earlier closure.
+    ///
+    /// ```rust,no_run
+    /// use paloma::{Message, Password};
+    ///
+    /// let password = Password::new()
+    ///     .prompt("Password")
+    ///     .on_change(|pw: &str| {
+    ///         (pw.chars().count() < 8).then(|| {
+    ///             Message::error("Password too weak").nest(Message::hint("At least 8 characters"))
+    ///         })
+    ///     })
+    ///     .interact()?;
+    /// # Ok::<(), paloma::Error>(())
+    /// ```
+    pub fn on_change(
+        mut self,
+        f: impl FnMut(&str) -> Option<Message<'static>> + Send + 'a,
+    ) -> Self {
+        self.row.on_change(f);
+        self
+    }
 
     /// Sets how many mask characters the one-line result shows after the password is
     /// confirmed (default 8). The count is fixed, so the result never reveals the
@@ -133,43 +194,41 @@ impl<'a> Password<'a> {
     }
 
     /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
-    pub fn interact_on(self, term: &Term) -> Result<String> {
+    pub fn interact_on(mut self, term: &Term) -> Result<String> {
         if !term.is_term() {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
-        render.set_prompts_reset_height(false);
 
         let options = crate::options::current();
         let masked = self.mask_input.or(options.password.mask).unwrap_or(false);
-        let mask = self
+        let glyph = render
+            .look(PromptKind::Password)
             .mask
-            .or_else(|| masked.then(|| render.password_mask_glyph()));
+            .chars()
+            .next()
+            .unwrap_or('*');
+        let mask = self.mask.or_else(|| masked.then_some(glyph));
         let result_len = self.result_len.or(options.password.result_len).unwrap_or(8);
+        let prompt = self.prompt.clone();
 
         loop {
-            let password = Zeroizing::new(self.prompt_password(&mut render, &self.prompt, mask)?);
+            let password = self.read(term, &mut render, &prompt, mask, true)?;
 
-            if let Some(ref validator) = self.validator {
-                if let Some(err) = validator(&password) {
-                    render.clear()?;
-                    render.input_error(&err)?;
-                    continue;
-                }
-            }
-
-            if let Some((ref prompt, ref err)) = self.confirmation_prompt {
-                let pw2 = Zeroizing::new(self.prompt_password(&mut render, prompt, mask)?);
+            if let Some((ref prompt, ref err)) = self.confirmation_prompt.clone() {
+                // The first entry stays on screen above the confirmation.
+                render.commit()?;
+                let pw2 = self.read(term, &mut render, prompt, mask, false)?;
 
                 if *password != *pw2 {
-                    render.clear()?;
-                    render.input_error(err)?;
+                    render.erase()?;
+                    self.row.invalid(Message::error(err.as_str()));
                     continue;
                 }
             }
 
-            render.clear()?;
+            render.erase()?;
 
             if self.report_enabled() {
                 render.answered(
@@ -184,61 +243,74 @@ impl<'a> Password<'a> {
         }
     }
 
-    /// Reads one password, echoing `mask` for each character, or nothing when `None`.
-    fn prompt_password(
-        &self,
+    /// Reads one password key by key, echoing `mask` for each character, or nothing
+    /// when `None`, until `Enter` submits an acceptable one. The `first` entry has the
+    /// row and runs the validators; a refused password stays as typed and its error
+    /// shows in the row.
+    fn read(
+        &mut self,
+        term: &Term,
         render: &mut TermThemeRenderer,
         prompt: &str,
         mask: Option<char>,
-    ) -> Result<String> {
+        first: bool,
+    ) -> Result<Zeroizing<String>> {
+        let mut editor = Secret(LineEditor::new(""));
         loop {
-            render.password_prompt(prompt)?;
-            render.term().flush()?;
-
-            let Some(mask) = mask else {
-                let input = render.term().read_secure_line()?;
-                render.input_submitted()?;
-
-                if !input.is_empty() || self.allow_empty_password {
-                    return Ok(input);
-                }
-
-                continue;
+            let shown = match mask {
+                Some(glyph) => Shown::Mask {
+                    before: editor.cursor(),
+                    after: editor.len() - editor.cursor(),
+                    glyph,
+                },
+                None => Shown::Hidden,
             };
+            let row = if first {
+                self.row.current(self.base.description.as_ref())
+            } else {
+                None
+            };
+            render.input_frame(
+                PromptKind::Password,
+                prompt,
+                None,
+                first && self.row.is_invalid(),
+                shown,
+                row,
+            )?;
 
-            let term = render.term();
-            let mut password = String::new();
-
-            loop {
-                match term.read_key()? {
-                    Key::Char(chr) if !chr.is_ascii_control() => {
-                        password.push(chr);
-                        term.write_str(mask.encode_utf8(&mut [0; 4]))?;
-                        term.flush()?;
+            match term.read_key()? {
+                Key::Enter => {
+                    let password = Zeroizing::new(editor.text());
+                    if password.is_empty() && !self.allow_empty_password {
+                        continue;
                     }
-                    Key::Backspace if !password.is_empty() => {
-                        password.pop();
-                        term.clear_chars(1)?;
-                        term.flush()?;
+                    if first {
+                        if let Some(err) = self.validators.check(&password) {
+                            self.row.invalid(err);
+                            continue;
+                        }
                     }
-                    Key::Enter => break,
-                    _ => {}
+                    return Ok(password);
                 }
-            }
-
-            term.write_line("")?;
-
-            render.input_submitted()?;
-
-            if !password.is_empty() || self.allow_empty_password {
-                return Ok(password);
+                key => {
+                    if editor.handle(&key) == Edit::Changed && first {
+                        self.row.changed(&Zeroizing::new(editor.text()));
+                    }
+                }
             }
         }
     }
 }
 
 impl<'a> Password<'a> {
-    /// Registers a validator.
+    /// Registers a validator, run when the first entry is submitted (before the
+    /// confirmation). An error keeps the prompt open with the password as typed and
+    /// shows in the row under it until the password changes. Several validators run
+    /// in order; the first error wins.
+    ///
+    /// The error can be any `Display` value (shown as an error message) or a
+    /// [`Message`] of any kind (see [`IntoMessage`]).
     ///
     /// # Example
     ///
@@ -262,23 +334,14 @@ impl<'a> Password<'a> {
     pub fn validate<V>(mut self, validator: V) -> Self
     where
         V: PasswordValidator + 'a,
-        V::Err: ToString,
+        V::Err: IntoMessage,
     {
-        let old_validator_func = self.validator.take();
-
-        self.validator = Some(Arc::new(move |value: &String| -> Option<String> {
-            if let Some(old) = &old_validator_func {
-                if let Some(err) = old(value) {
-                    return Some(err);
-                }
-            }
-
-            match validator.validate(value) {
-                Ok(()) => None,
-                Err(err) => Some(err.to_string()),
-            }
-        }));
-
+        self.validators.push(move |value: &String| {
+            validator
+                .validate(value)
+                .err()
+                .map(|err| err.into_message(Status::Error))
+        });
         self
     }
 
@@ -291,7 +354,8 @@ impl<'a> Password<'a> {
             base: PromptBase::new(),
             allow_empty_password: false,
             confirmation_prompt: None,
-            validator: None,
+            validators: Validators::default(),
+            row: Row::default(),
             mask: None,
             mask_input: None,
             result_len: None,

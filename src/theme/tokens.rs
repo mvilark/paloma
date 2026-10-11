@@ -775,6 +775,9 @@ settings! {
         gap: usize,
         /// Columns before each item of a list. Default 0.
         item_indent: usize,
+        /// Columns before each line of the message row under a prompt (nested
+        /// messages are indented further by the message layout). Default 0.
+        message_indent: usize,
         /// Whether an open confirm shows the answer `Enter` gives after its suffix.
         /// Default true.
         show_default: bool,
@@ -784,6 +787,9 @@ settings! {
         label_style: Style,
         /// The suffix. Default: `subtle`.
         suffix_style: Style,
+        /// The suffix while the message row shows a validation error. Default:
+        /// `suffix_style`.
+        invalid_suffix_style: Style,
         /// An input's default value and a confirm's choices. Default: `subtle`.
         hint_style: Style,
         /// The answer `Enter` gives, after an open confirm. Default: `accent`.
@@ -814,8 +820,10 @@ settings! {
         match_style: Style,
         /// The search cursor. Default: `accent`.
         cursor_style: Style,
-        /// The typed search. Default: `text`.
+        /// The typed text: input, password mask, search. Default: `text`.
         text_style: Style,
+        /// The placeholder of an empty input or search. Default: `subtle`.
+        placeholder_style: Style,
         /// The paging counter (`[Page 1/3]`). Default: unstyled.
         paging_style: Style,
         /// A button without focus. Default: `text`.
@@ -920,6 +928,8 @@ pub struct PromptLook {
     pub gap: usize,
     /// See [`PromptStyle::item_indent`].
     pub item_indent: usize,
+    /// See [`PromptStyle::message_indent`].
+    pub message_indent: usize,
     /// See [`PromptStyle::show_default`].
     pub show_default: bool,
     /// See [`PromptStyle::mark_style`].
@@ -928,6 +938,8 @@ pub struct PromptLook {
     pub label_style: Style,
     /// See [`PromptStyle::suffix_style`].
     pub suffix_style: Style,
+    /// See [`PromptStyle::invalid_suffix_style`].
+    pub invalid_suffix_style: Style,
     /// See [`PromptStyle::hint_style`].
     pub hint_style: Style,
     /// See [`PromptStyle::default_style`].
@@ -960,6 +972,8 @@ pub struct PromptLook {
     pub cursor_style: Style,
     /// See [`PromptStyle::text_style`].
     pub text_style: Style,
+    /// See [`PromptStyle::placeholder_style`].
+    pub placeholder_style: Style,
     /// See [`PromptStyle::paging_style`].
     pub paging_style: Style,
     /// See [`PromptStyle::button_style`].
@@ -986,6 +1000,7 @@ impl PromptTokens {
         let choices = s.choices.unwrap_or("(y/n)");
         let label_style = s.label_style.unwrap_or_else(|| role(Role::text));
         let mask = s.mask.unwrap_or_else(|| glyph(GlyphName::Mask));
+        let suffix_style = s.suffix_style.unwrap_or_else(|| role(Role::subtle));
         PromptLook {
             mark: s.mark.unwrap_or_else(|| glyph(GlyphName::Prompt)),
             answered_mark: s
@@ -1013,13 +1028,17 @@ impl PromptTokens {
             empty_value: s.empty_value,
             gap: s.gap.unwrap_or(1),
             item_indent: s.item_indent.unwrap_or(0),
+            message_indent: s.message_indent.unwrap_or(0),
             show_default: s.show_default.unwrap_or(true),
             mark_style: s.mark_style.unwrap_or_else(|| role(Role::accent)),
             answered_label_style: s
                 .answered_label_style
                 .unwrap_or_else(|| label_style.clone()),
             label_style,
-            suffix_style: s.suffix_style.unwrap_or_else(|| role(Role::subtle)),
+            invalid_suffix_style: s
+                .invalid_suffix_style
+                .unwrap_or_else(|| suffix_style.clone()),
+            suffix_style,
             hint_style: s.hint_style.unwrap_or_else(|| role(Role::subtle)),
             default_style: s.default_style.unwrap_or_else(|| role(Role::accent)),
             answered_mark_style: s.answered_mark_style.unwrap_or_else(|| role(Role::success)),
@@ -1035,6 +1054,7 @@ impl PromptTokens {
             match_style: s.match_style.unwrap_or_else(|| Style::new().bold()),
             cursor_style: s.cursor_style.unwrap_or_else(|| role(Role::accent)),
             text_style: s.text_style.unwrap_or_else(|| role(Role::text)),
+            placeholder_style: s.placeholder_style.unwrap_or_else(|| role(Role::subtle)),
             paging_style: s.paging_style.unwrap_or_default(),
             button_style: s.button_style.unwrap_or_else(|| role(Role::text)),
             focused_button_style: s.focused_button_style.unwrap_or_else(|| role(Role::text)),
@@ -1243,5 +1263,30 @@ mod tests {
         assert_eq!((look.focus, look.mask, look.choices), (">", "*", "(y/n)"));
         assert_eq!(look.choices_yes, "(y/n)");
         assert_eq!(look.gap, 1);
+    }
+
+    #[test]
+    fn row_and_placeholder_tokens_fall_back_to_the_suffix_and_subtle() {
+        let tokens = Tokens::colorful();
+        let look = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
+        assert_eq!(look.message_indent, 0);
+        assert_eq!(look.invalid_suffix_style, look.suffix_style);
+        assert_eq!(
+            &look.placeholder_style,
+            tokens.get_palette().get(Role::subtle)
+        );
+
+        let red = Style::new().red();
+        let tokens = Tokens::colorful().prompts(|p| {
+            p.base(|b| b.suffix_style(red.clone()).message_indent(2))
+                .input(|i| i.invalid_suffix_style(Style::new().bold()))
+        });
+        let select = tokens.get_prompts().resolve(PromptKind::Select, &tokens);
+        assert_eq!(
+            (&select.invalid_suffix_style, select.message_indent),
+            (&red, 2)
+        );
+        let input = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
+        assert_eq!(input.invalid_suffix_style, Style::new().bold());
     }
 }
