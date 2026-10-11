@@ -18,6 +18,8 @@ Model and effort that will implement this plan, and why. Weigh:
 
 The planner reviews the executor's diff and reruns the checks before anything is pushed.
 
+The executor leaves its changes uncommitted. It runs long checks in the foreground with a timeout, or waits on a specific PID or output file, never with `pgrep -f` on a pattern that also appears in its own command line (the loop then matches itself and never ends, as happened during PAL-010).
+
 ## Context and decisions
 
 What problem this solves, and every client decision that applies (dated, quoted or paraphrased exactly).
