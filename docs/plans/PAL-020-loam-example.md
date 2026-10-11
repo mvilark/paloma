@@ -4,7 +4,7 @@ Roadmap item: [PAL-020 in ROADMAP.md](../../ROADMAP.md). A second full example a
 
 ## Executor
 
-**Sonnet 5.5, high effort.**
+**Sonnet 5.5, medium effort** (the client's choice, 2026-10-11; first assessed as high).
 
 | Criterion | Assessment |
 | --- | --- |
@@ -223,4 +223,4 @@ Tokens beyond the palette and glyphs:
 
 ## Status notes
 
-- 2026-10-11: Plan written; executor Sonnet 5.5, high effort.
+- 2026-10-11: Plan written; executor Sonnet 5.5, medium effort (client).
