@@ -10,6 +10,8 @@ use std::fmt::{self, Write};
 use paloma::{
     terminal::Stream,
     theme::{ColorfulTheme, Context, MessageView, SimpleTheme, Status, Theme},
+    theme::{KeyValueView, PanelView, SectionView, TableView},
+    PanelRow,
 };
 
 /// One line per hook call: `name(args) => output`.
@@ -178,6 +180,38 @@ fn message_sheet(theme: &dyn Theme) -> String {
     s.0
 }
 
+fn block_sheet(theme: &dyn Theme) -> String {
+    let mut s = Sheet(String::new());
+    let tokens = theme.tokens();
+    let ctx = Context::new(&tokens, Stream::Stderr);
+    s.line("section(Setup)", |f| {
+        theme.format_section(f, &ctx, &SectionView::new("Setup"))
+    });
+    let rows = [
+        ("State".to_string(), "Connected".to_string()),
+        ("Server".into(), "es-bcn-01".into()),
+    ];
+    s.line("key_value", |f| {
+        theme.format_key_value(f, &ctx, &KeyValueView::new(&rows))
+    });
+    let header = ["Server".to_string(), "Load".to_string()];
+    let cells = vec![vec!["us-nyc-01".to_string(), "42%".to_string()]];
+    s.line("table", |f| {
+        theme.format_table(f, &ctx, &TableView::new(&header, &cells))
+    });
+    let panel = [
+        PanelRow::new("Signed in")
+            .status(Status::Success)
+            .trailing("1.8s"),
+        PanelRow::new("Kill switch is off").status(Status::Warning),
+        PanelRow::new("Plain row"),
+    ];
+    s.line("panel(Done)", |f| {
+        theme.format_panel(f, &ctx, &PanelView::new("Done", &panel))
+    });
+    s.0
+}
+
 // One test function: colour support is global to the test binary.
 #[test]
 fn built_in_themes_render_unchanged() {
@@ -188,10 +222,13 @@ fn built_in_themes_render_unchanged() {
     common::assert_snapshot("theme-colorful", &sheet(&colorful));
     common::assert_snapshot("theme-simple-messages", &message_sheet(&SimpleTheme));
     common::assert_snapshot("theme-colorful-messages", &message_sheet(&colorful));
+    common::assert_snapshot("theme-simple-blocks", &block_sheet(&SimpleTheme));
+    common::assert_snapshot("theme-colorful-blocks", &block_sheet(&colorful));
     // A restyled theme keeps every hook of the theme it wraps.
     let restyled = ColorfulTheme::default().restyle(|t| t);
     assert_eq!(sheet(&restyled), sheet(&colorful));
     assert_eq!(message_sheet(&restyled), message_sheet(&colorful));
+    assert_eq!(block_sheet(&restyled), block_sheet(&colorful));
     #[cfg(feature = "password")]
     {
         common::assert_snapshot("theme-simple-password", &password_sheet(&SimpleTheme));

@@ -136,6 +136,20 @@ glyphs! {
     warning,
     /// Before an error.
     error,
+    /// Before a section title.
+    section,
+    /// Box border, horizontal.
+    box_h,
+    /// Box border, vertical.
+    box_v,
+    /// Box corner, top left.
+    box_tl,
+    /// Box corner, top right.
+    box_tr,
+    /// Box corner, bottom left.
+    box_bl,
+    /// Box corner, bottom right.
+    box_br,
 }
 
 impl Glyphs {
@@ -147,6 +161,13 @@ impl Glyphs {
     /// Unicode symbols.
     pub fn unicode() -> Self {
         Self::none()
+            .section("#")
+            .box_h("─")
+            .box_v("│")
+            .box_tl("╭")
+            .box_tr("╮")
+            .box_bl("╰")
+            .box_br("╯")
             .hint("›")
             .info("•")
             .success("✔")
@@ -157,12 +178,37 @@ impl Glyphs {
     /// ASCII fallbacks for terminals without Unicode (see
     /// [`Capabilities::unicode`](crate::terminal::Capabilities::unicode)).
     pub fn ascii() -> Self {
-        Self::none()
+        Self::ascii_frames()
             .hint(">")
             .info("*")
             .success("+")
             .warning("!")
             .error("x")
+    }
+
+    /// Only the ASCII section mark and box parts, no status glyphs.
+    pub fn ascii_frames() -> Self {
+        Self::none()
+            .section("#")
+            .box_h("-")
+            .box_v("|")
+            .box_tl("+")
+            .box_tr("+")
+            .box_bl("+")
+            .box_br("+")
+    }
+
+    /// A glyph by name, for theme hooks: see [`GlyphName`].
+    pub fn get(&self, name: GlyphName) -> &'static str {
+        match name {
+            GlyphName::Section => self.section,
+            GlyphName::BoxH => self.box_h,
+            GlyphName::BoxV => self.box_v,
+            GlyphName::BoxTl => self.box_tl,
+            GlyphName::BoxTr => self.box_tr,
+            GlyphName::BoxBl => self.box_bl,
+            GlyphName::BoxBr => self.box_br,
+        }
     }
 
     /// The glyph for a status.
@@ -176,6 +222,27 @@ impl Glyphs {
             Status::Error => self.error,
         }
     }
+}
+
+/// The structural glyphs of [`Glyphs`] (status glyphs are read with
+/// [`Glyphs::status`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum GlyphName {
+    /// Before a section title.
+    Section,
+    /// Box border, horizontal.
+    BoxH,
+    /// Box border, vertical.
+    BoxV,
+    /// Box corner, top left.
+    BoxTl,
+    /// Box corner, top right.
+    BoxTr,
+    /// Box corner, bottom left.
+    BoxBl,
+    /// Box corner, bottom right.
+    BoxBr,
 }
 
 /// Spacing.
@@ -317,6 +384,147 @@ impl MessageTokens {
     }
 }
 
+settings! {
+    /// How an output block looks. Unset fields fall back to the family base, then to
+    /// the built-in defaults and the palette roles.
+    pub struct BlockStyle {
+        /// Blank lines printed before the block. Default 0.
+        space_before: usize,
+        /// Columns between a key and its value, or between table columns. Default 3.
+        gap: usize,
+        /// Narrowest panel. Default 40.
+        min_width: usize,
+        /// Widest panel. Default 64.
+        max_width: usize,
+        /// Section and panel titles. Default: `text` (sections), `accent_strong`
+        /// (panels); the colorful preset makes them bold.
+        title_style: Style,
+        /// Keys of key/value rows. Default: `muted`.
+        key_style: Style,
+        /// Values of key/value rows. Default: `text`.
+        value_style: Style,
+        /// Table headers. Default: `text`; the colorful preset makes them bold.
+        header_style: Style,
+        /// Table cells and panel rows. Default: `text`.
+        cell_style: Style,
+        /// Box borders and the section mark's trail. Default: `faint`; the section mark
+        /// itself uses `accent`.
+        border_style: Style,
+        /// Right-aligned panel values. Default: `subtle`.
+        trailing_style: Style,
+    }
+}
+
+/// Which output block a style is for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BlockKind {
+    /// [`Section`](crate::Section).
+    Section,
+    /// [`KeyValue`](crate::KeyValue).
+    KeyValue,
+    /// [`Table`](crate::Table).
+    Table,
+    /// [`Panel`](crate::Panel).
+    Panel,
+}
+
+/// Component tokens for output blocks: a base for every block, and one group per
+/// block that overrides it.
+#[derive(Clone, Debug, Default)]
+pub struct BlockTokens {
+    base: BlockStyle,
+    section: BlockStyle,
+    key_value: BlockStyle,
+    table: BlockStyle,
+    panel: BlockStyle,
+}
+
+macro_rules! block_groups {
+    ($($(#[$meta:meta])* $group:ident),*) => {
+        impl BlockTokens {
+            $(
+                $(#[$meta])*
+                pub fn $group(mut self, f: impl FnOnce(BlockStyle) -> BlockStyle) -> Self {
+                    self.$group = f(self.$group);
+                    self
+                }
+            )*
+        }
+    };
+}
+
+block_groups! {
+    /// Settings for every block.
+    base,
+    /// Sections.
+    section,
+    /// Key/value rows.
+    key_value,
+    /// Tables.
+    table,
+    /// Panels.
+    panel
+}
+
+/// The final look of one block, after the fallbacks.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct BlockLook {
+    /// Blank lines before the block.
+    pub space_before: usize,
+    /// Columns between keys and values, or between table columns.
+    pub gap: usize,
+    /// Narrowest panel.
+    pub min_width: usize,
+    /// Widest panel.
+    pub max_width: usize,
+    /// Titles.
+    pub title_style: Style,
+    /// Keys.
+    pub key_style: Style,
+    /// Values.
+    pub value_style: Style,
+    /// Table headers.
+    pub header_style: Style,
+    /// Cells and panel rows.
+    pub cell_style: Style,
+    /// Borders.
+    pub border_style: Style,
+    /// Right-aligned panel values.
+    pub trailing_style: Style,
+}
+
+impl BlockTokens {
+    /// Resolves the look of `kind`: its own group, the base, then the defaults.
+    pub fn resolve(&self, kind: BlockKind, tokens: &Tokens) -> BlockLook {
+        let member = match kind {
+            BlockKind::Section => &self.section,
+            BlockKind::KeyValue => &self.key_value,
+            BlockKind::Table => &self.table,
+            BlockKind::Panel => &self.panel,
+        };
+        let s = member.merged(&self.base);
+        let role = |r: Role| tokens.palette.get(r).clone();
+        BlockLook {
+            space_before: s.space_before.unwrap_or(0),
+            gap: s.gap.unwrap_or(3),
+            min_width: s.min_width.unwrap_or(40),
+            max_width: s.max_width.unwrap_or(64),
+            title_style: s.title_style.unwrap_or_else(|| match kind {
+                BlockKind::Panel => role(Role::accent_strong),
+                _ => role(Role::text),
+            }),
+            key_style: s.key_style.unwrap_or_else(|| role(Role::muted)),
+            value_style: s.value_style.unwrap_or_else(|| role(Role::text)),
+            header_style: s.header_style.unwrap_or_else(|| role(Role::text)),
+            cell_style: s.cell_style.unwrap_or_else(|| role(Role::text)),
+            border_style: s.border_style.unwrap_or_else(|| role(Role::faint)),
+            trailing_style: s.trailing_style.unwrap_or_else(|| role(Role::subtle)),
+        }
+    }
+}
+
 /// Every token a theme draws with.
 #[derive(Clone, Debug, Default)]
 pub struct Tokens {
@@ -324,16 +532,18 @@ pub struct Tokens {
     glyphs: Glyphs,
     layout: Layout,
     messages: MessageTokens,
+    blocks: BlockTokens,
 }
 
 impl Tokens {
-    /// No colour, no glyphs, words before messages (`error: …`, `warning: …`), like
+    /// No colour, no status glyphs (`#` and ASCII boxes only), words before messages (`error: …`, `warning: …`), like
     /// rustc and cargo. The tokens of [`SimpleTheme`](crate::theme::SimpleTheme).
     pub fn plain() -> Self {
         Tokens {
             palette: Palette::plain(),
-            glyphs: Glyphs::none(),
+            glyphs: Glyphs::ascii_frames(),
             layout: Layout::default(),
+            blocks: BlockTokens::default(),
             messages: MessageTokens::default()
                 .hint(|s| s.word(Some("hint:")))
                 .info(|s| s.word(Some("info:")))
@@ -351,6 +561,10 @@ impl Tokens {
             palette: Palette::colorful(),
             glyphs: Glyphs::unicode(),
             layout: Layout::default(),
+            blocks: BlockTokens::default()
+                .section(|s| s.title_style(Style::new().bold()))
+                .table(|s| s.header_style(Style::new().bold()))
+                .panel(|s| s.title_style(Style::new().cyan().bold())),
             messages: MessageTokens::default().error(|s| s.text_style(Style::new().red())),
         }
     }
@@ -377,6 +591,17 @@ impl Tokens {
     pub fn messages(mut self, f: impl FnOnce(MessageTokens) -> MessageTokens) -> Self {
         self.messages = f(self.messages);
         self
+    }
+
+    /// Changes the output block tokens.
+    pub fn blocks(mut self, f: impl FnOnce(BlockTokens) -> BlockTokens) -> Self {
+        self.blocks = f(self.blocks);
+        self
+    }
+
+    /// The output block tokens.
+    pub fn get_blocks(&self) -> &BlockTokens {
+        &self.blocks
     }
 
     /// The palette.

@@ -4,7 +4,9 @@ use std::{borrow::Cow, fmt};
 #[cfg(feature = "fuzzy-select")]
 use fuzzy_matcher::skim::SkimMatcherV2;
 
-use crate::theme::{Context, MessageView, Theme, Tokens};
+use crate::theme::{
+    Context, KeyValueView, MessageView, PanelView, SectionView, TableView, Theme, Tokens,
+};
 
 /// A theme drawn with other tokens. Every hook is the wrapped theme's own; only
 /// [`tokens`](Theme::tokens) differs, so hooks that read tokens from their
@@ -45,6 +47,10 @@ impl<T: Theme> Theme for Restyled<T> {
 
     forward! {
         fn format_message(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &MessageView) -> fmt::Result;
+        fn format_section(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &SectionView) -> fmt::Result;
+        fn format_key_value(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &KeyValueView) -> fmt::Result;
+        fn format_table(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &TableView) -> fmt::Result;
+        fn format_panel(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &PanelView) -> fmt::Result;
         fn format_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result;
         fn format_error(&self, f: &mut dyn fmt::Write, err: &str) -> fmt::Result;
         fn format_confirm_prompt(&self, f: &mut dyn fmt::Write, prompt: &str, default: Option<bool>) -> fmt::Result;

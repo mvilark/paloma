@@ -5,7 +5,7 @@ No CONTRIBUTING.md exists yet. This file covers contributor workflow; for API us
 ## Layout
 - `src/lib.rs` - public re-exports, module declarations and feature gates (`#![deny(clippy::all, missing_docs)]`). Nothing else lives there.
 - `src/prompts/` - one file per prompt: `confirm`, `input`, `select`, `multi_select`, `sort`, `password`, `fuzzy_select`; `base.rs` holds `PromptBase` (state every prompt shares) and the `report_methods!` macro.
-- `src/output/` - components that print once: `message.rs` (`Message`, `Status`, `MessageView`).
+- `src/output/` - components that print once: `message.rs` (`Message`, `Status`), `block.rs` (`BlockBase`, `block_methods!` and the shared `emit` printing helper), `section.rs`, `key_value.rs`, `table.rs`, `panel.rs`, and `text.rs` (`link`, `gradient`). Each component module also defines the view its theme hook receives.
 - `src/options.rs` - app-wide behaviour (`set_options`, `Options`, family groups `prompts` / `messages` and member groups). `src/settings.rs` - the crate-private `settings!` macro every option group and component-token group is declared with.
 - `src/terminal.rs` - `Stream`, `Capabilities`, `capabilities()`.
 - `src/theme/` - `Theme` trait (`mod.rs`), `SimpleTheme`, `ColorfulTheme`, `tokens.rs` (`Tokens`, `Palette`, `Glyphs`, `Layout`, component tokens), `context.rs` (`Context` passed to new-style hooks), `defaults.rs` (public default bodies of those hooks), `restyle.rs` (`Restyled`, which must forward every `Theme` method), `app.rs` (app-wide theme, `set_theme`) and `render.rs` (internal `TermThemeRenderer` that prompts draw through).

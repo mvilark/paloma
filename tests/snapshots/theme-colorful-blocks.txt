@@ -1,0 +1,4 @@
+section(Setup) => "\u{1b}[36m#\u{1b}[0m \u{1b}[1mSetup\u{1b}[0m"
+key_value => "State    Connected\nServer   es-bcn-01"
+table => "\u{1b}[1mServer   \u{1b}[0m   \u{1b}[1mLoad\u{1b}[0m\nus-nyc-01   42% "
+panel(Done) => "\u{1b}[38;5;8m╭\u{1b}[0m\u{1b}[38;5;8m─\u{1b}[0m \u{1b}[36m\u{1b}[1mDone\u{1b}[0m \u{1b}[38;5;8m───────────────────────────────────────────────────────\u{1b}[0m\u{1b}[38;5;8m╮\u{1b}[0m\n\u{1b}[38;5;8m│\u{1b}[0m \u{1b}[32m✔\u{1b}[0m Signed in                                             \u{1b}[38;5;8m1.8s\u{1b}[0m \u{1b}[38;5;8m│\u{1b}[0m\n\u{1b}[38;5;8m│\u{1b}[0m \u{1b}[33m▲\u{1b}[0m Kill switch is off                                         \u{1b}[38;5;8m│\u{1b}[0m\n\u{1b}[38;5;8m│\u{1b}[0m Plain row                                                    \u{1b}[38;5;8m│\u{1b}[0m\n\u{1b}[38;5;8m╰\u{1b}[0m\u{1b}[38;5;8m──────────────────────────────────────────────────────────────\u{1b}[0m\u{1b}[38;5;8m╯\u{1b}[0m"

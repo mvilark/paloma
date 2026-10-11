@@ -3,7 +3,7 @@ use console::Term;
 
 use crate::{
     terminal::Stream,
-    theme::{app, Context, Theme},
+    theme::{Context, Theme},
     Result,
 };
 
@@ -177,22 +177,9 @@ impl<'a> Message<'a> {
     }
 
     fn write(&self, term: &Term, stream: Stream) -> Result {
-        let mut out = String::new();
-        let app_theme;
-        let theme: &dyn Theme = match self.theme {
-            Some(theme) => theme,
-            None => {
-                app_theme = app::current();
-                &*app_theme
-            }
-        };
-        let tokens = theme.tokens();
-        let ctx = Context::new(&tokens, stream);
-        self.render(&mut out, theme, &ctx, 0)
-            .map_err(std::io::Error::other)?;
-        term.write_line(&out)?;
-        term.flush()?;
-        Ok(())
+        crate::output::block::emit(term, stream, self.theme, None, |f, theme, ctx| {
+            self.render(f, theme, ctx, 0)
+        })
     }
 
     /// Draws this message and its children, one line each, without a final newline.

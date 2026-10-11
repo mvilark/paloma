@@ -110,6 +110,23 @@ paloma::error("Port 3000 is already in use")
 ```
 `SimpleTheme` prints words (`error: …`, `  hint: …`), `ColorfulTheme` coloured glyphs (`✘ …`). `.nest(child)` draws a message indented under its parent, at any depth. `.stream(Stream::Stdout)` and `.theme(&t)` change one message; `.print_on(&term)` writes to a given terminal. See `examples/messages.rs`.
 
+## Output blocks
+Ready-made blocks for what a command prints besides messages. Each has `.stream(..)`, `.theme(&t)`, `.print()` and `.print_on(&term)`.
+```rust
+use paloma::{KeyValue, Message, Panel, PanelRow, Table};
+
+paloma::section("Setup").print()?;                                   // # Setup
+KeyValue::new().row("State", "Connected").row("Server", "es-bcn-01").print()?;
+Table::new(["Server", "Load"]).row(["us-nyc-01", "42%"]).print()?;
+Panel::new("Setup complete")
+    .row(PanelRow::from(Message::success("Signed in")).trailing("1.8s"))
+    .row("Connect on startup: On")
+    .print()?;
+```
+`KeyValue` and `Table` print to stdout by default (they are usually results), `Section` and `Panel` to stderr; options `blocks`, `section`, `key_value`, `table`, `panel` change that. Their look comes from the `blocks` tokens (`BlockTokens`: `space_before`, `gap`, `min_width` / `max_width` for panels, and title, key, value, header, cell, border and trailing styles), with a `base` for every block and one group per block.
+
+`paloma::text::link(url)` is an OSC 8 hyperlink on a terminal (plain text elsewhere; `.text(..)` for other link text) and `paloma::text::gradient(text, from, to)` colours text along an RGB gradient where 24-bit colour is available. Both are `Display`. See `examples/blocks.rs`.
+
 ## Themes
 `SimpleTheme` (plain, default for `new()`) and `ColorfulTheme` (public styled fields, e.g. `prompt_style`, `values_style`; use struct-update syntax):
 ```rust

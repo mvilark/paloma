@@ -44,6 +44,13 @@ pub use error::{Error, Result};
 pub use history::{BasicHistory, History};
 pub use options::{set_options, Options};
 pub use output::message::{description, error, hint, info, success, warning, Message, Status};
+pub use output::{
+    key_value::KeyValue,
+    panel::{Panel, PanelRow},
+    section::{section, Section},
+    table::Table,
+    text,
+};
 pub use theme::app::set_theme;
 pub use validate::{InputValidator, PasswordValidator};
 

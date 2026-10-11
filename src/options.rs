@@ -23,7 +23,7 @@
 //! built-in default.
 use std::sync::RwLock;
 
-use crate::{output::message::Status, settings::settings, terminal::Stream};
+use crate::{output::message::Status, settings::settings, terminal::Stream, theme::BlockKind};
 
 static APP_OPTIONS: RwLock<Option<Options>> = RwLock::new(None);
 
@@ -98,6 +98,17 @@ settings! {
     }
 }
 
+settings! {
+    /// Settings for output blocks ([`Section`](crate::Section),
+    /// [`KeyValue`](crate::KeyValue), [`Table`](crate::Table), [`Panel`](crate::Panel)):
+    /// the `blocks` family group and the group of each block.
+    pub struct BlockOptions {
+        /// Where blocks are printed. The default is stderr for sections and panels and
+        /// stdout for key/value rows and tables, which are usually results.
+        stream: Stream,
+    }
+}
+
 /// App-wide behavior options. See the [module docs](self).
 #[derive(Clone, Default, Debug)]
 pub struct Options {
@@ -117,6 +128,11 @@ pub struct Options {
     pub(crate) success: MessageOptions,
     pub(crate) warning: MessageOptions,
     pub(crate) error: MessageOptions,
+    pub(crate) blocks: BlockOptions,
+    pub(crate) section: BlockOptions,
+    pub(crate) key_value: BlockOptions,
+    pub(crate) table: BlockOptions,
+    pub(crate) panel: BlockOptions,
 }
 
 macro_rules! groups {
@@ -166,6 +182,16 @@ groups! {
     warning: MessageOptions,
     /// Settings for error messages.
     error: MessageOptions,
+    /// Settings shared by every output block.
+    blocks: BlockOptions,
+    /// Settings for [`Section`](crate::Section).
+    section: BlockOptions,
+    /// Settings for [`KeyValue`](crate::KeyValue).
+    key_value: BlockOptions,
+    /// Settings for [`Table`](crate::Table).
+    table: BlockOptions,
+    /// Settings for [`Panel`](crate::Panel).
+    panel: BlockOptions,
 }
 
 impl Options {
@@ -180,6 +206,16 @@ impl Options {
         own.or(group)
             .or(self.prompts.report)
             .or(self.general.report)
+    }
+
+    /// The group of one output block.
+    pub(crate) fn block(&self, kind: BlockKind) -> &BlockOptions {
+        match kind {
+            BlockKind::Section => &self.section,
+            BlockKind::KeyValue => &self.key_value,
+            BlockKind::Table => &self.table,
+            BlockKind::Panel => &self.panel,
+        }
     }
 
     /// The group of one message status.
