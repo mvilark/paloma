@@ -4,12 +4,12 @@
 //! grouped by prompt, and a few shared ones live in [`general`](Options::general):
 //!
 //! ```rust,no_run
-//! use paloma::{ConfirmStyle, Options};
+//! use paloma::Options;
 //!
 //! paloma::set_options(
 //!     Options::new()
 //!         .general(|g| g.report(true))
-//!         .confirm(|c| c.style(ConfirmStyle::Buttons).on_shortcut(false))
+//!         .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
 //!         .password(|p| p.mask(true).result_len(8))
 //!         .select(|s| s.report(false)),
 //! );
@@ -33,16 +33,6 @@ pub fn set_options(options: Options) {
 pub(crate) fn current() -> Options {
     let guard = APP_OPTIONS.read().unwrap_or_else(|e| e.into_inner());
     guard.clone().unwrap_or_default()
-}
-
-/// How a [`Confirm`](crate::Confirm) shows its choices.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ConfirmStyle {
-    /// The classic inline hint, such as `Continue? [y/n]`.
-    Inline,
-    /// `Yes` / `No` buttons on the line under the question. `←`, `→` and `Tab` move
-    /// the focus and `Enter` picks it.
-    Buttons,
 }
 
 /// Settings that apply to every prompt unless the prompt's group or the prompt itself
@@ -79,7 +69,7 @@ impl PromptOptions {
 #[derive(Clone, Default, Debug)]
 pub struct ConfirmOptions {
     pub(crate) report: Option<bool>,
-    pub(crate) style: Option<ConfirmStyle>,
+    pub(crate) choices_as_buttons: Option<bool>,
     pub(crate) on_shortcut: Option<bool>,
 }
 
@@ -90,14 +80,15 @@ impl ConfirmOptions {
         self
     }
 
-    /// Inline hint or buttons. The default is [`ConfirmStyle::Inline`].
-    pub fn style(mut self, style: ConfirmStyle) -> Self {
-        self.style = Some(style);
+    /// `Yes` / `No` buttons (`true`) or the classic `(y/n)` text (`false`, the
+    /// default). See [`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons).
+    pub fn choices_as_buttons(mut self, val: bool) -> Self {
+        self.choices_as_buttons = Some(val);
         self
     }
 
     /// Whether `y` / `n` answer at once (`true`, the default) or only select the
-    /// choice so the user hits `Enter` to submit (`false`). Works in both styles.
+    /// choice so the user hits `Enter` to submit (`false`). Works with and without buttons.
     pub fn on_shortcut(mut self, val: bool) -> Self {
         self.on_shortcut = Some(val);
         self

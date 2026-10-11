@@ -7,8 +7,9 @@ fn main() {
         "Chocolate Muffin",
         "A Pile of sweet, sweet mustard",
     ];
-    let sorted = Sort::with_theme(&ColorfulTheme::default())
-        .with_prompt("Order your foods by preference")
+    let sorted = Sort::new()
+        .theme(&ColorfulTheme::default())
+        .prompt("Order your foods by preference")
         .items(&list[..])
         .interact()
         .unwrap();
@@ -18,8 +19,9 @@ fn main() {
     println!("Your least favorite item:");
     println!("  {}", list[sorted[sorted.len() - 1]]);
 
-    let sorted = Sort::with_theme(&ColorfulTheme::default())
-        .with_prompt("Order your foods by preference")
+    let sorted = Sort::new()
+        .theme(&ColorfulTheme::default())
+        .prompt("Order your foods by preference")
         .items(&list[..])
         .max_length(2)
         .interact()

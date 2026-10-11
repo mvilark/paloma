@@ -3,9 +3,10 @@ use std::{io, iter::repeat, ops::Rem};
 use console::{Key, Term};
 
 use crate::{
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
-    Paging, Result,
+    paging::Paging,
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
+    Result,
 };
 
 /// Renders a multi select prompt.
@@ -19,7 +20,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let selection = MultiSelect::new()
-///         .with_prompt("What do you choose?")
+///         .prompt("What do you choose?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -41,22 +42,13 @@ pub struct MultiSelect<'a> {
     base: PromptBase<'a>,
 }
 
-impl Default for MultiSelect<'static> {
+impl Default for MultiSelect<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MultiSelect<'static> {
-    /// Creates a multi select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
-    }
-}
-
-impl MultiSelect<'_> {
+impl<'a> MultiSelect<'a> {
     /// Sets the clear behavior of the menu.
     ///
     /// The default is to clear the menu.
@@ -128,12 +120,12 @@ impl MultiSelect<'_> {
     ///
     /// By default, when a prompt is set the system also prints out a confirmation after
     /// the selection. You can opt-out of this with [`report`](Self::report).
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
 
-    report_methods!(multi_select, |_| true);
+    base_methods!(multi_select, |_| true);
 
     /// Enables user interaction and returns the result.
     ///
@@ -210,18 +202,6 @@ impl MultiSelect<'_> {
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = 0;
-
-        let mut size_vec = Vec::new();
-
-        for items in self
-            .items
-            .iter()
-            .flat_map(|i| i.split('\n'))
-            .collect::<Vec<_>>()
-        {
-            let size = &items.len();
-            size_vec.push(*size);
-        }
 
         let mut checked: Vec<bool> = self.defaults.clone();
 
@@ -337,35 +317,24 @@ impl MultiSelect<'_> {
             if paging.active {
                 render.clear()?;
             } else {
-                render.clear_preserve_prompt(&size_vec)?;
+                render.clear_preserve_prompt()?;
             }
         }
     }
 }
 
 impl<'a> MultiSelect<'a> {
-    /// Creates a multi select prompt with a specific theme.
+    /// Creates a multi select prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, MultiSelect};
-    ///
-    /// fn main() {
-    ///     let selection = MultiSelect::with_theme(&ColorfulTheme::default())
-    ///         .items(&["foo", "bar", "baz"])
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             items: vec![],
             defaults: vec![],
             clear: true,
             prompt: None,
             max_length: None,
-            base: PromptBase::with_theme(theme),
+            base: PromptBase::new(),
         }
     }
 }
@@ -376,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let multi_select = MultiSelect::new().with_prompt("Select your favorite(s)");
+        let multi_select = MultiSelect::new().prompt("Select your favorite(s)");
 
         let _ = multi_select.clone();
     }

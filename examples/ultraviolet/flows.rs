@@ -1,5 +1,10 @@
 //! One function per command, with canned data.
-use paloma::{Confirm, Error, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort};
+use std::{fmt, io::Write};
+
+use console::Term;
+use paloma::{
+    theme::Theme, Confirm, Error, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort,
+};
 
 use crate::{
     theme,
@@ -25,12 +30,21 @@ const FEATURES: [&str; 4] = [
     "Auto reconnect",
 ];
 
-// `validate_with` needs a function over `&String`, the type `Input` reads.
+// `validate` needs a function over `&String`, the type `Input` reads.
 #[allow(clippy::ptr_arg)]
 fn valid_email(s: &String) -> std::result::Result<(), String> {
     match s.split_once('@') {
         Some((user, host)) if !user.is_empty() && host.contains('.') => Ok(()),
         _ => Err("Enter an address like name@example.com".into()),
+    }
+}
+
+/// Prints the line a prompt leaves once answered, for flags and `--yes`, drawn by the
+/// theme's own answered-prompt hook so it matches a real answer exactly.
+fn answered(hook: impl FnOnce(&theme::UltravioletTheme, &mut String) -> fmt::Result) {
+    let mut line = String::new();
+    if hook(&theme::app_theme(), &mut line).is_ok() {
+        let _ = writeln!(Term::stderr(), "{line}");
     }
 }
 
@@ -42,7 +56,8 @@ pub fn setup(args: &Args) -> Result<i32> {
         text.to_string()
     };
     let mut step = 0;
-    let (mut email, mut protocol, mut features, mut startup) = (String::new(), 0, Vec::new(), true);
+    // Earlier answers, kept so going back with Esc shows them again.
+    let (mut email, mut protocol, mut features, mut startup) = (String::new(), 0, vec![0, 3], true);
 
     while step < STEPS {
         let n = step + 1;
@@ -52,24 +67,21 @@ pub fn setup(args: &Args) -> Result<i32> {
                 let name = label(n, "Account email");
                 if let Some(preset) = &args.email {
                     email = preset.clone();
-                    ui::answered(&name, &email);
+                    answered(|t, f| t.format_input_prompt_selection(f, &name, &email));
                 } else if args.yes {
                     email = "ada@example.com".into();
-                    ui::answered(&name, &email);
+                    answered(|t, f| t.format_input_prompt_selection(f, &name, &email));
                 } else {
-                    email = Input::new()
-                        .with_prompt(name)
-                        .validate_with(valid_email)
-                        .interact_text()?;
+                    email = Input::new().prompt(name).validate(valid_email).interact()?;
                 }
                 Some(())
             }
             1 => {
                 let name = label(n, "Password");
                 if args.yes {
-                    ui::answered(&name, &theme::cfg().g.dot.repeat(8));
+                    answered(|t, f| t.format_password_prompt_selection_masked(f, &name, 8));
                 } else {
-                    Password::new().with_prompt(name).interact()?;
+                    Password::new().prompt(name).interact()?;
                 }
                 Some(())
             }
@@ -81,14 +93,16 @@ pub fn setup(args: &Args) -> Result<i32> {
                     .and_then(|p| PROTOCOLS.iter().position(|x| x.eq_ignore_ascii_case(p)))
                 {
                     protocol = preset;
-                    ui::answered(&name, PROTOCOLS[protocol]);
+                    answered(|t, f| {
+                        t.format_select_prompt_selection(f, &name, PROTOCOLS[protocol])
+                    });
                     Some(())
                 } else if args.yes {
-                    ui::answered(&name, PROTOCOLS[0]);
+                    answered(|t, f| t.format_select_prompt_selection(f, &name, PROTOCOLS[0]));
                     Some(())
                 } else {
                     Select::new()
-                        .with_prompt(name)
+                        .prompt(name)
                         .items(PROTOCOLS)
                         .default(protocol)
                         .interact_opt()?
@@ -98,15 +112,16 @@ pub fn setup(args: &Args) -> Result<i32> {
             3 => {
                 let name = label(n, "Features");
                 if args.yes {
-                    features = vec![0, 3];
-                    ui::answered(&name, "Kill switch, Auto reconnect");
+                    let picked: Vec<&str> = features.iter().map(|&i| FEATURES[i]).collect();
+                    answered(|t, f| t.format_multi_select_prompt_selection(f, &name, &picked));
                     Some(())
                 } else {
-                    let defaults = [true, false, false, true];
+                    let checked: Vec<bool> =
+                        (0..FEATURES.len()).map(|i| features.contains(&i)).collect();
                     MultiSelect::new()
-                        .with_prompt(name)
+                        .prompt(name)
                         .items(FEATURES)
-                        .defaults(&defaults)
+                        .defaults(&checked)
                         .interact_opt()?
                         .map(|picked| features = picked)
                 }
@@ -114,12 +129,12 @@ pub fn setup(args: &Args) -> Result<i32> {
             _ => {
                 let name = label(n, "Connect on startup?");
                 if args.yes {
-                    ui::answered(&name, "Yes");
+                    answered(|t, f| t.format_confirm_prompt_selection(f, &name, Some(startup)));
                     Some(())
                 } else {
                     Confirm::new()
-                        .with_prompt(name)
-                        .default(true)
+                        .prompt(name)
+                        .default(startup)
                         .interact_opt()?
                         .map(|v| startup = v)
                 }
@@ -155,7 +170,16 @@ pub fn setup(args: &Args) -> Result<i32> {
             (Kind::Ok, format!("Signed in as {email}"), Some(a)),
             (
                 Kind::Ok,
-                format!("{} · {} features", PROTOCOLS[protocol], features.len()),
+                format!(
+                    "{} · {} {}",
+                    PROTOCOLS[protocol],
+                    features.len(),
+                    if features.len() == 1 {
+                        "feature"
+                    } else {
+                        "features"
+                    }
+                ),
                 Some(b),
             ),
             (
@@ -177,7 +201,7 @@ pub fn connect(args: &Args) -> Result<i32> {
     let idx = match &args.server {
         Some(id) => match SERVERS.iter().position(|s| s.0 == id) {
             Some(i) => {
-                ui::answered("Server", &places[i]);
+                answered(|t, f| t.format_select_prompt_selection(f, "Server", &places[i]));
                 i
             }
             None => {
@@ -187,11 +211,11 @@ pub fn connect(args: &Args) -> Result<i32> {
             }
         },
         None if args.yes => {
-            ui::answered("Server", &places[0]);
+            answered(|t, f| t.format_select_prompt_selection(f, "Server", &places[0]));
             0
         }
         None => match FuzzySelect::new()
-            .with_prompt("Server")
+            .prompt("Server")
             .items(&places)
             .default(0)
             .interact_opt()?
@@ -206,7 +230,7 @@ pub fn connect(args: &Args) -> Result<i32> {
     if !kill_switch {
         let go = args.yes
             || Confirm::new()
-                .with_prompt("Kill switch is off. Connect anyway?")
+                .prompt("Kill switch is off. Connect anyway?")
                 .default(false)
                 .interact()?;
         if !go {
@@ -245,11 +269,11 @@ pub fn connect(args: &Args) -> Result<i32> {
 pub fn favorites(args: &Args) -> Result<i32> {
     let items = ["es-bcn-01", "de-fra-02", "us-nyc-01", "jp-tyo-03"];
     let order: Vec<usize> = if args.yes {
-        ui::answered("Favourites", &items.join(", "));
+        answered(|t, f| t.format_sort_prompt_selection(f, "Favourites", &items));
         (0..items.len()).collect()
     } else {
         match Sort::new()
-            .with_prompt("Favourite order")
+            .prompt("Favourite order")
             .items(items)
             .interact_opt()?
         {
@@ -266,7 +290,7 @@ pub fn favorites(args: &Args) -> Result<i32> {
 pub fn disconnect(args: &Args) -> Result<i32> {
     let go = args.yes
         || Confirm::new()
-            .with_prompt("Disconnect?")
+            .prompt("Disconnect?")
             .default(true)
             .interact()?;
     if !go {

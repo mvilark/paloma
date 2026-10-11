@@ -12,8 +12,8 @@ use crate::completion::Completion;
 #[cfg(feature = "history")]
 use crate::history::History;
 use crate::{
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
     validate::InputValidator,
     Result,
 };
@@ -29,8 +29,8 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 ///
 /// fn main() {
 ///     let name: String = Input::new()
-///         .with_prompt("Your name?")
-///         .interact_text()
+///         .prompt("Your name?")
+///         .interact()
 ///         .unwrap();
 ///
 ///     println!("Your name is: {}", name);
@@ -44,8 +44,8 @@ type InputValidatorCallback<'a, T> = Arc<Mutex<dyn FnMut(&T) -> Option<String> +
 ///
 /// fn main() {
 ///     let name = Input::<String>::new()
-///         .with_prompt("Your name?")
-///         .interact_text()
+///         .prompt("Your name?")
+///         .interact()
 ///         .unwrap();
 ///
 ///     println!("Your name is: {}", name);
@@ -57,7 +57,7 @@ pub struct Input<'a, T> {
     post_completion_text: Option<String>,
     default: Option<T>,
     show_default: bool,
-    initial_text: Option<String>,
+    prefill: Option<String>,
     base: PromptBase<'a>,
     permit_empty: bool,
     validator: Option<InputValidatorCallback<'a, T>>,
@@ -67,28 +67,22 @@ pub struct Input<'a, T> {
     completion: Option<&'a dyn Completion>,
 }
 
-impl<T> Default for Input<'static, T> {
+impl<T> Default for Input<'_, T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T> Input<'_, T> {
-    /// Creates an input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
-    }
-
+impl<'a, T> Input<'a, T> {
     /// Sets the input prompt.
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
 
-    /// Changes the prompt text to the post completion text after input is complete
-    pub fn with_post_completion_text<S: Into<String>>(mut self, post_completion_text: S) -> Self {
+    /// Sets the text shown in place of the prompt once the input is answered. By
+    /// default the answered line repeats the prompt.
+    pub fn answered_prompt<S: Into<String>>(mut self, post_completion_text: S) -> Self {
         self.post_completion_text = Some(post_completion_text.into());
         self
     }
@@ -98,11 +92,13 @@ impl<T> Input<'_, T> {
         self.post_completion_text.as_deref().unwrap_or(&self.prompt)
     }
 
-    report_methods!(input, |_| true);
+    base_methods!(input, |_| true);
 
-    /// Sets initial text that user can accept or erase.
-    pub fn with_initial_text<S: Into<String>>(mut self, val: S) -> Self {
-        self.initial_text = Some(val.into());
+    /// Fills the input with editable text when it opens. The user can change or erase
+    /// it; pressing Enter right away submits it as the answer. (Unlike a placeholder,
+    /// which is only shown while the input is empty and is never the answer.)
+    pub fn prefill<S: Into<String>>(mut self, val: S) -> Self {
+        self.prefill = Some(val.into());
         self
     }
 
@@ -137,27 +133,17 @@ impl<T> Input<'_, T> {
 }
 
 impl<'a, T> Input<'a, T> {
-    /// Creates an input prompt with a specific theme.
+    /// Creates an input prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, Input};
-    ///
-    /// fn main() {
-    ///     let name: String = Input::with_theme(&ColorfulTheme::default())
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             prompt: "".into(),
             post_completion_text: None,
             default: None,
             show_default: true,
-            initial_text: None,
-            base: PromptBase::with_theme(theme),
+            prefill: None,
+            base: PromptBase::new(),
             permit_empty: false,
             validator: None,
             #[cfg(feature = "history")]
@@ -203,13 +189,13 @@ impl<'a, T> Input<'a, T> {
     ///     let mut history = MyHistory::default();
     ///
     ///     let input = Input::<String>::new()
-    ///         .history_with(&mut history)
-    ///         .interact_text()
+    ///         .history(&mut history)
+    ///         .interact()
     ///         .unwrap();
     /// }
     /// ```
     #[cfg(feature = "history")]
-    pub fn history_with<H>(mut self, history: &'a mut H) -> Self
+    pub fn history<H>(mut self, history: &'a mut H) -> Self
     where
         H: History<T>,
     {
@@ -219,7 +205,7 @@ impl<'a, T> Input<'a, T> {
 
     /// Enable completion
     #[cfg(feature = "completion")]
-    pub fn completion_with<C>(mut self, completion: &'a C) -> Self
+    pub fn completion<C>(mut self, completion: &'a C) -> Self
     where
         C: Completion,
     {
@@ -241,8 +227,8 @@ where
     ///
     /// fn main() {
     ///     let mail: String = Input::new()
-    ///         .with_prompt("Enter email")
-    ///         .validate_with(|input: &String| -> Result<(), &str> {
+    ///         .prompt("Enter email")
+    ///         .validate(|input: &String| -> Result<(), &str> {
     ///             if input.contains('@') {
     ///                 Ok(())
     ///             } else {
@@ -253,7 +239,7 @@ where
     ///         .unwrap();
     /// }
     /// ```
-    pub fn validate_with<V>(mut self, mut validator: V) -> Self
+    pub fn validate<V>(mut self, mut validator: V) -> Self
     where
         V: InputValidator<T> + 'a,
         V::Err: ToString,
@@ -282,18 +268,17 @@ where
     T: Clone + ToString + FromStr,
     <T as FromStr>::Err: ToString,
 {
-    /// Enables the user to enter a printable ascii sequence and returns the result.
+    /// Shows the prompt and returns the value once the user submits a valid one.
     ///
-    /// Its difference from [`interact`](Self::interact) is that it only allows ascii characters for string,
-    /// while [`interact`](Self::interact) allows virtually any character to be used e.g arrow keys.
-    ///
-    /// The dialog is rendered on stderr.
-    pub fn interact_text(self) -> Result<T> {
-        self.interact_text_on(&Term::stderr())
+    /// paloma reads every key: the cursor can move with `←` / `→` (and `Alt+B` /
+    /// `Alt+F` by word), `↑` / `↓` browse the history and `Tab` completes, when those
+    /// are set. The dialog is rendered on stderr.
+    pub fn interact(self) -> Result<T> {
+        self.interact_on(&Term::stderr())
     }
 
-    /// Like [`interact_text`](Self::interact_text) but allows a specific terminal to be set.
-    pub fn interact_text_on(mut self, term: &Term) -> Result<T> {
+    /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
+    pub fn interact_on(mut self, term: &Term) -> Result<T> {
         if !term.is_term() {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
@@ -317,7 +302,7 @@ where
             #[cfg(feature = "history")]
             let mut hist_pos = 0;
 
-            if let Some(initial) = self.initial_text.as_ref() {
+            if let Some(initial) = self.prefill.as_ref() {
                 term.write_str(initial)?;
                 chars = initial.chars().collect();
                 position = chars.len();
@@ -622,95 +607,6 @@ where
             }
         }
     }
-
-    /// Enables user interaction and returns the result.
-    ///
-    /// Allows any characters as input, including e.g arrow keys.
-    /// Some of the keys might have undesired behavior.
-    /// For more limited version, see [`interact_text`](Self::interact_text).
-    ///
-    /// If the user confirms the result is `true`, `false` otherwise.
-    /// The dialog is rendered on stderr.
-    pub fn interact(self) -> Result<T> {
-        self.interact_on(&Term::stderr())
-    }
-
-    /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
-    pub fn interact_on(mut self, term: &Term) -> Result<T> {
-        if !term.is_term() {
-            return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
-        }
-
-        let mut render = TermThemeRenderer::new(term, self.base.theme);
-
-        loop {
-            let default_string = self.default.as_ref().map(ToString::to_string);
-
-            render.input_prompt(
-                &self.prompt,
-                if self.show_default {
-                    default_string.as_deref()
-                } else {
-                    None
-                },
-            )?;
-            term.flush()?;
-
-            let input = if let Some(initial_text) = self.initial_text.as_ref() {
-                term.read_line_initial_text(initial_text)?
-            } else {
-                term.read_line()?
-            };
-
-            render.add_line();
-            term.clear_line()?;
-            render.clear()?;
-
-            if input.is_empty() {
-                if let Some(ref default) = self.default {
-                    if let Some(ref mut validator) = self.validator {
-                        if let Some(err) = validator.lock().unwrap()(default) {
-                            render.error(&err)?;
-                            continue;
-                        }
-                    }
-
-                    if self.report_enabled() {
-                        render.input_prompt_selection(
-                            self.completion_prompt(),
-                            &default.to_string(),
-                        )?;
-                    }
-                    term.flush()?;
-                    return Ok(default.clone());
-                } else if !self.permit_empty {
-                    continue;
-                }
-            }
-
-            match input.parse::<T>() {
-                Ok(value) => {
-                    if let Some(ref mut validator) = self.validator {
-                        if let Some(err) = validator.lock().unwrap()(&value) {
-                            render.error(&err)?;
-                            continue;
-                        }
-                    }
-
-                    if self.report_enabled() {
-                        render.input_prompt_selection(self.completion_prompt(), &input)?;
-                    }
-                    term.flush()?;
-
-                    return Ok(value);
-                }
-                Err(err) => {
-                    render.error(&err.to_string())?;
-                    continue;
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -719,19 +615,17 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let input = Input::<String>::new().with_prompt("Your name");
+        let input = Input::<String>::new().prompt("Your name");
 
         let _ = input.clone();
     }
 
     #[test]
     fn test_completion_prompt() {
-        let input = Input::<String>::new().with_prompt("Your name");
+        let input = Input::<String>::new().prompt("Your name");
         assert_eq!(input.completion_prompt(), "Your name");
 
-        let input = input
-            .with_post_completion_text("Name")
-            .default("Alice".to_string());
+        let input = input.answered_prompt("Name").default("Alice".to_string());
         assert_eq!(input.completion_prompt(), "Name");
     }
 }

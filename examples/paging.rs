@@ -32,8 +32,9 @@ fn main() {
         "Burger",
     ];
 
-    let selection = Select::with_theme(&ColorfulTheme::default())
-        .with_prompt("Pick your flavor")
+    let selection = Select::new()
+        .theme(&ColorfulTheme::default())
+        .prompt("Pick your flavor")
         .default(0)
         .items(&selections[..])
         .interact()

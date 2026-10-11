@@ -4,8 +4,8 @@ use console::{Key, Term};
 use fuzzy_matcher::FuzzyMatcher;
 
 use crate::{
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
     Result,
 };
 
@@ -23,7 +23,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let selection = FuzzySelect::new()
-///         .with_prompt("What do you choose?")
+///         .prompt("What do you choose?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -43,25 +43,16 @@ pub struct FuzzySelect<'a> {
     base: PromptBase<'a>,
     /// Search string that a fuzzy search with start with.
     /// Defaults to an empty string.
-    initial_text: String,
+    prefill: String,
 }
 
-impl Default for FuzzySelect<'static> {
+impl Default for FuzzySelect<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FuzzySelect<'static> {
-    /// Creates a fuzzy select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
-    }
-}
-
-impl FuzzySelect<'_> {
+impl<'a> FuzzySelect<'a> {
     /// Sets the clear behavior of the menu.
     ///
     /// The default is to clear the menu.
@@ -95,8 +86,8 @@ impl FuzzySelect<'_> {
     }
 
     /// Sets the search text that a fuzzy search starts with.
-    pub fn with_initial_text<S: Into<String>>(mut self, initial_text: S) -> Self {
-        self.initial_text = initial_text.into();
+    pub fn prefill<S: Into<String>>(mut self, prefill: S) -> Self {
+        self.prefill = prefill.into();
         self
     }
 
@@ -104,12 +95,12 @@ impl FuzzySelect<'_> {
     ///
     /// When a prompt is set the system also prints out a confirmation after
     /// the fuzzy selection.
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
 
-    report_methods!(fuzzy_select, |_| true);
+    base_methods!(fuzzy_select, |_| true);
 
     /// Indicates whether to highlight matched indices
     ///
@@ -195,17 +186,11 @@ impl FuzzySelect<'_> {
 
     fn _interact_on(self, term: &Term, allow_quit: bool) -> Result<Option<usize>> {
         // Place cursor at the end of the search term
-        let mut cursor = self.initial_text.chars().count();
-        let mut search_term = self.initial_text.to_owned();
+        let mut cursor = self.prefill.chars().count();
+        let mut search_term = self.prefill.to_owned();
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = self.default;
-
-        let mut size_vec = Vec::new();
-        for items in self.items.iter().as_slice() {
-            let size = &items.len();
-            size_vec.push(*size);
-        }
 
         // Fuzzy matcher
         let matcher = fuzzy_matcher::skim::SkimMatcherV2::default();
@@ -358,27 +343,16 @@ impl FuzzySelect<'_> {
                 _ => {}
             }
 
-            render.clear_preserve_prompt(&size_vec)?;
+            render.clear_preserve_prompt()?;
         }
     }
 }
 
 impl<'a> FuzzySelect<'a> {
-    /// Creates a fuzzy select prompt with a specific theme.
+    /// Creates a fuzzy select prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, FuzzySelect};
-    ///
-    /// fn main() {
-    ///     let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
-    ///         .items(&["foo", "bar", "baz"])
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             default: None,
             items: vec![],
@@ -387,8 +361,8 @@ impl<'a> FuzzySelect<'a> {
             highlight_matches: true,
             enable_vim_mode: false,
             max_length: None,
-            base: PromptBase::with_theme(theme),
-            initial_text: "".into(),
+            base: PromptBase::new(),
+            prefill: "".into(),
         }
     }
 }
@@ -399,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let fuzzy_select = FuzzySelect::new().with_prompt("Do you want to continue?");
+        let fuzzy_select = FuzzySelect::new().prompt("Do you want to continue?");
 
         let _ = fuzzy_select.clone();
     }

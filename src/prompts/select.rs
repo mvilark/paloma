@@ -3,9 +3,10 @@ use std::{io, ops::Rem};
 use console::{Key, Term};
 
 use crate::{
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
-    Paging, Result,
+    paging::Paging,
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
+    Result,
 };
 
 /// Renders a select prompt.
@@ -22,7 +23,7 @@ use crate::{
 ///     let items = vec!["foo", "bar", "baz"];
 ///
 ///     let selection = Select::new()
-///         .with_prompt("What do you choose?")
+///         .prompt("What do you choose?")
 ///         .items(&items)
 ///         .interact()
 ///         .unwrap();
@@ -40,22 +41,13 @@ pub struct Select<'a> {
     max_length: Option<usize>,
 }
 
-impl Default for Select<'static> {
+impl Default for Select<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Select<'static> {
-    /// Creates a select prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Self {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
-    }
-}
-
-impl Select<'_> {
+impl<'a> Select<'a> {
     /// Indicates whether select menu should be erased from the screen after interaction.
     ///
     /// The default is to clear the menu.
@@ -121,12 +113,12 @@ impl Select<'_> {
     ///
     /// By default, when a prompt is set the system also prints out a confirmation after
     /// the selection. You can opt-out of this with [`report`](Self::report).
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
 
-    report_methods!(select, |s: &Self| s.prompt.is_some());
+    base_methods!(select, |s: &Self| s.prompt.is_some());
 
     /// Enables user interaction and returns the result.
     ///
@@ -154,7 +146,7 @@ impl Select<'_> {
     ///     let items = vec!["foo", "bar", "baz"];
     ///
     ///     let selection = Select::new()
-    ///         .with_prompt("What do you choose?")
+    ///         .prompt("What do you choose?")
     ///         .items(&items)
     ///         .interact_opt()
     ///         .unwrap();
@@ -197,18 +189,6 @@ impl Select<'_> {
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         let mut sel = self.default;
-
-        let mut size_vec = Vec::new();
-
-        for items in self
-            .items
-            .iter()
-            .flat_map(|i| i.split('\n'))
-            .collect::<Vec<_>>()
-        {
-            let size = &items.len();
-            size_vec.push(*size);
-        }
 
         term.hide_cursor()?;
         paging.update_page(sel);
@@ -295,35 +275,24 @@ impl Select<'_> {
             if paging.active {
                 render.clear()?;
             } else {
-                render.clear_preserve_prompt(&size_vec)?;
+                render.clear_preserve_prompt()?;
             }
         }
     }
 }
 
 impl<'a> Select<'a> {
-    /// Creates a select prompt with a specific theme.
+    /// Creates a select prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, Select};
-    ///
-    /// fn main() {
-    ///     let selection = Select::with_theme(&ColorfulTheme::default())
-    ///         .items(&["foo", "bar", "baz"])
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             default: !0,
             items: vec![],
             prompt: None,
             clear: true,
             max_length: None,
-            base: PromptBase::with_theme(theme),
+            base: PromptBase::new(),
         }
     }
 }
@@ -334,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let select = Select::new().with_prompt("Do you want to continue?");
+        let select = Select::new().prompt("Do you want to continue?");
 
         let _ = select.clone();
     }

@@ -97,7 +97,7 @@ fn main() {
     // How prompts work, as opposed to how they look (the theme).
     paloma::set_options(
         paloma::Options::new()
-            .confirm(|c| c.style(paloma::ConfirmStyle::Buttons).on_shortcut(false))
+            .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
             .password(|p| p.mask(true).result_len(8)),
     );
 

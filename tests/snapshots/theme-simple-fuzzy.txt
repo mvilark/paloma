@@ -1,0 +1,8 @@
+fuzzy_select_prompt_item(banana, true, true, an) => "> ban\u{1b}[1ma\u{1b}[0m\u{1b}[1mn\u{1b}[0ma"
+fuzzy_select_prompt_item(banana, true, false, an) => "> banana"
+fuzzy_select_prompt_item(banana, false, true, an) => "  ban\u{1b}[1ma\u{1b}[0m\u{1b}[1mn\u{1b}[0ma"
+fuzzy_select_prompt_item(banana, false, false, an) => "  banana"
+fuzzy_select_prompt(Search, ban, 0) => "Search |ban"
+fuzzy_select_prompt(Search, ban, 2) => "Search ba|n"
+fuzzy_select_prompt(Search, ban, 3) => "Search ban|"
+fuzzy_select_prompt(, ban, 3) => "ban|"

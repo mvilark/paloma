@@ -16,6 +16,8 @@ pub trait History<T> {
     fn write(&mut self, val: &T);
 }
 
+/// A [`History`] kept in memory, newest entry first, with an optional size limit
+/// and duplicate filter.
 pub struct BasicHistory {
     max_entries: Option<usize>,
     deque: VecDeque<String>,

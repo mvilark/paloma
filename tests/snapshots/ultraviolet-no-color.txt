@@ -1,0 +1,138 @@
+$ ultraviolet setup --yes
+--- exit 0
+--- stdout
+ada@example.com
+--- stderr
+◇ Account email · ada@example.com
+◇ Password · ••••••••
+◇ Protocol · WireGuard
+◇ Features · Kill switch, Auto reconnect
+◇ Connect on startup? · Yes
+
+# Setup
+    ↳ Generated device key
+✓ Created your profile  0.0s
+✓ Applied settings  0.0s
+
+╭─ Setup complete ─────────────────────────────────────────────╮
+│ ✓ Signed in as ada@example.com                          0.0s │
+│ ✓ WireGuard · 2 features                                0.0s │
+│ • Connect on startup: On                                     │
+╰──────────────────────────────────────────────────────────────╯
+
+$ ultraviolet connect --yes
+--- exit 0
+--- stdout
+us-nyc-01
+--- stderr
+◇ Server · us-nyc-01 · New York, US
+
+# Connect
+    ↳ Resolved endpoint
+    ↳ Opened tunnel
+    ↳ Negotiated cipher
+✓ Connected to us-nyc-01  0.0s
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Exchanging keys  100%
+
+╭─ Connected ──────────────────────────────────────────────────╮
+│ ✓ New York, US · 18 ms · 42% load                       0.0s │
+│ ✓ Key exchange complete                                      │
+│ ▲ Kill switch is off                                         │
+╰──────────────────────────────────────────────────────────────╯
+
+$ ultraviolet connect --server xx-nowhere-01
+--- exit 1
+--- stdout
+--- stderr
+✕ Server xx-nowhere-01 not found
+  Hint  ultraviolet servers
+
+$ ultraviolet connect --server es-bcn-01 --yes
+--- exit 0
+--- stdout
+es-bcn-01
+--- stderr
+◇ Server · es-bcn-01 · Barcelona, ES
+
+# Connect
+    ↳ Resolved endpoint
+    ↳ Opened tunnel
+    ↳ Negotiated cipher
+✓ Connected to es-bcn-01  0.0s
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Exchanging keys  100%
+
+╭─ Connected ──────────────────────────────────────────────────╮
+│ ✓ Barcelona, ES · 12 ms · 23% load                      0.0s │
+│ ✓ Key exchange complete                                      │
+│ ▲ Kill switch is off                                         │
+╰──────────────────────────────────────────────────────────────╯
+
+$ ultraviolet favorites --yes
+--- exit 0
+--- stdout
+es-bcn-01
+de-fra-02
+us-nyc-01
+jp-tyo-03
+--- stderr
+◇ Favourites · es-bcn-01, de-fra-02, us-nyc-01, jp-tyo-03
+
+$ ultraviolet disconnect --yes
+--- exit 0
+--- stdout
+--- stderr
+✓ Disconnected  0.0s
+
+$ ultraviolet status
+--- exit 0
+--- stdout
+State      Connected
+Server     es-bcn-01 · Barcelona, ES
+Protocol   WireGuard
+Ping       12 ms
+Sent       4.8 MB
+Received   31.2 MB
+--- stderr
+
+$ ultraviolet status --json
+--- exit 0
+--- stdout
+{"state":"connected","server":"es-bcn-01","protocol":"wireguard","ping_ms":12,"sent_mb":4.8,"received_mb":31.2}
+--- stderr
+
+$ ultraviolet servers
+--- exit 0
+--- stdout
+Server      Place           Load   Ping  
+us-nyc-01   New York, US    42%    18 ms 
+de-fra-02   Frankfurt, DE   67%    31 ms 
+es-bcn-01   Barcelona, ES   23%    12 ms 
+jp-tyo-03   Tokyo, JP       55%    96 ms 
+br-sao-01   Sao Paulo, BR   31%    74 ms 
+au-syd-02   Sydney, AU      48%    121 ms
+--- stderr
+
+$ ultraviolet about
+--- exit 0
+--- stdout
+Version      0.12.0
+Built with   paloma 0.12.0
+Docs         https://github.com/mvilark/paloma
+--- stderr
+  ▄████▄    
+ ▐██████▌   
+ ▐▀◉  ◉▀▌   
+  ▝▄▂▂▄▘    Ultraviolet
+ ╱▓▚▞▚▞▓╲   A fake VPN, themed with Ultraviolet
+╱ ▓▞▚▞▚▓ ╲  
+  ▐▌  ▐▌    
+  ▀▀  ▀▀    
+
+
+$ ultraviolet nope
+--- exit 2
+--- stdout
+--- stderr
+✕ Unknown command nope
+  Hint  ultraviolet about
+

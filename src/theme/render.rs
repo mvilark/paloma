@@ -23,6 +23,14 @@ impl<'a> std::ops::Deref for ThemeHandle<'a> {
     }
 }
 
+/// How many screen rows `text` takes once written as whole lines on a terminal `width`
+/// columns wide, counting the rows of lines that wrap.
+fn rows(text: &str, width: usize) -> usize {
+    text.split('\n')
+        .map(|line| measure_text_width(line).max(1).div_ceil(width.max(1)))
+        .sum()
+}
+
 /// Helper struct to conveniently render a theme.
 pub(crate) struct TermThemeRenderer<'a> {
     term: &'a Term,
@@ -62,8 +70,16 @@ impl<'a> TermThemeRenderer<'a> {
         self.term
     }
 
-    pub fn add_line(&mut self) {
-        self.height += 1;
+    /// The terminal read a line, so the cursor is now on the row under the input. If
+    /// that row holds the input error, it is cleared and reused; otherwise it is a new row.
+    pub fn input_submitted(&mut self) -> Result {
+        if self.error_shown {
+            self.term.clear_line()?;
+            self.error_shown = false;
+        } else {
+            self.height += 1;
+        }
+        Ok(())
     }
 
     fn write_formatted_str<
@@ -88,7 +104,7 @@ impl<'a> TermThemeRenderer<'a> {
     ) -> Result {
         let mut buf = String::new();
         f(self, &mut buf).map_err(io::Error::other)?;
-        self.height += buf.chars().filter(|&x| x == '\n').count() + 1;
+        self.height += rows(&buf, self.term.size().1 as usize);
         Ok(self.term.write_line(&buf)?)
     }
 
@@ -110,10 +126,6 @@ impl<'a> TermThemeRenderer<'a> {
         write!(buf, " [Page {}/{}] ", paging_info.0, paging_info.1)
     }
 
-    pub fn error(&mut self, err: &str) -> Result {
-        self.write_formatted_line(|this, buf| this.theme.format_error(buf, err))
-    }
-
     pub fn confirm_prompt(&mut self, prompt: &str, default: Option<bool>) -> Result<usize> {
         self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt(buf, prompt, default))
     }
@@ -125,10 +137,6 @@ impl<'a> TermThemeRenderer<'a> {
             writeln!(buf)?;
             this.theme.format_confirm_buttons(buf, yes_focused)
         })
-    }
-
-    pub fn confirm_prompt_no_hint(&mut self, prompt: &str) -> Result<usize> {
-        self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt_no_hint(buf, prompt))
     }
 
     pub fn confirm_prompt_selection(&mut self, prompt: &str, sel: Option<bool>) -> Result {
@@ -154,9 +162,14 @@ impl<'a> TermThemeRenderer<'a> {
         let len = self.write_formatted_str(|this, buf| {
             this.theme.format_input_prompt(buf, prompt, default)
         })?;
+        self.draw_pending_error(len)?;
+        Ok(len)
+    }
+
+    /// Draws a pending input error on the row under the input, then puts the cursor
+    /// back after the prompt, `len` columns in.
+    fn draw_pending_error(&mut self, len: usize) -> Result {
         if let Some(err) = self.pending_error.take() {
-            // Draw the error on the row under the input, then put the cursor back
-            // after the prompt.
             self.write_formatted_str(|this, buf| {
                 writeln!(buf)?;
                 this.theme.format_error(buf, &err)
@@ -166,11 +179,11 @@ impl<'a> TermThemeRenderer<'a> {
             self.term.move_cursor_right(len)?;
             self.error_shown = true;
         }
-        Ok(len)
+        Ok(())
     }
 
-    /// Reports an input error: it is drawn under the input line when the prompt is
-    /// shown again.
+    /// Reports an input error: it is drawn under the input line when the prompt
+    /// (input or password) is shown again.
     pub fn input_error(&mut self, err: &str) -> Result {
         self.pending_error = Some(err.to_string());
         Ok(())
@@ -184,10 +197,12 @@ impl<'a> TermThemeRenderer<'a> {
 
     #[cfg(feature = "password")]
     pub fn password_prompt(&mut self, prompt: &str) -> Result<usize> {
-        self.write_formatted_str(|this, buf| {
+        let len = self.write_formatted_str(|this, buf| {
             write!(buf, "\r")?;
             this.theme.format_password_prompt(buf, prompt)
-        })
+        })?;
+        self.draw_pending_error(len)?;
+        Ok(len)
     }
 
     #[cfg(feature = "password")]
@@ -317,19 +332,9 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(())
     }
 
-    pub fn clear_preserve_prompt(&mut self, size_vec: &[usize]) -> Result {
-        let mut new_height = self.height;
-        let prefix_width = 2;
-        //Check each item size, increment on finding an overflow
-        for size in size_vec {
-            if *size > self.term.size().1 as usize {
-                new_height += (((*size as f64 + prefix_width as f64) / self.term.size().1 as f64)
-                    .ceil()) as usize
-                    - 1;
-            }
-        }
-
-        self.term.clear_last_lines(new_height)?;
+    /// Clears what was drawn since the last prompt line, keeping the prompt.
+    pub fn clear_preserve_prompt(&mut self) -> Result {
+        self.term.clear_last_lines(self.height)?;
         self.height = 0;
         Ok(())
     }
@@ -339,6 +344,15 @@ impl<'a> TermThemeRenderer<'a> {
 mod tests {
     use super::*;
     use crate::theme::ColorfulTheme;
+
+    #[test]
+    fn rows_count_display_width_and_wrapping() {
+        assert_eq!(rows("", 10), 1);
+        assert_eq!(rows("a\nb", 10), 2);
+        assert_eq!(rows(&"ñ".repeat(10), 10), 1); // 20 bytes, 10 columns
+        assert_eq!(rows(&"a".repeat(11), 10), 2);
+        assert_eq!(rows("\x1b[31mred\x1b[0m", 3), 1); // escape codes take no room
+    }
 
     #[test]
     fn prompt_theme_overrides_app_theme() {

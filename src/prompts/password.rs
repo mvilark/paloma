@@ -4,8 +4,8 @@ use console::{Key, Term};
 use zeroize::Zeroizing;
 
 use crate::{
-    prompts::base::{report_methods, PromptBase},
-    theme::{render::TermThemeRenderer, SimpleTheme, Theme},
+    prompts::base::{base_methods, PromptBase},
+    theme::render::TermThemeRenderer,
     validate::PasswordValidator,
     Result,
 };
@@ -21,8 +21,8 @@ type PasswordValidatorCallback<'a> = Arc<dyn Fn(&String) -> Option<String> + 'a>
 ///
 /// fn main() {
 ///     let password = Password::new()
-///         .with_prompt("New Password")
-///         .with_confirmation("Confirm password", "Passwords mismatching")
+///         .prompt("New Password")
+///         .confirmation("Confirm password", "Passwords mismatching")
 ///         .interact()
 ///         .unwrap();
 ///
@@ -41,29 +41,20 @@ pub struct Password<'a> {
     result_len: Option<usize>,
 }
 
-impl Default for Password<'static> {
-    fn default() -> Password<'static> {
+impl Default for Password<'_> {
+    fn default() -> Self {
         Self::new()
     }
 }
 
-impl Password<'static> {
-    /// Creates a password input prompt that uses the app theme set by `set_theme`, or `SimpleTheme`.
-    pub fn new() -> Password<'static> {
-        let mut prompt = Self::with_theme(&SimpleTheme);
-        prompt.base.theme = None;
-        prompt
-    }
-}
-
-impl Password<'_> {
+impl<'a> Password<'a> {
     /// Sets the password input prompt.
-    pub fn with_prompt<S: Into<String>>(mut self, prompt: S) -> Self {
+    pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
 
-    report_methods!(password, |_| true);
+    base_methods!(password, |_| true);
 
     /// Sets how many mask characters the one-line result shows after the password is
     /// confirmed (default 8). The count is fixed, so the result never reveals the
@@ -77,8 +68,8 @@ impl Password<'_> {
     }
 
     /// Sets whether typed characters are echoed as mask characters, drawn with the
-    /// theme's [`password_mask_glyph`](Theme::password_mask_glyph). Use
-    /// [`with_mask`](Self::with_mask) to pick the character yourself.
+    /// theme's [`password_mask_glyph`](crate::theme::Theme::password_mask_glyph). Use
+    /// [`mask_char`](Self::mask_char) to pick the character yourself.
     ///
     /// Left unset, the app option applies; by default nothing is echoed.
     pub fn mask(mut self, val: bool) -> Self {
@@ -87,7 +78,7 @@ impl Password<'_> {
     }
 
     /// Enables confirmation prompting.
-    pub fn with_confirmation<A, B>(mut self, prompt: A, mismatch_err: B) -> Self
+    pub fn confirmation<A, B>(mut self, prompt: A, mismatch_err: B) -> Self
     where
         A: Into<String>,
         B: Into<String>,
@@ -117,15 +108,15 @@ impl Password<'_> {
     ///
     /// fn main() {
     ///     let password = Password::new()
-    ///         .with_prompt("Enter password")
-    ///         .with_mask('*')
+    ///         .prompt("Enter password")
+    ///         .mask_char('*')
     ///         .interact()
     ///         .unwrap();
     ///
     ///     println!("Your password length is: {}", password.len());
     /// }
     /// ```
-    pub fn with_mask(mut self, mask: char) -> Self {
+    pub fn mask_char(mut self, mask: char) -> Self {
         self.mask = Some(mask);
         self
     }
@@ -147,21 +138,30 @@ impl Password<'_> {
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_prompts_reset_height(false);
 
+        let options = crate::options::current();
+        let masked = self.mask_input.or(options.password.mask).unwrap_or(false);
+        let mask = self
+            .mask
+            .or_else(|| masked.then(|| render.password_mask_glyph()));
+        let result_len = self.result_len.or(options.password.result_len).unwrap_or(8);
+
         loop {
-            let password = Zeroizing::new(self.prompt_password(&mut render, &self.prompt)?);
+            let password = Zeroizing::new(self.prompt_password(&mut render, &self.prompt, mask)?);
 
             if let Some(ref validator) = self.validator {
                 if let Some(err) = validator(&password) {
-                    render.error(&err)?;
+                    render.clear()?;
+                    render.input_error(&err)?;
                     continue;
                 }
             }
 
             if let Some((ref prompt, ref err)) = self.confirmation_prompt {
-                let pw2 = Zeroizing::new(self.prompt_password(&mut render, prompt)?);
+                let pw2 = Zeroizing::new(self.prompt_password(&mut render, prompt, mask)?);
 
                 if *password != *pw2 {
-                    render.error(err)?;
+                    render.clear()?;
+                    render.input_error(err)?;
                     continue;
                 }
             }
@@ -169,11 +169,7 @@ impl Password<'_> {
             render.clear()?;
 
             if self.report_enabled() {
-                let len = self
-                    .result_len
-                    .or(crate::options::current().password.result_len)
-                    .unwrap_or(8);
-                render.password_prompt_selection(&self.prompt, len)?;
+                render.password_prompt_selection(&self.prompt, result_len)?;
             }
             term.flush()?;
 
@@ -181,21 +177,20 @@ impl Password<'_> {
         }
     }
 
-    fn prompt_password(&self, render: &mut TermThemeRenderer, prompt: &str) -> Result<String> {
+    /// Reads one password, echoing `mask` for each character, or nothing when `None`.
+    fn prompt_password(
+        &self,
+        render: &mut TermThemeRenderer,
+        prompt: &str,
+        mask: Option<char>,
+    ) -> Result<String> {
         loop {
             render.password_prompt(prompt)?;
             render.term().flush()?;
 
-            let masked = self
-                .mask_input
-                .or(crate::options::current().password.mask)
-                .unwrap_or(false);
-            let mask = self
-                .mask
-                .or_else(|| masked.then(|| render.password_mask_glyph()));
             let Some(mask) = mask else {
                 let input = render.term().read_secure_line()?;
-                render.add_line();
+                render.input_submitted()?;
 
                 if !input.is_empty() || self.allow_empty_password {
                     return Ok(input);
@@ -226,7 +221,7 @@ impl Password<'_> {
 
             term.write_line("")?;
 
-            render.add_line();
+            render.input_submitted()?;
 
             if !password.is_empty() || self.allow_empty_password {
                 return Ok(password);
@@ -245,8 +240,8 @@ impl<'a> Password<'a> {
     ///
     /// fn main() {
     ///     let password: String = Password::new()
-    ///         .with_prompt("Enter password")
-    ///         .validate_with(|input: &String| -> Result<(), &str> {
+    ///         .prompt("Enter password")
+    ///         .validate(|input: &String| -> Result<(), &str> {
     ///             if input.chars().count() > 8 {
     ///                 Ok(())
     ///             } else {
@@ -257,7 +252,7 @@ impl<'a> Password<'a> {
     ///         .unwrap();
     /// }
     /// ```
-    pub fn validate_with<V>(mut self, validator: V) -> Self
+    pub fn validate<V>(mut self, validator: V) -> Self
     where
         V: PasswordValidator + 'a,
         V::Err: ToString,
@@ -280,23 +275,13 @@ impl<'a> Password<'a> {
         self
     }
 
-    /// Creates a password input prompt with a specific theme.
+    /// Creates a password input prompt drawn with the app theme (set with [`set_theme`](crate::set_theme), `SimpleTheme` by default).
     ///
-    /// ## Example
-    ///
-    /// ```rust,no_run
-    /// use paloma::{theme::ColorfulTheme, Password};
-    ///
-    /// fn main() {
-    ///     let password = Password::with_theme(&ColorfulTheme::default())
-    ///         .interact()
-    ///         .unwrap();
-    /// }
-    /// ```
-    pub fn with_theme(theme: &'a dyn Theme) -> Self {
+    /// [`theme`](Self::theme) gives this prompt a theme of its own.
+    pub fn new() -> Self {
         Self {
             prompt: "".into(),
-            base: PromptBase::with_theme(theme),
+            base: PromptBase::new(),
             allow_empty_password: false,
             confirmation_prompt: None,
             validator: None,
@@ -313,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let password = Password::new().with_prompt("Enter password");
+        let password = Password::new().prompt("Enter password");
 
         let _ = password.clone();
     }

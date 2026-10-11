@@ -129,6 +129,10 @@ impl Palette {
 /// Unicode glyphs with their ASCII fallbacks.
 #[derive(Clone, Copy)]
 pub struct Glyphs {
+    /// The ASCII fallback set is in use.
+    pub ascii: bool,
+    /// Neutral status (info rows).
+    pub info: &'static str,
     pub active: &'static str,
     pub answered: &'static str,
     pub caret: &'static str,
@@ -157,6 +161,8 @@ impl Glyphs {
     pub fn new(ascii: bool) -> Self {
         if ascii {
             Glyphs {
+                ascii: true,
+                info: "*",
                 active: "*",
                 answered: "o",
                 caret: ">",
@@ -182,6 +188,8 @@ impl Glyphs {
             }
         } else {
             Glyphs {
+                ascii: false,
+                info: "•",
                 active: "◆",
                 answered: "◇",
                 caret: "›",
@@ -225,6 +233,11 @@ pub fn init(config: Config) {
 
 pub fn cfg() -> &'static Config {
     CONFIG.get().expect("theme config is set at startup")
+}
+
+/// The theme the app runs with, for drawing lines the way a prompt would.
+pub fn app_theme() -> UltravioletTheme {
+    UltravioletTheme::new(cfg().clone())
 }
 
 /// `fg-subtle` + italic: hints, `cancelled`, `skipped`.
