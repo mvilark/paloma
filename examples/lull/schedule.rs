@@ -25,10 +25,32 @@ pub enum Wake { At(NaiveTime), Sunrise(Place) }
 #[rustfmt::skip]
 pub struct Place { pub place: String, pub lat: f64, pub lon: f64 }
 
-/// A late schedule moves 15 minutes earlier every 3 days, from `minutes` later on `from`.
+/// A late schedule: `minutes` later than the goal when set up on `from`, corrected at
+/// `pace` every night from that night on.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[rustfmt::skip]
-pub struct Ease { pub minutes: u32, pub from: NaiveDate }
+pub struct Ease { pub minutes: u32, pub from: NaiveDate, #[serde(default)] pub pace: Pace }
+
+/// How fast a late schedule reaches the goal.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq)]
+#[serde(rename_all = "snake_case")]
+#[rustfmt::skip]
+pub enum Pace { #[default] Bold, Moderate, Subtle }
+
+impl Pace {
+    pub const ALL: [Pace; 3] = [Pace::Bold, Pace::Moderate, Pace::Subtle];
+
+    /// The minutes still late after one night's correction. Bold cuts up to half (in
+    /// steps of 15 minutes, at most 3 h) and the last hour at once.
+    pub fn step(self, minutes: u32) -> u32 {
+        match self {
+            Pace::Bold if minutes <= 60 => 0,
+            Pace::Bold => minutes - (minutes / 2 / 15 * 15).min(180),
+            Pace::Moderate => minutes.saturating_sub(60),
+            Pace::Subtle => minutes.saturating_sub(30),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -121,12 +143,23 @@ pub fn wake_on(schedule: &Schedule, date: NaiveDate, tz: &impl TimeZone) -> Naiv
     }
 }
 
-/// Minutes the night starting on `night` is later than the goal: 15 less every 3 days.
+/// Minutes the night starting on `night` is later than the goal: corrected once for
+/// every night from `from` (that night included), none before. 25 corrections reach
+/// any goal.
 pub fn ease_minutes(schedule: &Schedule, night: NaiveDate) -> u32 {
     schedule.ease.as_ref().map_or(0, |e| {
-        e.minutes
-            .saturating_sub(15 * ((night - e.from).num_days().max(0) as u32 / 3))
+        let nights = ((night - e.from).num_days() + 1).clamp(0, 25);
+        (0..nights).fold(e.minutes, |m, _| e.pace.step(m))
     })
+}
+
+/// The bedtime of the goal itself (no easing) on the night starting on `night`.
+pub fn goal_bed(schedule: &Schedule, night: NaiveDate, tz: &impl TimeZone) -> NaiveTime {
+    let goal = Schedule {
+        ease: None,
+        ..schedule.clone()
+    };
+    plan(&goal, night, tz).bed.time()
 }
 
 pub fn plan(schedule: &Schedule, night: NaiveDate, tz: &impl TimeZone) -> Plan {
@@ -258,9 +291,11 @@ mod tests {
     /// Easing in can push a night past midnight: at 00:05 it has not started yet.
     #[test]
     fn an_eased_night_is_next_until_it_starts() {
+        // 150 min late on the 11th, 120 on the 12th: that night's bed is at 01:00.
         let ease = Some(Ease {
-            minutes: 120,
+            minutes: 180,
             from: date(10, 11),
+            pace: Pace::Subtle,
         });
         let s = Schedule {
             ease,
@@ -284,18 +319,25 @@ mod tests {
     }
 
     #[test]
-    fn easing_steps_every_three_days() {
-        let s = Schedule {
-            ease: Some(Ease {
-                minutes: 120,
+    fn easing_corrects_every_night_at_its_pace() {
+        let ease = |pace, minutes, day| {
+            let ease = Some(Ease {
+                minutes,
                 from: date(10, 11),
-            }),
-            ..fixed()
+                pace,
+            });
+            ease_minutes(&Schedule { ease, ..fixed() }, date(10, day))
         };
-        let ease = |d| ease_minutes(&s, d);
-        assert_eq!((ease(date(10, 11)), ease(date(10, 13))), (120, 120));
-        assert_eq!(ease(date(10, 14)), 105);
-        assert_eq!((ease(date(11, 3)), ease(date(11, 4))), (15, 0));
+        // Bold: half the gap (at most 3 h), then the last hour at once.
+        let bold = [10, 11, 12, 13, 14, 15].map(|d| ease(Pace::Bold, 480, d));
+        assert_eq!(bold, [480, 300, 150, 75, 45, 0]);
+        assert_eq!(ease(Pace::Bold, 60, 11), 0);
+        assert_eq!(
+            [11, 12, 13].map(|d| ease(Pace::Moderate, 150, d)),
+            [90, 30, 0]
+        );
+        assert_eq!([11, 12, 13].map(|d| ease(Pace::Subtle, 90, d)), [60, 30, 0]);
+        assert_eq!([29, 30].map(|d| ease(Pace::Subtle, 600, d)), [30, 0]);
     }
 
     #[test]

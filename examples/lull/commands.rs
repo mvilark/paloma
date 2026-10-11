@@ -49,6 +49,13 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
     let (data, from) = (data.unwrap_or_default(), now.date());
     let sunrise = Cell::new(matches!(data.schedule.wake, Wake::Sunrise(_)));
     let (elsewhere, usual) = (Cell::new(false), Cell::new(None));
+    let pace = Cell::new(data.schedule.ease.as_ref().map_or(Pace::Bold, |e| e.pace));
+    // Minutes the usual bedtime is later than the goal, when there is a gap to ease.
+    let late = |d: &Data| {
+        usual
+            .get()
+            .and_then(|u| ease_for(goal_bed(&d.schedule, from, &Local), u))
+    };
     let by_clock = |_: &Data| !sunrise.get();
     let by_sun = |_: &Data| sunrise.get();
     let asked = |_: &Data| elsewhere.get();
@@ -143,6 +150,31 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
             choose("When do you fall asleep these days?", items, 0)
                 .map(|i| usual.set((i > 0).then(|| times[i])))
         })
+        .step_if(
+            |d| late(d).is_some(),
+            "pace",
+            |d| {
+                let paces = [
+                    (
+                        "Bold",
+                        "Up to half the gap each night, the last hour at once",
+                    ),
+                    ("Moderate", "1 h earlier each night"),
+                    ("Subtle", "30 min earlier each night"),
+                ];
+                let i = Select::new()
+                    .prompt("How fast should bedtime move?")
+                    .description(format!(
+                        "You fall asleep {} after your goal",
+                        hm(late(d).unwrap())
+                    ))
+                    .items(paces.map(|(name, how)| Item::new(name).description(how)))
+                    .default(Pace::ALL.iter().position(|p| *p == pace.get()).unwrap())
+                    .interact()?;
+                pace.set(Pace::ALL[i]);
+                Ok(())
+            },
+        )
         .step("habits", |d| {
             let items = Habit::ALL.map(|h| {
                 (
@@ -174,10 +206,12 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
     if !data.habits.contains(&Habit::Caffeine) {
         data.schedule.caffeine_hours = None;
     }
-    data.schedule.ease = None;
-    let target = plan(&data.schedule, from, &Local).bed.time();
-    let ease = usual.get().and_then(|u| ease_for(target, u));
-    data.schedule.ease = ease.map(|minutes| Ease { minutes, from });
+    let ease = late(&data).map(|minutes| Ease {
+        minutes,
+        from,
+        pace: pace.get(),
+    });
+    data.schedule.ease = ease;
     save(path, &data)?;
 
     let (s, plan) = (&data.schedule, plan(&data.schedule, from, &Local));
@@ -202,10 +236,10 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
     paloma::success("Saved")
         .nest(Message::hint(path.display().to_string()))
         .print()?;
-    if s.ease.is_some() {
-        let bed = clock(plan.bed);
+    if plan.ease > 0 {
+        let (bed, goal) = (clock(plan.bed), clock(goal_bed(s, from, &Local)));
         paloma::info(format!(
-            "Starting at {bed}, the whole night moves 15 min earlier every 3 days"
+            "Bed at {bed} tonight, then earlier every night until {goal}"
         ))
         .print()?;
     }
@@ -244,13 +278,14 @@ pub fn today(data: &Data, now: DateTime) -> R {
     .print()?;
     if tonight.ease > 0 {
         let night = tonight.wake.date().pred_opt().unwrap();
-        let next = (1..)
-            .map(|i| night + Duration::days(i))
-            .find(|d| ease_minutes(s, *d) < tonight.ease);
+        let next = ease_minutes(s, night.succ_opt().unwrap());
+        let then = match next {
+            0 => "on your goal tomorrow".to_string(),
+            next => format!("{} earlier tomorrow", hm(tonight.ease - next)),
+        };
         let note = format!(
-            "Easing in: {} later than your goal, 15 min earlier on {}",
-            hm(tonight.ease),
-            next.unwrap().format("%b %-d")
+            "Easing in: {} later than your goal, {then}",
+            hm(tonight.ease)
         );
         Message::hint(note).print()?;
     }

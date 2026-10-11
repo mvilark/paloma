@@ -68,7 +68,7 @@ These are the app's whole "science". Copy may cite the short reason; the design 
 | Parking the work | The `park` habit and command | Writing a to-do list before bed helped people fall asleep faster (Scullin et al. 2018). |
 | Caffeine cut-off | 6, 8 or 10 hours before bed; default 8 | Caffeine 6 hours before bed still cut sleep by about an hour (Drake et al. 2013). |
 | Sunrise wake window | Sunrise, clamped to 06:00–08:00 | Morning light anchors the body clock; the clamp keeps the time inside common healthy wake times when sunrise is very early or late. |
-| Easing in | The whole night moves 15 minutes earlier every 3 days | Shifting a late schedule gradually rather than all at once is the usual advice for a delayed sleep phase. |
+| Easing in | Corrected every night from the night of setup, at one of three paces: **bold** (default) cuts up to half the gap (in 15-minute steps, at most 3 h) and the last hour at once; **moderate** 1 h a night; **subtle** 30 min a night | The paces are the client's choice (2026-10-11). Moving a late schedule gradually is the usual advice for a delayed sleep phase, with small daily steps; subtle is closest to that, bold is for people who want the goal within days. |
 
 ### Habits
 
@@ -94,7 +94,7 @@ Chosen in setup (`MultiSelect`, at least one), logged each morning. Stored by ke
     "sleep_minutes": 480,
     "wind_down_minutes": 60,
     "caffeine_hours": 8,
-    "ease": { "minutes": 120, "from": "2026-10-11" }
+    "ease": { "minutes": 120, "from": "2026-10-11", "pace": "bold" }
   },
   "habits": ["park", "screens", "light", "caffeine"],
   "nights": [
@@ -186,7 +186,7 @@ The maths are pure functions. Pass the time zone in as `&impl TimeZone` so tests
 - **`wake_on(schedule, date, tz) -> NaiveTime`**: the wake time on the morning of `date`, before easing.
   - `At(t)`: `t`.
   - `Sunrise(p)`: `SolarDay::new(Coordinates::new(p.lat, p.lon)?, date).event_time(SolarEvent::Sunrise)` in `tz`, clamped to 06:00..=08:00. When there is no sunrise (polar day or night) or the coordinates are invalid: 08:00.
-- **`ease_minutes(schedule, night_date) -> u32`**: `ease.minutes.saturating_sub(15 * (days since ease.from, at least 0) / 3)`, with integer division of the days: 0–2 days → full, 3–5 → minus 15, ….
+- **`ease_minutes(schedule, night_date) -> u32`**: `ease.minutes` after one `Pace::step` per night from `ease.from` to `night_date`, both included (none before `from`). `Pace::step`: bold → 0 at 60 or less, else minus half rounded down to 15 (at most 180); moderate → minus 60; subtle → minus 30 (never below 0). Changed on 2026-10-11 at the client's request (it was 15 minutes every 3 days).
 - **`plan(schedule, night_date, tz) -> Plan`**: `Plan { caffeine: Option<NaiveDateTime>, wind_down, bed, wake: NaiveDateTime, ease: u32 }` for the night that *starts* on `night_date`.
   - `wake = (night_date + 1 day) at wake_on(.., night_date + 1, ..) + ease`.
   - `bed = wake - sleep_minutes`, `wind_down = bed - wind_down_minutes`, `caffeine = bed - caffeine_hours`.
@@ -263,7 +263,7 @@ The night theme is deliberately low-contrast and never bold: it is read in a dar
   - Compute `ease` from `usual` with `ease_for` and today as `from`, then save.
   - Print `paloma::section("your schedule")` and a `KeyValue` with these rows: `wake` (`07:00`, or `with the sunrise in Barcelona, 06:00-08:00`), `sleep` (`8 h`), `wind down` (`60 min`), `caffeine` (`until 15:00`, or no row), `habits` (texts joined with `, `).
   - Then `paloma::success("saved")` with nested `Message::hint(format!("{path}"))`.
-  - When easing, also `paloma::info(format!("starting at {bed}, the whole night moves 15 min earlier every 3 days"))`.
+  - When tonight is eased, also `paloma::info(format!("Bed at {bed} tonight, then earlier every night until {goal}"))`.
 
 **`today(data, now)`:**
 - The `section("tonight")` and a `KeyValue` of the plan: `caffeine until`, `wind down`, `bed`, `wake`. Every time is `HH:MM`. `wake` gets ` (sunrise)` when it follows the sunrise.
@@ -271,7 +271,7 @@ The night theme is deliberately low-contrast and never bold: it is read in a dar
   - `Day`: `info(format!("wind-down in {}", hm(..)))`.
   - `WindDown`: `warning(format!("wind-down started {} ago", hm(..)))` with nested hint `park your work: lull park` when the `park` habit is chosen, else hint `screens off`.
   - `Night`: `warning(format!("{} past bedtime", hm(..)))` with nested hint `it will all still be there tomorrow`. Use `info("time to sleep")` instead within the first 10 minutes after bedtime.
-- Then, if easing (`ease > 0`): `Message::hint(format!("easing in: {} later than your goal, 15 min earlier on {date}", hm(ease)))`. The date is the next day the ease steps down, written `Oct 14` (`%b %-d`).
+- Then, if easing (`ease > 0`): `Message::hint(format!("Easing in: {} later than your goal, {then}", hm(ease)))`, where `then` is `45 min earlier tomorrow`, or `on your goal tomorrow` when tomorrow's ease is 0.
 - Then, after wake and before noon with no night logged for `night_date(now)`: `Message::hint("good morning: lull log")`.
 
 **`park(data, path, now)`:**
@@ -326,7 +326,7 @@ See below. Then `docs/design/lull.md`, `USAGE.md`, `DEVELOPMENT.md`, `ROADMAP.md
   - Helsinki (60.17, 24.94) on 2026-06-21, +3 h, gives 06:00.
   - Reykjavík (64.15, -21.94) on 2026-12-21, +0, gives 08:00.
   - Tromsø (69.65, 18.96) on 2026-12-21 (no sunrise) gives 08:00.
-- `easing_steps_every_three_days`: 120 minutes from 2026-10-11 gives 120 on the 11th and the 13th, 105 on the 14th, 15 on 2026-11-03, and 0 from 2026-11-04 on.
+- `easing_corrects_every_night_at_its_pace`: from 2026-10-11, bold from 480 gives 480 on the 10th, then 300, 150, 75, 45, 0; bold from 60 gives 0 on the 11th; moderate from 150 gives 90, 30, 0; subtle from 90 gives 60, 30, 0, and from 600 it is 30 on the 29th and 0 on the 30th.
 - `ease_needs_more_than_half_an_hour`: target 23:00 with usual 23:30 gives `None`, usual 01:10 gives `Some(120)`, and usual 22:00 gives `None`.
 - `spread_and_minutes_cross_midnight`: `spread([23:30, 00:30, 23:45])` is 60, and `minutes_between(23:30, 00:30)` is 60.
 - `night_date_is_the_evening`.
@@ -426,3 +426,12 @@ See below. Then `docs/design/lull.md`, `USAGE.md`, `DEVELOPMENT.md`, `ROADMAP.md
   - **Sunrise rounded to 5 minutes.** A sunrise at 07:59 made the whole night read `00:29`, `16:29`. `wake_on` now rounds the sunrise to the nearest 5 minutes before clamping. The unit test pins Barcelona on 2026-10-01 (05:48 UTC, +2 h) to 07:50.
   - **Checked by the planner:** a pty run of `setup` at 22:40 (night theme, before any schedule) with Barcelona under `TZ=Europe/Madrid` and usual `00:30`. The sleep step shows `tomorrow you wake at 07:59` (before rounding), the summary and easing info print, and the file matches the data shape. `today` then uses the day theme, because the eased wind-down is at 23:29 (before rounding).
 - 2026-10-11: At the client's request ("change the text format to be always capital first letter of the first word of all labels, sentences, titles, etc") all of Lull's copy is now sentence case: prompt questions, items and their descriptions, placeholders, validation messages, section titles, key/value keys, table headers, message texts and hints, the rested words (`Drained` ... `Great`) and the habit texts. Values that are data stay as they were (times, `hm` durations, dates, paths, city names, typed text, JSON keys). Sentences never start with a command name: `Run: lull setup`, `Run lull log in the morning`, `Try lull setup, today, park, log, week or forget`, `Good morning: lull log`, `Park your work: lull park`, `The wind-down is the anchor: lull today`; `i do not know` is `I do not know`. The lull snapshots were regenerated (capitalisation, plus the one rephrased hint). The quoted copy in the tables above was updated; prose elsewhere in this plan may still show the original lowercase, and the code is the source of truth.
+- 2026-10-11, easing paces (client request, implemented by the planner):
+  - **What changed:** easing is corrected every night at one of three paces, chosen in a new `setup` step `pace` ("How fast should bedtime move?", only shown when the usual bedtime is more than 30 minutes after the goal; its description shows the gap). Bold is the default.
+    - **Bold:** cuts up to half the gap, rounded down to 15 minutes and at most 3 h, and corrects the last hour at once.
+    - **Moderate:** 1 h a night.
+    - **Subtle:** 30 min a night.
+  - **First correction:** it applies on the night of setup, so bold reaches any goal within a few nights. `Ease` gained `pace`, with `#[serde(default)]` = bold so older files still load.
+  - **Copy:** the setup info is now `Bed at 00:45 tonight, then earlier every night until 23:00`, and the `today` hint is `Easing in: 1 h 45 min later than your goal, 45 min earlier tomorrow` (or `on your goal tomorrow`).
+  - **Pty check:** goal 23:00, usual 02:30, bold. The gap is 3 h 30 min: bed is 00:45 on the night of setup, 00:00 the next night, and 23:00 from the third, with the hints above. The file has `"pace": "bold"`.
+  - **Size:** the example is now 827 lines without `cities.rs` and the tests.

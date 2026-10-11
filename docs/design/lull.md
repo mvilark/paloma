@@ -74,7 +74,7 @@ These are the app's whole "science". Setup offers only choices the research supp
 | Parking the work | The `park` habit and command | Writing a to-do list before bed helped people fall asleep faster (Scullin et al. 2018). |
 | Caffeine cut-off | 6, 8 or 10 hours before bed; default 8 | Caffeine 6 hours before bed still cut sleep by about an hour (Drake et al. 2013). |
 | Sunrise wake window | Sunrise, rounded to 5 minutes and clamped to 06:00-08:00 | Morning light anchors the body clock; the clamp keeps the time inside common healthy wake times when sunrise is very early or late. With no sunrise (polar day or night) the wake is 08:00. |
-| Easing in | The whole night moves 15 minutes earlier every 3 days | Shifting a late schedule gradually rather than all at once is the usual advice for a delayed sleep phase. |
+| Easing in | Corrected every night from the night of setup, at one of three paces: **bold** (default) cuts up to half the gap (in 15-minute steps, at most 3 h) and the last hour at once; **moderate** 1 h a night; **subtle** 30 min a night | The paces are the client's choice (2026-10-11). Moving a late schedule gradually is the usual advice for a delayed sleep phase, with small daily steps; subtle is closest to that, bold is for people who want the goal within days. |
 
 The sunrise is computed offline from the coordinates of the chosen city (the `sunrise` crate), in the computer's time zone.
 
