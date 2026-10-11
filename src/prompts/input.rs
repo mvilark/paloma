@@ -9,6 +9,7 @@ use crate::completion::Completion;
 #[cfg(feature = "history")]
 use crate::history::History;
 use crate::{
+    options::Done,
     output::message::{IntoMessage, Message, Status},
     prompts::{
         base::{base_methods, PromptBase},
@@ -20,7 +21,7 @@ use crate::{
         {Answer, PromptKind},
     },
     validate::InputValidator,
-    Result,
+    Error, Result,
 };
 
 /// Renders an input prompt.
@@ -84,6 +85,7 @@ pub struct Input<'a, T> {
     placeholder: Option<String>,
     base: PromptBase<'a>,
     permit_empty: bool,
+    preset: Option<T>,
     validators: Validators<'a, T>,
     row: Row<'a, str>,
     #[cfg(feature = "history")]
@@ -117,7 +119,7 @@ impl<'a, T> Input<'a, T> {
         self.post_completion_text.as_deref().unwrap_or(&self.prompt)
     }
 
-    base_methods!(input, |_| true);
+    base_methods!(input);
 
     /// Fills the input with editable text when it opens. The user can change or erase
     /// it; pressing Enter right away submits it as the answer. (Unlike a placeholder,
@@ -152,9 +154,19 @@ impl<'a, T> Input<'a, T> {
     ///
     /// Out of the box the prompt does not have a default and will continue
     /// to display until the user inputs something and hits enter. If a default is set the user
-    /// can instead accept the default with enter.
+    /// can instead accept the default with enter. With `general().unattended(true)` the
+    /// prompt answers with it.
     pub fn default(mut self, value: T) -> Self {
         self.default = Some(value);
+        self
+    }
+
+    /// Skips the prompt when `val` is `Some`: it returns that value without needing a
+    /// terminal, and draws the answered line as the prompt would have left it
+    /// ([`done`](Self::done); `Keep` draws like `Collapse`). The preset is not
+    /// validated and `on_change` is not called. `None` asks as usual.
+    pub fn preset(mut self, val: Option<T>) -> Self {
+        self.preset = val;
         self
     }
 
@@ -192,6 +204,7 @@ impl<'a, T> Input<'a, T> {
             placeholder: None,
             base: PromptBase::new(),
             permit_empty: false,
+            preset: None,
             validators: Validators::default(),
             row: Row::default(),
             #[cfg(feature = "history")]
@@ -316,18 +329,58 @@ where
     ///
     /// paloma reads every key: the cursor can move with `←` / `→` (and `Alt+B` /
     /// `Alt+F` by word), `↑` / `↓` browse the history and `Tab` completes, when those
-    /// are set. The dialog is rendered on stderr.
+    /// are set. The dialog is rendered on stderr. `Esc` is ignored (see
+    /// [`interact_opt`](Self::interact_opt)); `Ctrl+C` returns
+    /// [`Error::Cancelled`].
     pub fn interact(self) -> Result<T> {
         self.interact_on(&Term::stderr())
     }
 
+    /// Like [`interact`](Self::interact), but `Esc` goes back: the prompt is erased
+    /// and the result is `None`.
+    pub fn interact_opt(self) -> Result<Option<T>> {
+        self.interact_on_opt(&Term::stderr())
+    }
+
     /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
-    pub fn interact_on(mut self, term: &Term) -> Result<T> {
+    pub fn interact_on(self, term: &Term) -> Result<T> {
+        Ok(self
+            ._interact_on(term, false)?
+            .ok_or_else(|| io::Error::other("Quit not allowed in this case"))?)
+    }
+
+    /// Like [`interact_opt`](Self::interact_opt) but allows a specific terminal to be
+    /// set.
+    pub fn interact_on_opt(self, term: &Term) -> Result<Option<T>> {
+        self._interact_on(term, true)
+    }
+
+    fn _interact_on(mut self, term: &Term, allow_back: bool) -> Result<Option<T>> {
+        let options = crate::options::current();
+        let done = self.done_mode(&options);
+
+        // A preset or an unattended run answers without a terminal.
+        let given = match self.preset.take() {
+            Some(value) => Some(value),
+            None if options.unattended() => Some(self.default.clone().ok_or(Error::NoDefault)?),
+            None => None,
+        };
+        if let Some(value) = given {
+            if done != Done::Erase {
+                let mut render = TermThemeRenderer::new(term, self.base.theme);
+                let text = value.to_string();
+                let prompt = self.completion_prompt();
+                render.finish_preset(done, PromptKind::Input, prompt, Answer::Text(&text))?;
+            }
+            return Ok(Some(value));
+        }
+
         if !term.is_term() {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
+        render.set_legend(self.legend_enabled(&options), allow_back);
         let default_string = self.default.as_ref().map(ToString::to_string);
         let shown_default = default_string.as_deref().filter(|_| self.show_default);
         let mut editor = LineEditor::new(self.prefill.as_deref().unwrap_or(""));
@@ -352,10 +405,17 @@ where
                 self.row.current(self.base.description.as_ref()),
             )?;
 
-            let changed = match term.read_key()? {
+            let changed = match term.read_key_raw()? {
+                Key::CtrlC => {
+                    return render.cancel(PromptKind::Input, Some(self.completion_prompt()))
+                }
+                Key::Escape if allow_back => {
+                    render.back()?;
+                    return Ok(None);
+                }
                 Key::Enter => {
-                    if let Some(value) = self.submit(&mut render, &editor.text())? {
-                        return Ok(value);
+                    if let Some(value) = self.submit(&mut render, done, &editor.text())? {
+                        return Ok(Some(value));
                     }
                     false
                 }
@@ -414,22 +474,25 @@ where
 
     /// Handles `Enter` with `input` typed: the answer, or `None` when the prompt stays
     /// open (a refused value shows its error in the row).
-    fn submit(&mut self, render: &mut TermThemeRenderer, input: &str) -> Result<Option<T>> {
+    fn submit(
+        &mut self,
+        render: &mut TermThemeRenderer,
+        done: Done,
+        input: &str,
+    ) -> Result<Option<T>> {
         if input.is_empty() {
             if let Some(default) = &self.default {
                 if let Some(err) = self.validators.check(default) {
                     self.row.invalid(err);
                     return Ok(None);
                 }
-                render.erase()?;
-                if self.report_enabled() {
-                    let answer = default.to_string();
-                    render.answered(
-                        PromptKind::Input,
-                        self.completion_prompt(),
-                        Answer::Text(&answer),
-                    )?;
-                }
+                let answer = default.to_string();
+                render.finish(
+                    done,
+                    PromptKind::Input,
+                    self.completion_prompt(),
+                    Answer::Text(&answer),
+                )?;
                 return Ok(Some(default.clone()));
             } else if !self.permit_empty {
                 return Ok(None);
@@ -448,14 +511,12 @@ where
                     return Ok(None);
                 }
 
-                render.erase()?;
-                if self.report_enabled() {
-                    render.answered(
-                        PromptKind::Input,
-                        self.completion_prompt(),
-                        Answer::Text(input),
-                    )?;
-                }
+                render.finish(
+                    done,
+                    PromptKind::Input,
+                    self.completion_prompt(),
+                    Answer::Text(input),
+                )?;
                 Ok(Some(value))
             }
             Err(err) => {
@@ -502,5 +563,54 @@ mod tests {
 
         let input = input.answered_prompt("Name").default("Alice".to_string());
         assert_eq!(input.completion_prompt(), "Name");
+    }
+
+    #[cfg(unix)]
+    mod unattended {
+        use super::*;
+        use crate::{prompts::testing::capture, theme::SimpleTheme};
+
+        #[test]
+        fn a_preset_answers_without_a_terminal_and_is_not_validated() {
+            let (term, out) = capture();
+            let port: u16 = Input::new()
+                .theme(&SimpleTheme)
+                .prompt("Port")
+                .validate(|p: &u16| if *p > 1024 { Ok(()) } else { Err("too low") })
+                .preset(Some(80))
+                .interact_on(&term)
+                .unwrap();
+            assert_eq!(port, 80);
+            assert_eq!(out.text(), "Port: 80\n");
+        }
+
+        #[test]
+        fn a_preset_draws_as_done_says_with_the_answered_prompt() {
+            for (done, expected) in [
+                (Done::Collapse, "Name: Ada\n"),
+                (Done::Keep, "Name: Ada\n"),
+                (Done::Erase, ""),
+            ] {
+                let (term, out) = capture();
+                let name: String = Input::new()
+                    .theme(&SimpleTheme)
+                    .prompt("Your name?")
+                    .answered_prompt("Name")
+                    .done(done)
+                    .preset(Some("Ada".to_string()))
+                    .interact_on(&term)
+                    .unwrap();
+                assert_eq!(name, "Ada");
+                assert_eq!(out.text(), expected, "{done:?}");
+            }
+        }
+
+        #[test]
+        fn none_asks_as_usual_and_a_non_terminal_is_an_error() {
+            let (term, out) = capture();
+            let err = Input::<String>::new().preset(None).interact_on_opt(&term);
+            assert!(matches!(err, Err(Error::IO(_))));
+            assert_eq!(out.text(), "");
+        }
     }
 }

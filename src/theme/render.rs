@@ -5,14 +5,15 @@ use console::{measure_text_width, Term, TermTarget};
 #[cfg(feature = "fuzzy-select")]
 use crate::theme::FuzzySelectPromptView;
 use crate::{
+    options::Done,
     output::message::Message,
     terminal::Stream,
     theme::{
         Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, Context, InputPromptView,
-        ItemView, MessageSource, PromptKind, PromptLook, PromptMessageView, PromptView, Theme,
-        Tokens,
+        ItemView, LegendView, MessageSource, PromptKind, PromptLook, PromptMessageView, PromptView,
+        Theme, Tokens,
     },
-    Result,
+    Error, Result,
 };
 
 /// The theme a renderer uses: the prompt's own, or the app-wide one.
@@ -92,9 +93,10 @@ pub(crate) fn row_lines(row: RowMessage) -> usize {
 /// Draws prompts through a theme, as frames.
 ///
 /// A prompt draws its whole state as one frame (question, items, typed text, message
-/// row) on every key, and the new frame replaces the previous one on screen. A frame
-/// can be committed (it stays on screen, still part of the prompt, and the next frame
-/// goes under it) and the whole prompt can be erased.
+/// row, legend) on every key, and the new frame replaces the previous one on screen. A
+/// frame can be committed (it stays on screen, still part of the prompt, and the next
+/// frame goes under it), the whole prompt can be erased, and the live frame can be
+/// kept (left on screen without its row and legend, ending the prompt).
 pub(crate) struct TermThemeRenderer<'a> {
     term: &'a Term,
     theme: ThemeHandle<'a>,
@@ -108,6 +110,14 @@ pub(crate) struct TermThemeRenderer<'a> {
     rows: usize,
     /// The row of the live frame the terminal cursor is on.
     cursor_row: usize,
+    /// The live frame without its message row and legend: what `keep` leaves.
+    body: String,
+    /// The same for each committed frame.
+    committed: Vec<String>,
+    /// Whether frames end with the legend line.
+    legend: bool,
+    /// Whether the legend lists the key that goes back (`Esc`).
+    back: bool,
     /// Pauses a running live component (a task's spinner) while the prompt is shown.
     _pause: crate::live::engine::Pause,
 }
@@ -129,6 +139,10 @@ impl<'a> TermThemeRenderer<'a> {
             kept: 0,
             rows: 0,
             cursor_row: 0,
+            body: String::new(),
+            committed: Vec::new(),
+            legend: false,
+            back: false,
             _pause: crate::live::engine::Pause::new(),
         }
     }
@@ -192,11 +206,13 @@ impl<'a> TermThemeRenderer<'a> {
 
     /// Keeps the live frame on screen as part of the prompt: the next frame is drawn
     /// under it, and [`erase`](Self::erase) still removes it.
+    #[cfg_attr(not(feature = "password"), allow(dead_code))]
     pub fn commit(&mut self) -> Result {
         if self.rows > 0 {
             self.term
                 .move_cursor_down(self.rows - 1 - self.cursor_row)?;
             self.term.write_str("\r\n")?;
+            self.committed.push(std::mem::take(&mut self.body));
         }
         self.kept += self.rows;
         self.rows = 0;
@@ -212,7 +228,91 @@ impl<'a> TermThemeRenderer<'a> {
         self.kept = 0;
         self.rows = 0;
         self.cursor_row = 0;
+        self.body.clear();
+        self.committed.clear();
         Ok(())
+    }
+
+    /// Leaves the prompt on screen as it was when answered, without its message row
+    /// and legend: the committed frames and the live one are redrawn from their
+    /// bodies, and the cursor ends on the line below them.
+    pub fn keep(&mut self) -> Result {
+        let mut parts = std::mem::take(&mut self.committed);
+        if self.rows > 0 {
+            parts.push(std::mem::take(&mut self.body));
+        }
+        self.erase()?;
+        if !parts.is_empty() {
+            self.term.write_str(&parts.join("\n"))?;
+            self.term.write_str("\r\n")?;
+        }
+        Ok(())
+    }
+
+    /// Ends a prompt that was answered: per `done`, the answered line replaces the
+    /// prompt (`Collapse`), the prompt stays (`Keep`) or nothing stays (`Erase`). The
+    /// cursor is shown again.
+    pub fn finish(&mut self, done: Done, kind: PromptKind, prompt: &str, answer: Answer) -> Result {
+        match done {
+            Done::Collapse => {
+                self.erase()?;
+                self.answered(kind, prompt, answer)?;
+            }
+            Done::Keep => self.keep()?,
+            Done::Erase => self.erase()?,
+        }
+        self.term.show_cursor()?;
+        self.term.flush()?;
+        Ok(())
+    }
+
+    /// Draws the line a preset or unattended answer leaves, for a prompt that was never
+    /// shown: the answered line unless `done` is `Erase` (`Keep` draws like
+    /// `Collapse`, since nothing was shown).
+    pub fn finish_preset(
+        &mut self,
+        done: Done,
+        kind: PromptKind,
+        prompt: &str,
+        answer: Answer,
+    ) -> Result {
+        match done {
+            Done::Collapse | Done::Keep => self.answered(kind, prompt, answer),
+            Done::Erase => Ok(()),
+        }
+    }
+
+    /// Ends a prompt the user left with `Esc`: nothing stays, whatever `done` says.
+    pub fn back(&mut self) -> Result {
+        self.erase()?;
+        self.term.show_cursor()?;
+        self.term.flush()?;
+        Ok(())
+    }
+
+    /// Ends a prompt the user cancelled with `Ctrl+C`: the prompt is erased, the
+    /// cancelled line is drawn when the theme has a `cancelled_value` (and the prompt a
+    /// question), the cursor is shown, and the result is [`Error::Cancelled`].
+    pub fn cancel<T>(&mut self, kind: PromptKind, prompt: Option<&str>) -> Result<T> {
+        self.erase()?;
+        if let (Some(prompt), Some(_)) = (prompt, self.look(kind).cancelled_value) {
+            self.answered(kind, prompt, Answer::Cancelled)?;
+        }
+        self.term.show_cursor()?;
+        self.term.flush()?;
+        Err(Error::Cancelled)
+    }
+
+    /// Sets whether frames end with the legend line, and whether it lists the key that
+    /// goes back.
+    pub fn set_legend(&mut self, enabled: bool, back: bool) {
+        self.legend = enabled;
+        self.back = back;
+    }
+
+    /// How many rows the legend of a `kind` prompt takes (0 or 1).
+    pub fn legend_lines(&self, kind: PromptKind) -> usize {
+        usize::from(self.legend && !self.look(kind).legend.is_empty())
     }
 
     /// Appends the lines of the message row to a frame: the message, then its nested
@@ -243,6 +343,37 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(())
     }
 
+    /// Appends the legend line to a frame, when it is on and the prompt has keys.
+    fn push_legend(&self, lines: &mut Vec<String>, kind: PromptKind) -> fmt::Result {
+        if self.legend_lines(kind) == 0 {
+            return Ok(());
+        }
+        let look = self.look(kind);
+        let mut keys: Vec<(&str, &str)> = look.legend.to_vec();
+        if self.back {
+            keys.push(look.legend_back);
+        }
+        let mut line = String::new();
+        let view = LegendView::new(kind, &keys);
+        self.theme.format_legend(&mut line, &self.ctx(), &view)?;
+        lines.push(line);
+        Ok(())
+    }
+
+    /// Adds the message row and the legend after the lines of a frame's body. Returns
+    /// the body as text (what `keep` leaves) and the whole frame.
+    fn tail(
+        &self,
+        mut lines: Vec<String>,
+        kind: PromptKind,
+        row: RowMessage,
+    ) -> std::result::Result<(String, String), fmt::Error> {
+        let body = lines.join("\n");
+        self.push_row(&mut lines, kind, row)?;
+        self.push_legend(&mut lines, kind)?;
+        Ok((body, lines.join("\n")))
+    }
+
     /// The frame of a list prompt (select, multi select, sort): the question line
     /// with its paging counter (when there is a question), the items, then the row.
     pub fn prompt_frame<'i>(
@@ -254,7 +385,7 @@ impl<'a> TermThemeRenderer<'a> {
         items: impl Iterator<Item = ItemView<'i>>,
         row: RowMessage,
     ) -> Result {
-        let text = (|| -> std::result::Result<String, fmt::Error> {
+        let (body, text) = (|| -> std::result::Result<(String, String), fmt::Error> {
             let ctx = self.ctx();
             let mut lines = Vec::new();
             if let Some(prompt) = prompt {
@@ -268,36 +399,11 @@ impl<'a> TermThemeRenderer<'a> {
                 self.theme.format_item(&mut line, &ctx, &item)?;
                 lines.push(line);
             }
-            self.push_row(&mut lines, kind, row)?;
-            Ok(lines.join("\n"))
+            self.tail(lines, kind, row)
         })()
         .map_err(io::Error::other)?;
+        self.body = body;
         self.frame(&text, None)
-    }
-
-    /// Leaves a list prompt that was cancelled with `clear(false)`: the items and the
-    /// row go, the question line stays (nothing stays without a question).
-    pub fn keep_question(
-        &mut self,
-        kind: PromptKind,
-        prompt: Option<&str>,
-        paging: Option<(usize, usize)>,
-        invalid: bool,
-    ) -> Result {
-        match prompt {
-            Some(prompt) => {
-                self.prompt_frame(
-                    kind,
-                    Some(prompt),
-                    paging,
-                    invalid,
-                    std::iter::empty(),
-                    None,
-                )?;
-                self.commit()
-            }
-            None => self.erase(),
-        }
     }
 
     /// The frame of an input or password prompt: the input line with the typed text
@@ -312,7 +418,7 @@ impl<'a> TermThemeRenderer<'a> {
         shown: Shown,
         row: RowMessage,
     ) -> Result {
-        let (text, cursor) = (|| -> std::result::Result<(String, (usize, usize)), fmt::Error> {
+        let (body, text, cursor) = (|| -> std::result::Result<_, fmt::Error> {
             let ctx = self.ctx();
             let look = self.look(kind);
             let mut head = String::new();
@@ -345,11 +451,11 @@ impl<'a> TermThemeRenderer<'a> {
                 }
                 Shown::Hidden => start,
             };
-            let mut lines = vec![head];
-            self.push_row(&mut lines, kind, row)?;
-            Ok((lines.join("\n"), (line, column)))
+            let (body, text) = self.tail(vec![head], kind, row)?;
+            Ok((body, text, (line, column)))
         })()
         .map_err(io::Error::other)?;
+        self.body = body;
         self.frame(&text, Some(cursor))
     }
 
@@ -363,7 +469,7 @@ impl<'a> TermThemeRenderer<'a> {
         buttons: Option<bool>,
         row: RowMessage,
     ) -> Result {
-        let text = (|| -> std::result::Result<String, fmt::Error> {
+        let (body, text) = (|| -> std::result::Result<(String, String), fmt::Error> {
             let ctx = self.ctx();
             let mut line = String::new();
             let view = ConfirmPromptView::new(prompt, default, buttons.is_some(), invalid);
@@ -373,11 +479,10 @@ impl<'a> TermThemeRenderer<'a> {
                 let view = ConfirmButtonsView::new(yes_focused);
                 self.theme.format_confirm_buttons(&mut line, &ctx, &view)?;
             }
-            let mut lines = vec![line];
-            self.push_row(&mut lines, PromptKind::Confirm, row)?;
-            Ok(lines.join("\n"))
+            self.tail(vec![line], PromptKind::Confirm, row)
         })()
         .map_err(io::Error::other)?;
+        self.body = body;
         self.frame(&text, None)
     }
 
@@ -395,7 +500,7 @@ impl<'a> TermThemeRenderer<'a> {
         items: impl Iterator<Item = ItemView<'i>>,
         row: RowMessage,
     ) -> Result {
-        let text = (|| -> std::result::Result<String, fmt::Error> {
+        let (body, text) = (|| -> std::result::Result<(String, String), fmt::Error> {
             let ctx = self.ctx();
             let mut line = String::new();
             let placeholder = placeholder.filter(|_| search.is_empty());
@@ -408,10 +513,10 @@ impl<'a> TermThemeRenderer<'a> {
                 self.theme.format_item(&mut line, &ctx, &item)?;
                 lines.push(line);
             }
-            self.push_row(&mut lines, PromptKind::FuzzySelect, row)?;
-            Ok(lines.join("\n"))
+            self.tail(lines, PromptKind::FuzzySelect, row)
         })()
         .map_err(io::Error::other)?;
+        self.body = body;
         self.frame(&text, None)
     }
 
@@ -485,11 +590,138 @@ mod tests {
         let handle = ThemeHandle::Prompt(&custom);
         let tokens = custom.tokens();
         let ctx = Context::new(&tokens, Stream::Stderr);
-        let view = ItemView::new(PromptKind::Select, "item", true, None, None);
+        let view = ItemView::new(PromptKind::Select, "item", true, None, None, None, false);
 
         let (mut via_handle, mut direct) = (String::new(), String::new());
         handle.format_item(&mut via_handle, &ctx, &view).unwrap();
         custom.format_item(&mut direct, &ctx, &view).unwrap();
         assert_eq!(via_handle, direct);
+    }
+}
+
+#[cfg(all(test, unix))]
+mod frame_tests {
+    use super::*;
+    use crate::{
+        prompts::testing::capture,
+        theme::{PromptKind, SimpleTheme},
+        Status,
+    };
+
+    fn items() -> impl Iterator<Item = ItemView<'static>> {
+        ["a", "b"].into_iter().enumerate().map(|(i, text)| {
+            ItemView::new(PromptKind::Select, text, i == 0, None, None, None, false)
+        })
+    }
+
+    #[test]
+    fn keep_leaves_the_frame_without_its_row_and_legend() {
+        let (term, out) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&SimpleTheme));
+        render.set_legend(true, true);
+        let note = Message::new(Status::Description, "a note");
+        let row = Some((&note, MessageSource::Description));
+        render
+            .prompt_frame(PromptKind::Select, Some("Pick"), None, false, items(), row)
+            .unwrap();
+        let drawn = out.text();
+        assert!(drawn.contains("a note"), "{drawn:?}");
+        assert!(drawn.ends_with("esc back"), "{drawn:?}");
+        render.keep().unwrap();
+        // The frame is erased and rewritten without the row and the legend.
+        let kept = out.text()[drawn.len()..].to_string();
+        assert!(kept.contains("Pick:\n> a\n  b"), "{kept:?}");
+        assert!(
+            !kept.contains("a note") && !kept.contains("esc back"),
+            "{kept:?}"
+        );
+        assert!(kept.ends_with("\r\n"), "{kept:?}");
+        assert_eq!((render.rows, render.kept, render.cursor_row), (0, 0, 0));
+    }
+
+    #[test]
+    fn keep_redraws_committed_frames_too() {
+        let (term, out) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&SimpleTheme));
+        let note = Message::new(Status::Description, "a note");
+        let row = Some((&note, MessageSource::Description));
+        render
+            .prompt_frame(PromptKind::Select, Some("One"), None, false, items(), row)
+            .unwrap();
+        render.commit().unwrap();
+        render
+            .prompt_frame(PromptKind::Select, Some("Two"), None, false, items(), row)
+            .unwrap();
+        let before = out.text().len();
+        render.keep().unwrap();
+        let kept = out.text()[before..].to_string();
+        assert!(
+            kept.contains("One:\n> a\n  b\nTwo:\n> a\n  b\r\n"),
+            "{kept:?}"
+        );
+        assert!(!kept.contains("a note"), "{kept:?}");
+    }
+
+    #[test]
+    fn the_legend_takes_a_row_only_when_on_and_the_prompt_has_keys() {
+        let (term, _) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&SimpleTheme));
+        assert_eq!(render.legend_lines(PromptKind::Select), 0);
+        render.set_legend(true, false);
+        assert_eq!(render.legend_lines(PromptKind::Select), 1);
+        // Confirm has no keys to list.
+        assert_eq!(render.legend_lines(PromptKind::Confirm), 0);
+    }
+
+    #[test]
+    fn finish_draws_per_done() {
+        for (done, expect_line) in [
+            (Done::Collapse, true),
+            (Done::Keep, false),
+            (Done::Erase, false),
+        ] {
+            let (term, out) = capture();
+            let mut render = TermThemeRenderer::new(&term, Some(&SimpleTheme));
+            render
+                .prompt_frame(PromptKind::Select, Some("Pick"), None, false, items(), None)
+                .unwrap();
+            let before = out.text().len();
+            render
+                .finish(done, PromptKind::Select, "Pick", Answer::Text("b"))
+                .unwrap();
+            let after = out.text()[before..].to_string();
+            assert_eq!(
+                after.contains("Pick: b\n"),
+                expect_line,
+                "{done:?}: {after:?}"
+            );
+            assert_eq!(
+                after.contains("> a"),
+                done == Done::Keep,
+                "{done:?}: {after:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn cancel_draws_the_cancelled_line_only_when_the_theme_has_a_value() {
+        let (term, out) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&SimpleTheme));
+        let result: Result<()> = render.cancel(PromptKind::Select, Some("Pick"));
+        assert!(matches!(result, Err(Error::Cancelled)));
+        assert!(!out.text().contains("Pick"));
+
+        let themed =
+            SimpleTheme.restyle(|t| t.prompts(|p| p.base(|b| b.cancelled_value("cancelled"))));
+        let (term, out) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&themed));
+        let result: Result<()> = render.cancel(PromptKind::Select, Some("Pick"));
+        assert!(matches!(result, Err(Error::Cancelled)));
+        assert!(out.text().contains("Pick: cancelled\n"), "{:?}", out.text());
+        // A list prompt without a question leaves no line.
+        let (term, out) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&themed));
+        let _: Result<()> = render.cancel(PromptKind::Select, None);
+        assert!(!out.text().contains("cancelled"));
     }
 }

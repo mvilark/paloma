@@ -44,7 +44,7 @@ mod tests {
         let mut out = String::new();
         let view = PromptView::new(PromptKind::Select, "Name", None, false);
         theme.format_prompt(&mut out, &ctx, &view).unwrap();
-        let view = ItemView::new(PromptKind::Select, "item", true, None, None);
+        let view = ItemView::new(PromptKind::Select, "item", true, None, None, None, false);
         theme.format_item(&mut out, &ctx, &view).unwrap();
         out
     }

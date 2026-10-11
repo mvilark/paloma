@@ -14,7 +14,7 @@ use paloma::{
     terminal::Stream,
     theme::{
         Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, InputPromptView, ItemView,
-        MessageSource, PromptKind, PromptMessageView, PromptView,
+        LegendView, MessageSource, PromptKind, PromptMessageView, PromptView,
     },
     theme::{ColorfulTheme, Context, MessageView, SimpleTheme, Status, Theme},
     theme::{KeyValueView, PanelView, SectionView, TableView, TaskState, TaskStepView, TaskView},
@@ -40,7 +40,11 @@ fn sheet(theme: &dyn Theme) -> String {
         theme.format_answered(f, ctx, &AnsweredView::new(kind, prompt, answer))
     };
     let item = |f: &mut dyn fmt::Write, kind, active, checked| {
-        theme.format_item(f, ctx, &ItemView::new(kind, "b", active, checked, None))
+        theme.format_item(
+            f,
+            ctx,
+            &ItemView::new(kind, "b", active, checked, None, None, false),
+        )
     };
 
     s.line("prompt(Name)", |f| {
@@ -97,6 +101,21 @@ fn sheet(theme: &dyn Theme) -> String {
         });
     }
 
+    s.line("answered(Go?, Cancelled)", |f| {
+        answered(f, PromptKind::Confirm, "Go?", Answer::Cancelled)
+    });
+    // What `restyle(|t| t.prompts(|p| p.base(|b| b.cancelled_value("cancelled"))))`
+    // changes: hooks read their tokens from the context.
+    let cancelling = tokens
+        .clone()
+        .into_owned()
+        .prompts(|p| p.base(|b| b.cancelled_value("cancelled")));
+    let cancelling_ctx = Context::new(&cancelling, Stream::Stderr);
+    s.line("answered(Go?, Cancelled, cancelled_value)", |f| {
+        let view = AnsweredView::new(PromptKind::Confirm, "Go?", Answer::Cancelled);
+        theme.format_answered(f, &cancelling_ctx, &view)
+    });
+
     for (prompt, default) in [("Name", None), ("Name", Some("Ada")), ("", Some("Ada"))] {
         s.line(&format!("input_prompt({prompt}, {default:?})"), |f| {
             let view = InputPromptView::new(PromptKind::Input, prompt, default, false);
@@ -134,6 +153,41 @@ fn sheet(theme: &dyn Theme) -> String {
             item(f, PromptKind::Select, active, None)
         });
     }
+
+    for (label, description, disabled, active) in [
+        ("description", Some("more"), false, false),
+        ("disabled", None, true, false),
+        ("disabled, active", None, true, true),
+    ] {
+        s.line(&format!("item(b, {label})"), |f| {
+            let view = ItemView::new(
+                PromptKind::Select,
+                "b",
+                active,
+                None,
+                None,
+                description,
+                disabled,
+            );
+            theme.format_item(f, ctx, &view)
+        });
+    }
+
+    // The legend as the renderer builds it: the prompt's keys, plus the key that goes
+    // back while `Esc` does.
+    let look = |kind| tokens.get_prompts().resolve(kind, &tokens);
+    s.line("legend(Select)", |f| {
+        let select = look(PromptKind::Select);
+        let view = LegendView::new(PromptKind::Select, select.legend);
+        theme.format_legend(f, ctx, &view)
+    });
+    s.line("legend(MultiSelect, back)", |f| {
+        let multi = look(PromptKind::MultiSelect);
+        let mut keys = multi.legend.to_vec();
+        keys.push(multi.legend_back);
+        let view = LegendView::new(PromptKind::MultiSelect, &keys);
+        theme.format_legend(f, ctx, &view)
+    });
 
     s.line("multi_select_prompt(Pick)", |f| {
         let view = PromptView::new(PromptKind::MultiSelect, "Pick", None, false);
@@ -221,6 +275,8 @@ fn fuzzy_sheet(theme: &dyn Theme) -> String {
                     active,
                     None,
                     matches.as_deref(),
+                    None,
+                    false,
                 );
                 theme.format_item(f, ctx, &view)
             },

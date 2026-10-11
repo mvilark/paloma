@@ -5,7 +5,7 @@ use console::Term;
 use paloma::{
     terminal::Stream,
     theme::{Answer, AnsweredView, Context, PromptKind, Theme},
-    Confirm, Error, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort,
+    Confirm, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort,
 };
 
 use crate::{
@@ -350,9 +350,4 @@ pub fn about(_: &Args) -> Result<i32> {
         ("Docs", ui::link("https://github.com/mvilark/paloma")),
     ]);
     Ok(0)
-}
-
-pub fn is_cancel(err: &Error) -> bool {
-    let Error::IO(io) = err;
-    io.kind() == std::io::ErrorKind::Interrupted
 }

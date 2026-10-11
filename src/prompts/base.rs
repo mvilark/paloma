@@ -1,15 +1,17 @@
 //! State and builder methods every prompt shares.
-use crate::{output::message::Message, theme::Theme};
+use crate::{options::Done, output::message::Message, theme::Theme};
 
-/// What all prompts have in common: their own theme, if any, whether to report, and
-/// the description shown in their message row.
+/// What all prompts have in common: their own theme, if any, what they leave when
+/// answered, whether they show a legend, and the description shown in their message
+/// row.
 ///
 /// Each prompt embeds one as `base`. Settings left unset (`None`) fall through to
 /// [`Options`](crate::Options).
 #[derive(Clone)]
 pub(crate) struct PromptBase<'a> {
     pub(crate) theme: Option<&'a dyn Theme>,
-    pub(crate) report: Option<bool>,
+    pub(crate) done: Option<Done>,
+    pub(crate) legend: Option<bool>,
     /// Shown in the message row while nothing newer applies.
     pub(crate) description: Option<Message<'static>>,
 }
@@ -20,19 +22,20 @@ impl PromptBase<'_> {
     pub(crate) fn new() -> Self {
         PromptBase {
             theme: None,
-            report: None,
+            done: None,
+            legend: None,
             description: None,
         }
     }
 }
 
-/// Adds the builder methods every prompt shares (`theme`, `report`, `description`) and
-/// `report_enabled` to a prompt that embeds a [`PromptBase`] as `base`. Use it inside
+/// Adds the builder methods every prompt shares (`theme`, `done`, `legend`,
+/// `description`) and `done_mode` / `legend_enabled` (the settings as resolved against
+/// the app options) to a prompt that embeds a [`PromptBase`] as `base`. Use it inside
 /// an `impl<'a> Prompt<'a>` block. `$group` is the prompt's field in
-/// [`Options`](crate::Options); `$default` is a closure giving the built-in default
-/// for `report`.
+/// [`Options`](crate::Options).
 macro_rules! base_methods {
-    ($group:ident, $default:expr) => {
+    ($group:ident) => {
         /// Draws this prompt with `theme` instead of the app theme set with
         /// [`set_theme`](crate::set_theme).
         pub fn theme(mut self, theme: &'a dyn crate::theme::Theme) -> Self {
@@ -40,12 +43,24 @@ macro_rules! base_methods {
             self
         }
 
-        /// Indicates whether to report the chosen result after interaction.
+        /// What the prompt leaves on the screen once answered: one line with the answer
+        /// ([`Done::Collapse`](crate::Done::Collapse), the default), the prompt as it
+        /// was ([`Done::Keep`](crate::Done::Keep)) or nothing
+        /// ([`Done::Erase`](crate::Done::Erase)). A prompt left with `Esc` always
+        /// leaves nothing.
         ///
-        /// Left unset, the app option applies ([`Options`](crate::Options)); the
-        /// built-in default is to report.
-        pub fn report(mut self, val: bool) -> Self {
-            self.base.report = Some(val);
+        /// Left unset, the app option applies ([`Options`](crate::Options)).
+        pub fn done(mut self, val: crate::Done) -> Self {
+            self.base.done = Some(val);
+            self
+        }
+
+        /// Whether to show a line with the prompt's keys under it (drawn by the
+        /// theme's `format_legend`, with the words of the `legend` prompt tokens).
+        ///
+        /// Left unset, the app option applies; the built-in default is off.
+        pub fn legend(mut self, val: bool) -> Self {
+            self.base.legend = Some(val);
             self
         }
 
@@ -58,11 +73,15 @@ macro_rules! base_methods {
             self
         }
 
-        fn report_enabled(&self) -> bool {
-            let options = crate::options::current();
-            options
-                .report(self.base.report, options.$group.report)
-                .unwrap_or(($default)(self))
+        /// What the prompt leaves once answered: its own value, the group's, the
+        /// `prompts` family's, then `Collapse`.
+        fn done_mode(&self, options: &crate::options::Options) -> crate::Done {
+            options.done(self.base.done, options.$group.done)
+        }
+
+        /// Whether the prompt shows its legend.
+        fn legend_enabled(&self, options: &crate::options::Options) -> bool {
+            options.legend(self.base.legend, options.$group.legend)
         }
     };
 }

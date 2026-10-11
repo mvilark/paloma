@@ -138,7 +138,7 @@ pub struct FuzzySelectPromptView<'a> {
     pub cursor: usize,
     /// The placeholder to show in place of the search: `Some` only while the search
     /// is empty and the prompt has one
-    /// ([`FuzzySelect::placeholder`](crate::FuzzySelect::placeholder)).
+    /// (`FuzzySelect::placeholder`, feature `fuzzy-select`).
     pub placeholder: Option<&'a str>,
     /// The message row shows a validation error.
     pub invalid: bool,
@@ -180,6 +180,11 @@ pub struct ItemView<'a> {
     /// The characters (by index) that match the search, when a fuzzy select
     /// highlights matches.
     pub matches: Option<&'a [usize]>,
+    /// Extra text to draw after the item ([`Item::description`](crate::Item::description)).
+    pub description: Option<&'a str>,
+    /// The item is disabled ([`Item::disabled`](crate::Item::disabled)): it is shown
+    /// but cannot be focused or chosen.
+    pub disabled: bool,
 }
 
 impl<'a> ItemView<'a> {
@@ -190,6 +195,8 @@ impl<'a> ItemView<'a> {
         active: bool,
         checked: Option<bool>,
         matches: Option<&'a [usize]>,
+        description: Option<&'a str>,
+        disabled: bool,
     ) -> Self {
         ItemView {
             kind,
@@ -197,7 +204,28 @@ impl<'a> ItemView<'a> {
             active,
             checked,
             matches,
+            description,
+            disabled,
         }
+    }
+}
+
+/// The line of keys under a prompt; see
+/// [`Theme::format_legend`](crate::theme::Theme::format_legend).
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct LegendView<'a> {
+    /// Which prompt.
+    pub kind: PromptKind,
+    /// The keys and what they do, as `(key, action)`: the prompt's `legend` token, plus
+    /// the `legend_back` token while `Esc` goes back.
+    pub keys: &'a [(&'a str, &'a str)],
+}
+
+impl<'a> LegendView<'a> {
+    /// A view of the legend line.
+    pub fn new(kind: PromptKind, keys: &'a [(&'a str, &'a str)]) -> Self {
+        LegendView { kind, keys }
     }
 }
 
@@ -263,8 +291,12 @@ pub enum Answer<'a> {
     /// A password, by its number of mask characters
     /// ([`Password::result_len`](crate::Password::result_len)).
     Hidden(usize),
-    /// No answer (a confirm left with `Esc`).
+    /// No answer: drawn as the `empty_value` token, nothing by default.
     Skipped,
+    /// The user cancelled the prompt with `Ctrl+C`: drawn as the `cancelled_value`
+    /// token in `cancelled_style`. The prompt draws this line only when the token is
+    /// set.
+    Cancelled,
 }
 
 /// The line an answered prompt leaves; see

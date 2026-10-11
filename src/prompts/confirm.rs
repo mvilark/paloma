@@ -3,6 +3,7 @@ use std::io;
 use console::{Key, Term};
 
 use crate::{
+    options::Done,
     output::message::Message,
     prompts::{
         base::{base_methods, PromptBase},
@@ -12,7 +13,7 @@ use crate::{
         render::TermThemeRenderer,
         {Answer, PromptKind},
     },
-    Result,
+    Error, Result,
 };
 
 /// Renders a confirm prompt.
@@ -42,6 +43,7 @@ pub struct Confirm<'a> {
     show_default: bool,
     choices_as_buttons: Option<bool>,
     on_shortcut: Option<bool>,
+    preset: Option<bool>,
     base: PromptBase<'a>,
     row: Row<'a, bool>,
 }
@@ -59,7 +61,7 @@ impl<'a> Confirm<'a> {
         self
     }
 
-    base_methods!(confirm, |_| true);
+    base_methods!(confirm);
 
     /// Shows the choices as `Yes` / `No` buttons on the line under the question
     /// (`true`), or as the classic `(y/n)` text after it (`false`, the default).
@@ -102,9 +104,19 @@ impl<'a> Confirm<'a> {
     ///
     /// Out of the box the prompt does not have a default and will continue
     /// to display until the user inputs something and hits enter. If a default is set the user
-    /// can instead accept the default with enter.
+    /// can instead accept the default with enter. With `general().unattended(true)` the
+    /// prompt answers with it.
     pub fn default(mut self, val: bool) -> Self {
         self.default = Some(val);
+        self
+    }
+
+    /// Skips the prompt when `val` is `Some`: it returns that answer without needing a
+    /// terminal, and draws the answered line as the prompt would have left it
+    /// ([`done`](Self::done); `Keep` draws like `Collapse`). `on_change` is not called.
+    /// `None` asks as usual.
+    pub fn preset(mut self, val: Option<bool>) -> Self {
+        self.preset = val;
         self
     }
 
@@ -122,6 +134,7 @@ impl<'a> Confirm<'a> {
     ///
     /// Result contains `bool` if user answered "yes" or "no" or `default` (configured in [`default`](Self::default) if pushes enter.
     /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q'.
+    /// `Ctrl+C` returns [`Error::Cancelled`].
     #[inline]
     pub fn interact(self) -> Result<bool> {
         self.interact_on(&Term::stderr())
@@ -132,7 +145,7 @@ impl<'a> Confirm<'a> {
     /// The dialog is rendered on stderr.
     ///
     /// Result contains `Some(bool)` if user answered "yes" or "no" or `Some(default)` (configured in [`default`](Self::default)) if pushes enter,
-    /// or `None` if user cancelled with 'Esc' or 'q'.
+    /// or `None` if user went back with 'Esc' or 'q' (the prompt is erased).
     ///
     /// ## Example
     ///
@@ -169,14 +182,32 @@ impl<'a> Confirm<'a> {
         self._interact_on(term, true)
     }
 
-    fn _interact_on(mut self, term: &Term, allow_quit: bool) -> Result<Option<bool>> {
+    fn _interact_on(mut self, term: &Term, allow_back: bool) -> Result<Option<bool>> {
+        let options = crate::options::current();
+        let done = self.done_mode(&options);
+
+        // A preset or an unattended run answers without a terminal.
+        let given = match self.preset {
+            Some(answer) => Some(answer),
+            None if options.unattended() => Some(self.default.ok_or(Error::NoDefault)?),
+            None => None,
+        };
+        if let Some(answer) = given {
+            if done != Done::Erase {
+                let mut render = TermThemeRenderer::new(term, self.base.theme);
+                let line = Answer::Bool(answer);
+                render.finish_preset(done, PromptKind::Confirm, &self.prompt, line)?;
+            }
+            return Ok(Some(answer));
+        }
+
         if !term.is_term() {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
+        render.set_legend(self.legend_enabled(&options), allow_back);
 
-        let options = crate::options::current();
         let wait_for_newline = !self
             .on_shortcut
             .or(options.confirm.on_shortcut)
@@ -185,10 +216,33 @@ impl<'a> Confirm<'a> {
             .choices_as_buttons
             .or(options.confirm.choices_as_buttons)
             .unwrap_or(false);
-        if buttons {
-            return self.interact_buttons(term, render, allow_quit, wait_for_newline);
-        }
 
+        let answer = if buttons {
+            self.read_buttons(term, &mut render, allow_back, wait_for_newline)?
+        } else {
+            self.read_choice(term, &mut render, allow_back, wait_for_newline)?
+        };
+        match answer {
+            Some(yes) => {
+                render.finish(done, PromptKind::Confirm, &self.prompt, Answer::Bool(yes))?;
+                Ok(Some(yes))
+            }
+            None => {
+                render.back()?;
+                Ok(None)
+            }
+        }
+    }
+
+    /// The classic layout: the answer is typed (`y` / `n`). `None` when the user left
+    /// with `Esc`.
+    fn read_choice(
+        &mut self,
+        term: &Term,
+        render: &mut TermThemeRenderer,
+        allow_back: bool,
+        wait_for_newline: bool,
+    ) -> Result<Option<bool>> {
         let default_if_show = if self.show_default {
             self.default
         } else {
@@ -197,75 +251,29 @@ impl<'a> Confirm<'a> {
 
         term.hide_cursor()?;
 
-        let rv;
-
-        if wait_for_newline {
-            // Waits for user input and for the user to hit the Enter key
-            // before validation.
-            let mut value = default_if_show;
-
-            loop {
-                self.draw(&mut render, value, None)?;
-                let input = term.read_key()?;
-
-                let new = match input {
-                    Key::Char('y') | Key::Char('Y') => Some(true),
-                    Key::Char('n') | Key::Char('N') => Some(false),
-                    Key::Enter => {
-                        if !allow_quit {
-                            value = value.or(self.default);
-                        }
-
-                        if value.is_some() || allow_quit {
-                            rv = value;
-                            break;
-                        }
-                        continue;
-                    }
-                    Key::Escape | Key::Char('q') if allow_quit => None,
-                    _ => {
-                        continue;
-                    }
-                };
-
-                if let (true, Some(new)) = (new != value, new) {
-                    self.row.changed(&new);
-                }
-                value = new;
+        // With `wait_for_newline`, `y` and `n` only select; `Enter` submits.
+        let mut value = default_if_show;
+        loop {
+            self.draw(render, value, None)?;
+            let new = match term.read_key_raw()? {
+                Key::CtrlC => return render.cancel(PromptKind::Confirm, Some(&self.prompt)),
+                Key::Char('y') | Key::Char('Y') => true,
+                Key::Char('n') | Key::Char('N') => false,
+                Key::Enter => match value.or(self.default) {
+                    Some(answer) => return Ok(Some(answer)),
+                    None => continue,
+                },
+                Key::Escape | Key::Char('q') if allow_back => return Ok(None),
+                _ => continue,
+            };
+            if !wait_for_newline {
+                return Ok(Some(new));
             }
-        } else {
-            self.draw(&mut render, default_if_show, None)?;
-            // Default behavior: matches continuously on every keystroke,
-            // and does not wait for user to hit the Enter key.
-            loop {
-                let input = term.read_key()?;
-                let value = match input {
-                    Key::Char('y') | Key::Char('Y') => Some(true),
-                    Key::Char('n') | Key::Char('N') => Some(false),
-                    Key::Enter if self.default.is_some() => Some(self.default.unwrap()),
-                    Key::Escape | Key::Char('q') if allow_quit => None,
-                    _ => {
-                        continue;
-                    }
-                };
-
-                rv = value;
-                break;
+            if value != Some(new) {
+                self.row.changed(&new);
             }
+            value = Some(new);
         }
-
-        render.erase()?;
-        if self.report_enabled() {
-            render.answered(
-                PromptKind::Confirm,
-                &self.prompt,
-                rv.map_or(Answer::Skipped, Answer::Bool),
-            )?;
-        }
-        term.show_cursor()?;
-        term.flush()?;
-
-        Ok(rv)
     }
 
     /// Draws the prompt showing `value` (the classic layout), or the buttons with the
@@ -291,57 +299,35 @@ impl<'a> Confirm<'a> {
     ///
     /// Left/right arrows and `Tab` move the focus and `Enter` picks the focused button.
     /// `y` / `n` pick at once, or only move the focus with
-    /// [`on_shortcut(false)`](Self::on_shortcut). The whole prompt is erased
-    /// afterwards.
-    fn interact_buttons(
-        mut self,
+    /// [`on_shortcut(false)`](Self::on_shortcut). `None` when the user left with
+    /// `Esc`.
+    fn read_buttons(
+        &mut self,
         term: &Term,
-        mut render: TermThemeRenderer,
-        allow_quit: bool,
+        render: &mut TermThemeRenderer,
+        allow_back: bool,
         wait_for_newline: bool,
     ) -> Result<Option<bool>> {
         let mut yes_focused = self.default.unwrap_or(true);
         term.hide_cursor()?;
-        let rv = loop {
-            self.draw(&mut render, None, Some(yes_focused))?;
+        loop {
+            self.draw(render, None, Some(yes_focused))?;
             let focused = yes_focused;
-            let picked = match term.read_key()? {
-                Key::ArrowLeft | Key::ArrowRight | Key::Tab => {
-                    yes_focused = !yes_focused;
-                    None
-                }
-                Key::Char('y') | Key::Char('Y') if wait_for_newline => {
-                    yes_focused = true;
-                    None
-                }
-                Key::Char('n') | Key::Char('N') if wait_for_newline => {
-                    yes_focused = false;
-                    None
-                }
-                Key::Char('y') | Key::Char('Y') => Some(Some(true)),
-                Key::Char('n') | Key::Char('N') => Some(Some(false)),
-                Key::Enter => Some(Some(yes_focused)),
-                Key::Escape | Key::Char('q') if allow_quit => Some(None),
-                _ => None,
-            };
-            if let Some(rv) = picked {
-                break rv;
+            match term.read_key_raw()? {
+                Key::CtrlC => return render.cancel(PromptKind::Confirm, Some(&self.prompt)),
+                Key::ArrowLeft | Key::ArrowRight | Key::Tab => yes_focused = !yes_focused,
+                Key::Char('y') | Key::Char('Y') if wait_for_newline => yes_focused = true,
+                Key::Char('n') | Key::Char('N') if wait_for_newline => yes_focused = false,
+                Key::Char('y') | Key::Char('Y') => return Ok(Some(true)),
+                Key::Char('n') | Key::Char('N') => return Ok(Some(false)),
+                Key::Enter => return Ok(Some(yes_focused)),
+                Key::Escape | Key::Char('q') if allow_back => return Ok(None),
+                _ => {}
             }
             if yes_focused != focused {
                 self.row.changed(&yes_focused);
             }
-        };
-        render.erase()?;
-        if self.report_enabled() {
-            render.answered(
-                PromptKind::Confirm,
-                &self.prompt,
-                rv.map_or(Answer::Skipped, Answer::Bool),
-            )?;
         }
-        term.show_cursor()?;
-        term.flush()?;
-        Ok(rv)
     }
 }
 
@@ -356,6 +342,7 @@ impl<'a> Confirm<'a> {
             show_default: true,
             choices_as_buttons: None,
             on_shortcut: None,
+            preset: None,
             base: PromptBase::new(),
             row: Row::default(),
         }
@@ -371,5 +358,54 @@ mod tests {
         let confirm = Confirm::new().prompt("Do you want to continue?");
 
         let _ = confirm.clone();
+    }
+
+    #[cfg(unix)]
+    mod unattended {
+        use super::*;
+        use crate::{prompts::testing::capture, theme::SimpleTheme};
+
+        #[test]
+        fn a_preset_answers_without_a_terminal() {
+            for (preset, line) in [(true, "Go? yes\n"), (false, "Go? no\n")] {
+                let (term, out) = capture();
+                let answer = Confirm::new()
+                    .theme(&SimpleTheme)
+                    .prompt("Go?")
+                    .preset(Some(preset))
+                    .interact_on(&term)
+                    .unwrap();
+                assert_eq!(answer, preset);
+                assert_eq!(out.text(), line);
+            }
+        }
+
+        #[test]
+        fn a_preset_draws_as_done_says() {
+            for (done, expected) in [
+                (Done::Collapse, "Go? yes\n"),
+                (Done::Keep, "Go? yes\n"),
+                (Done::Erase, ""),
+            ] {
+                let (term, out) = capture();
+                let answer = Confirm::new()
+                    .theme(&SimpleTheme)
+                    .prompt("Go?")
+                    .done(done)
+                    .preset(Some(true))
+                    .interact_on_opt(&term)
+                    .unwrap();
+                assert_eq!(answer, Some(true));
+                assert_eq!(out.text(), expected, "{done:?}");
+            }
+        }
+
+        #[test]
+        fn none_asks_as_usual_and_a_non_terminal_is_an_error() {
+            let (term, out) = capture();
+            let err = Confirm::new().prompt("Go?").preset(None).interact_on(&term);
+            assert!(matches!(err, Err(Error::IO(_))));
+            assert_eq!(out.text(), "");
+        }
     }
 }

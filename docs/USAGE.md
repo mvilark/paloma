@@ -1,6 +1,6 @@
 # Using the library
 
-This crate, `paloma`, is a fork of dialoguer. Every component is a builder: configure a prompt, then call `interact()`; configure a message, then call `print()`. All of them return `paloma::Result<T>` (`Error::IO` only), and Ctrl-C / Esc handling is described per prompt below.
+This crate, `paloma`, is a fork of dialoguer. Every component is a builder: configure a prompt, then call `interact()`; configure a message, then call `print()`. All of them return `paloma::Result<T>`; its `Error` is `IO`, `Cancelled` (the user pressed Ctrl+C) or `NoDefault` (an unattended prompt had nothing to answer with), and is `#[non_exhaustive]`. `Esc` and `Ctrl+C` are described under [Back and cancel](#back-and-cancel).
 
 ```toml
 [dependencies]
@@ -26,7 +26,7 @@ fn main() -> paloma::Result<()> {
 }
 ```
 
-Every prompt has `new()` (uses the app theme from `set_theme`, `SimpleTheme` by default), `theme(&dyn Theme)` (a theme for this prompt only), `prompt(..)`, `report(bool)`, `description(..)`, `on_change(..)` (see [Message row](#message-row)), and `interact_on(&Term)` to target a specific terminal. Prompts that can be cancelled also have `interact_opt()` / `interact_on_opt()`, which return `None` on Esc/`q` instead of an error.
+Every prompt has `new()` (uses the app theme from `set_theme`, `SimpleTheme` by default), `theme(&dyn Theme)` (a theme for this prompt only), `prompt(..)`, `done(Done)` (see [What an answered prompt leaves](#what-an-answered-prompt-leaves)), `legend(bool)` (see [Key legends](#key-legends)), `preset(..)` (see [Presets and unattended runs](#presets-and-unattended-runs)), `description(..)`, `on_change(..)` (see [Message row](#message-row)), and `interact_on(&Term)` to target a specific terminal. Every prompt also has `interact_opt()` / `interact_on_opt()`, which return `None` when the user goes back with `Esc` (see [Back and cancel](#back-and-cancel)).
 
 ## Confirm
 ```rust
@@ -34,7 +34,7 @@ let ok: bool = Confirm::new().prompt("Continue?").default(true).interact()?;
 let maybe: Option<bool> = Confirm::new().prompt("Continue?").interact_opt()?;
 ```
 
-`.choices_as_buttons(true)` shows `Yes` / `No` buttons on the line under the question instead of the classic `(y/n)` text: `←`/`→`/`Tab` move the focus, `Enter` picks it, and `y` / `n` jump to a button. The theme draws the buttons in `format_confirm_buttons`. `.on_shortcut(false)` makes `y` / `n` only select, so the user hits `Enter` to submit; it works with and without buttons. The prompt is erased after the answer and, with `report(true)`, replaced by the one-line selection.
+`.choices_as_buttons(true)` shows `Yes` / `No` buttons on the line under the question instead of the classic `(y/n)` text: `←`/`→`/`Tab` move the focus, `Enter` picks it, and `y` / `n` jump to a button. The theme draws the buttons in `format_confirm_buttons`. `.on_shortcut(false)` makes `y` / `n` only select, so the user hits `Enter` to submit; it works with and without buttons. What the answered prompt leaves is set with `done`. `Esc` and `q` go back in `interact_opt`.
 Other options: `show_default`.
 
 ## Input
@@ -55,7 +55,7 @@ Returns the chosen index.
 ```rust
 let i = Select::new().prompt("Pick").items(["a", "b", "c"]).default(1).interact()?;
 ```
-Other options: `item`, `max_length` (paging), `clear`, `validate` (with the chosen index). `interact_opt` returns `None` on Esc/`q`.
+Other options: `item`, `max_length` (paging), `validate` (with the chosen index). Items can be plain values or [`Item`s](#items). `interact_opt` returns `None` on Esc/`q`.
 
 ## MultiSelect
 Returns the selected indices.
@@ -90,7 +90,7 @@ Type to filter; returns the index into the original items.
 ```rust
 let i = FuzzySelect::new().prompt("Search").items(["apple", "banana"]).interact()?;
 ```
-Other options: `prefill`, `placeholder` (shown while the search is empty), `highlight_matches`, `vim_mode`, `max_length`, `validate` (with the chosen index into the original items).
+Other options: `prefill`, `placeholder` (shown while the search is empty), `highlight_matches`, `vim_mode` (with it, `Esc` enters vim mode and `q` goes back), `max_length`, `validate` (with the chosen index into the original items). Items can be plain values or [`Item`s](#items); the search matches their text.
 
 ## Editor (feature `editor`, on by default)
 Opens `$EDITOR`; returns `None` if not saved when `require_save(true)`.
@@ -134,6 +134,74 @@ let password = Password::new()
 A message's nested messages are drawn indented under it, one line each. Descriptions and validation errors take any `IntoMessage`: a `Message` keeps its own status, and any other `Display` value becomes a description (for `description`) or an error (for `validate`), so validators that return `&str`, `String` or an error type keep working, and a validator can return `Err(Message::warning(..).nest(Message::hint(..)))`. A parse error of `Input<T>` shows as an error. `.placeholder("…")` (`Input`, and `FuzzySelect`'s search) is grey text shown while the input is empty; it disappears at the first key and is never the answer, unlike `.prefill(..)`. See `examples/prompt_messages.rs`.
 
 The theme draws each line of the row with `format_prompt_message` (a `PromptMessageView`: the prompt's kind, the message's status, text and depth, and its `MessageSource`: `Description`, `Change` or `Validation`). The default writes the prompt's `message_indent` token as spaces, then the line as `format_message` draws it, with the message tokens. Other prompt tokens: `invalid_suffix_style` (the suffix while the row shows an error; defaults to `suffix_style`), `placeholder_style` (defaults to the `subtle` role) and `text_style` (the typed text: input, password mask, search). A list prompt leaves room for the row when it pages its items.
+
+## What an answered prompt leaves
+`.done(Done)` on any prompt (and `done` in `Options`) says what stays on the screen once the user answers:
+```rust
+use paloma::{Done, Select};
+
+let i = Select::new().prompt("Pick").items(["a", "b"]).done(Done::Keep).interact()?;
+```
+* `Done::Collapse` (the default): one line with the answer, drawn by the theme's `format_answered`. A list prompt without a question (`Select`, `MultiSelect` and `Sort` accept none) leaves nothing, as `Erase`.
+* `Done::Keep`: the prompt stays as it was when answered, without its [message row](#message-row) and [legend](#key-legends).
+* `Done::Erase`: nothing stays.
+
+It is resolved as the prompt's own value, then its group in `Options` (`select`, `input`, …), then `prompts`, then `Collapse`: `Options::new().prompts(|p| p.done(Done::Erase)).input(|i| i.done(Done::Collapse))`. `done` replaces the old `report(bool)` (`report(false)` is `done(Done::Erase)`) and the `clear(bool)` of `Select`, `MultiSelect`, `Sort` and `FuzzySelect` (`clear(false)` is `done(Done::Keep)`, which no longer also prints the answered line). `GeneralOptions::report` is gone: use `prompts().done`.
+
+## Back and cancel
+* **`Esc` goes back.** `interact_opt()` / `interact_on_opt()` exist on every prompt, `Input` and `Password` included, and return `Ok(None)` on `Esc` (and `q` where it works today: `Select`, `MultiSelect`, `Sort`, `Confirm`, and `FuzzySelect` in vim mode, where `Esc` enters vim mode). The prompt is **erased**, whatever `done` says, so a flow that goes back leaves nothing behind (`Confirm` no longer leaves a "skipped" line). `interact` ignores `Esc`.
+* **`Ctrl+C` cancels.** paloma installs no signal handler: prompts read `^C` as a key, erase themselves, draw the theme's cancelled line when it has one (the `cancelled_value` prompt token, drawn by `format_answered` with `Answer::Cancelled`; by default nothing), show the cursor and return `Err(Error::Cancelled)`, from `interact` and from `interact_opt`. Exit with code 130 to follow the shell convention:
+```rust
+let name = match Input::<String>::new().prompt("Name").interact() {
+    Err(paloma::Error::Cancelled) => std::process::exit(130),
+    other => other?,
+};
+```
+`Error::Cancelled` converts to an `io::Error` of kind `Interrupted`. A spinner (`Task`) is not reading keys, so it still needs your own handler (see [Tasks](#tasks)).
+
+## Presets and unattended runs
+`.preset(Option<T>)` skips a prompt and answers with a value you already have, such as a command-line flag. `Some(value)` returns it without needing a terminal and draws the line an answered prompt leaves, as `done` configures (`Keep` draws like `Collapse`, since nothing was shown; `Erase` draws nothing). A preset is used as given: it is not validated and `on_change` is not called. `None` asks as usual.
+
+| Prompt | `T` | Unattended default |
+| --- | --- | --- |
+| `Confirm` | `bool` | `.default(..)` |
+| `Input<T>` | `T` | `.default(..)` |
+| `Password` | `String` | none (always `NoDefault`) |
+| `Select` | `usize` | `.default(..)` if set |
+| `MultiSelect` | `Vec<usize>` | the items checked by default (may be none) |
+| `Sort` | `Vec<usize>` | the original order |
+| `FuzzySelect` | `usize` | `.default(..)` if set |
+
+With `Options::new().general(|g| g.unattended(true))` prompts without a preset return their default the same way (for a default on a disabled item, the next enabled item), so a program can run in CI or with `--yes` without a terminal. A prompt with no preset and no default returns `Err(Error::NoDefault)`. Without a preset or unattended mode, a prompt on something that is not a terminal still returns an I/O error. A preset or default that names an item that does not exist is an I/O error too.
+```rust
+let name: String = Input::new().prompt("Name").preset(args.name.clone()).interact()?;
+```
+
+## Items
+`Select`, `MultiSelect` and `FuzzySelect` (not `Sort`, where disabling an item makes no sense) take plain values or [`Item`]s: `item(..)` and `items(..)` accept anything that is `IntoItem`, which is `Item` and every `Display` type, so `.items(&["a", "b"])` keeps working.
+```rust
+use paloma::{Item, Select};
+
+let i = Select::new()
+    .prompt("Plan")
+    .item(Item::new("Free").description("1 device"))
+    .item(Item::new("Enterprise").description("talk to sales").disabled(true))
+    .interact()?;
+```
+`description(..)` is drawn after the item (`item_description_gap` spaces, in `item_description_style`). A **disabled** item is drawn in `disabled_style` (muted and struck through by default) and cannot be focused, chosen or checked: arrows, `Tab`, `j` / `k` and page moves skip it (wrapping around), the initial highlight and `Select`'s `default` move to the next enabled item, `Space` and `a` (check all) in `MultiSelect` leave it alone, and `Enter` in `Select` and `FuzzySelect` does nothing when no item is enabled (in `MultiSelect` it still submits what is checked). A disabled item keeps its checked state in `MultiSelect`: one checked by default stays checked and is returned. `FuzzySelect` matches on the text only. The answered line shows the text. See `examples/items.rs`.
+
+## Key legends
+`.legend(true)` (or `legend` in `Options`) puts a line with the prompt's keys at the bottom of its frame, below the message row, drawn by the theme's `format_legend`. It is off by default. The words are tokens, so a theme can translate them: `legend` (a list of `(key, action)`), `legend_back` (`("esc", "back")`, added while `Esc` goes back, in `interact_opt`), `legend_separator`, `legend_key_style` and `legend_style`. The defaults:
+
+| Prompt | Legend |
+| --- | --- |
+| `Input`, `Password` | `enter submit` |
+| `Select`, `FuzzySelect` | `↑↓ move`, `enter choose` |
+| `MultiSelect` | `↑↓ move`, `space check`, `a all`, `enter submit` |
+| `Sort` | `↑↓ move`, `space pick up`, `enter submit` |
+| `Confirm` | none (an empty legend draws no line at all) |
+
+`SimpleTheme` writes `up/down` for `↑↓`. A list prompt leaves room for the legend line when it pages its items.
 
 ## Messages
 Status messages: `paloma::description / hint / info / success / warning / error(text)` (or `Message::error(..)` and friends) return a builder; `.print()` writes it.
@@ -192,7 +260,7 @@ use paloma::{console::Style, theme::{ColorfulTheme, Theme}};
 let theme = ColorfulTheme
     .restyle(|t| t.prompts(|p| p.base(|b| b.value_style(Style::new().yellow().dim()))));
 ```
-Migrating from 0.12: validator errors need `IntoMessage` instead of `ToString` (every `Display` type has it); `PromptView::new`, `InputPromptView::new`, `ConfirmPromptView::new` and `FuzzySelectPromptView::new` take `invalid` as their last argument, and `FuzzySelectPromptView::new` takes `placeholder` after `cursor`. `ColorfulTheme` has no fields any more and is written like `SimpleTheme` (`ColorfulTheme::default()` still compiles). `ColorfulTheme { values_style: s, .. }` becomes `ColorfulTheme.restyle(|t| t.prompts(|p| p.base(|b| b.value_style(s))))`; the other fields map to prompt tokens the same way (`prompt_style` → `label_style`, `prompt_prefix` → the `prompt` glyph and `mark_style`, `prompt_suffix` → `prompt_suffix` and `suffix_style`, `success_prefix` → `answered` and `answered_mark_style`, `success_suffix` → `answered_separator` and `separator_style`, `defaults_style` → `default_style`, `hint_style` → `hint_style`, `active_item_style` / `inactive_item_style` → `active_style` / `item_style`, `active_item_prefix` → `focus` and `focus_style`, `checked_item_prefix` / `unchecked_item_prefix` → `checked` / `unchecked` and their styles, `fuzzy_cursor_style` → `cursor_style`, `fuzzy_match_highlight_style` → `match_style`, `error_prefix` / `error_style` → the `error` message tokens). Prompt hooks changed too (see below).
+Migrating from 0.12: `report(bool)` is `done(Done)` (`report(false)` is `Done::Erase`), `clear(bool)` on the list prompts is `done(Done::Keep)` or `done(Done::Erase)`, and `GeneralOptions::report` and `PromptOptions::report` are `prompts().done`; `Error` is `#[non_exhaustive]` and has `Cancelled` and `NoDefault`, so an exhaustive `match` needs a wildcard arm, and `^C` at a prompt is now `Err(Error::Cancelled)` instead of the process receiving SIGINT; `Esc` in `interact_opt` of `Confirm` erases the prompt instead of leaving a skipped line; `ItemView::new` takes `description` and `disabled` after `matches`; `Answer` has a `Cancelled` variant; `Select::item`, `MultiSelect::item` and the other item methods take `impl IntoItem` instead of `ToString`. Validator errors need `IntoMessage` instead of `ToString` (every `Display` type has it); `PromptView::new`, `InputPromptView::new`, `ConfirmPromptView::new` and `FuzzySelectPromptView::new` take `invalid` as their last argument, and `FuzzySelectPromptView::new` takes `placeholder` after `cursor`. `ColorfulTheme` has no fields any more and is written like `SimpleTheme` (`ColorfulTheme::default()` still compiles). `ColorfulTheme { values_style: s, .. }` becomes `ColorfulTheme.restyle(|t| t.prompts(|p| p.base(|b| b.value_style(s))))`; the other fields map to prompt tokens the same way (`prompt_style` → `label_style`, `prompt_prefix` → the `prompt` glyph and `mark_style`, `prompt_suffix` → `prompt_suffix` and `suffix_style`, `success_prefix` → `answered` and `answered_mark_style`, `success_suffix` → `answered_separator` and `separator_style`, `defaults_style` → `default_style`, `hint_style` → `hint_style`, `active_item_style` / `inactive_item_style` → `active_style` / `item_style`, `active_item_prefix` → `focus` and `focus_style`, `checked_item_prefix` / `unchecked_item_prefix` → `checked` / `unchecked` and their styles, `fuzzy_cursor_style` → `cursor_style`, `fuzzy_match_highlight_style` → `match_style`, `error_prefix` / `error_style` → the `error` message tokens). Prompt hooks changed too (see below).
 Set one theme for the whole app with `paloma::set_theme(theme)` (the theme must be `Send + Sync`). Calling it again replaces the theme. A prompt given `.theme(&t)` keeps `t` and ignores the app theme. See `examples/set_theme.rs`.
 
 For a full design system in practice, see `examples/ultraviolet/`: a fake VPN CLI whose `UltravioletTheme` sets its palette, glyphs and prompt tokens and overrides only the hooks whose layout tokens cannot express (a step counter, the input on its own line, its confirm), installed once with `set_theme` (`cargo run --example ultraviolet --all-features -- setup`).
@@ -207,7 +275,7 @@ paloma::set_theme(ColorfulTheme.restyle(|t| t
 ```
 Presets: `Tokens::plain()` (`SimpleTheme`) and `Tokens::colorful()` (`ColorfulTheme`). `paloma::terminal::capabilities(Stream::Stderr)` reports whether the terminal shows colours and Unicode and its colour depth, to choose tokens from.
 
-Prompts draw with `PromptTokens`: a `base` `PromptStyle` and one group per prompt (`confirm`, `input`, `password`, `select`, `multi_select`, `sort`, `fuzzy_select`). A `PromptStyle` holds glyph overrides (`mark`, `answered_mark`, `suffix`, `separator`, `focus`, `checked`, `unchecked`, `cursor`, `mask`, falling back to the glyphs of the same purpose), words (`choices`, `choices_yes`, `choices_no`, `yes`, `no`, `yes_button`, `no_button`, `button_brackets`, `default_brackets`, `hidden_value`, `empty_value`), spacing (`gap`, `item_indent`, `show_default`) and a style for every part (`label_style`, `value_style`, `active_style`, `paging_style`, …, falling back to palette roles):
+Prompts draw with `PromptTokens`: a `base` `PromptStyle` and one group per prompt (`confirm`, `input`, `password`, `select`, `multi_select`, `sort`, `fuzzy_select`). A `PromptStyle` also holds the tokens of [items](#items) (`item_description_style`, `item_description_gap`, `disabled_style`), the cancelled line (`cancelled_value`, `cancelled_style`) and the [legend](#key-legends) (`legend`, `legend_back`, `legend_separator`, `legend_key_style`, `legend_style`), besides glyph overrides (`mark`, `answered_mark`, `suffix`, `separator`, `focus`, `checked`, `unchecked`, `cursor`, `mask`, falling back to the glyphs of the same purpose), words (`choices`, `choices_yes`, `choices_no`, `yes`, `no`, `yes_button`, `no_button`, `button_brackets`, `default_brackets`, `hidden_value`, `empty_value`), spacing (`gap`, `item_indent`, `show_default`) and a style for every part (`label_style`, `value_style`, `active_style`, `paging_style`, …, falling back to palette roles):
 ```rust
 use paloma::{console::Style, theme::{SimpleTheme, Theme}};
 paloma::set_theme(SimpleTheme.restyle(|t| t
@@ -217,7 +285,7 @@ paloma::set_theme(SimpleTheme.restyle(|t| t
         .confirm(|c| c.yes("Sure").no("Nope")))));
 ```
 
-For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need. Every hook takes `(f, ctx, view)`: the `Context` holds the tokens (read them from there, so `restyle` keeps working), the stream and its capabilities, and the view holds what to draw. Defaults are public in `paloma::theme::defaults` so an override can wrap them. Prompt hooks: `format_prompt` (the question line of select, multi select and sort, with the paging counter), `format_input_prompt` (input and password, up to where the typed text goes; paloma then draws the text, the mask or the placeholder and places the cursor), `format_confirm_prompt` and `format_confirm_buttons`, `format_fuzzy_select_prompt`, `format_item` (an item of any list prompt; the view says which prompt via `PromptKind`), `format_prompt_message` (a line of the [message row](#message-row)) and `format_answered` (the line any answered prompt leaves, with an `Answer`). The question views carry `invalid` while the row shows a validation error. To draw an answered line yourself (for example for a value given as a command-line flag), call `format_answered` with `AnsweredView::new(PromptKind::Input, "Name", Answer::Text("Ada"))`.
+For a fully custom look, implement `paloma::theme::Theme`; every `format_*` method has a default, so override only what you need. Every hook takes `(f, ctx, view)`: the `Context` holds the tokens (read them from there, so `restyle` keeps working), the stream and its capabilities, and the view holds what to draw. Defaults are public in `paloma::theme::defaults` so an override can wrap them. Prompt hooks: `format_prompt` (the question line of select, multi select and sort, with the paging counter), `format_input_prompt` (input and password, up to where the typed text goes; paloma then draws the text, the mask or the placeholder and places the cursor), `format_confirm_prompt` and `format_confirm_buttons`, `format_fuzzy_select_prompt`, `format_item` (an item of any list prompt; the view says which prompt via `PromptKind`), `format_prompt_message` (a line of the [message row](#message-row)), `format_legend` (the [legend](#key-legends) line, from a `LegendView` of `(key, action)` pairs) and `format_answered` (the line any answered prompt leaves, with an `Answer`). The question views carry `invalid` while the row shows a validation error. To draw an answered line yourself (for example for a value given as a command-line flag), call `format_answered` with `AnsweredView::new(PromptKind::Input, "Name", Answer::Text("Ada"))`.
 
 More runnable samples live in `examples/` (`cargo run --example wizard`).
 
@@ -227,13 +295,13 @@ Themes decide how prompts look; options decide how they work. Set them once, nex
 ```rust
 paloma::set_options(
     paloma::Options::new()
-        .prompts(|p| p.report(true))                       // every prompt
+        .prompts(|p| p.done(Done::Collapse).legend(true))  // every prompt
         .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
         .password(|p| p.mask(true).result_len(8))
-        .select(|s| s.report(false))                       // overrides prompts for Select
+        .select(|s| s.done(Done::Erase))                   // overrides prompts for Select
         .messages(|m| m.stream(Stream::Stderr))            // every message
         .success(|s| s.stream(Stream::Stdout)),            // overrides messages for success
 );
 ```
 
-A setting is resolved in this order: the component's own builder method (`Confirm::new().choices_as_buttons(..)`), its member group in `Options`, its family group (`prompts`, `messages`), then the built-in default. Prompt groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`; message groups: `description`, `hint`, `info`, `success`, `warning`, `error`; block groups: `section`, `key_value`, `table`, `panel` (family `blocks`); live groups: `task` (family `live`). `general().report` still works but is deprecated in favour of `prompts().report`. Input and password errors (validation, parsing, password mismatch) are drawn in the [message row](#message-row) under the input and disappear once the value changes.
+A setting is resolved in this order: the component's own builder method (`Confirm::new().choices_as_buttons(..)`), its member group in `Options`, its family group (`prompts`, `messages`), then the built-in default. Prompt groups: `confirm`, `password`, `input`, `select`, `multi_select`, `sort`, `fuzzy_select`; message groups: `description`, `hint`, `info`, `success`, `warning`, `error`; block groups: `section`, `key_value`, `table`, `panel` (family `blocks`); live groups: `task` (family `live`). `general` holds the settings of the whole app: `unattended` (see [Presets and unattended runs](#presets-and-unattended-runs)). Prompt settings are `done` and `legend` on every prompt group, plus the ones of each prompt (`choices_as_buttons`, `mask`, …). Input and password errors (validation, parsing, password mismatch) are drawn in the [message row](#message-row) under the input and disappear once the value changes.
