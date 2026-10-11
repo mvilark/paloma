@@ -21,6 +21,7 @@ Rough ideas that are not yet scoped.
 Scoped and agreed, not started.
 
 - **PAL-004 · CLI UI framework.** Umbrella plan: build the rest of paloma's CLI UI framework (flows, messages, output blocks, spinners, progress bars) next to the existing prompts, with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
+- **PAL-021 · Lull, a sleep schedule tracker example.** A third example app (`examples/lull/`) for people whose bedtime drifts with evening hyperfocus: a usable tracker saved to one JSON file, a setup wizard limited to evidence-based choices (sleep need, wind-down, caffeine cut-off, a wake time that can follow the local sunrise, easing a late schedule in), habits logged each morning, and the least code possible with paloma's defaults everywhere. It only sets themes: a day theme, and a night theme from the wind-down until waking. Executor: Sonnet 5.5, medium. Plan: [docs/plans/PAL-021-lull-sleep-tracker.md](docs/plans/PAL-021-lull-sleep-tracker.md).
 - **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars).
 
 ## In progress
