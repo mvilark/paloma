@@ -27,7 +27,7 @@ fn glyph(kind: Kind) -> String {
         Kind::Ok => c.pal.e(Tok::Success, c.g.ok),
         Kind::Warn => c.pal.e(Tok::Warning, c.g.warn),
         Kind::Err => c.pal.e(Tok::Error, c.g.err),
-        Kind::Info => c.pal.e(Tok::Accent, "•"),
+        Kind::Info => c.pal.e(Tok::Accent, c.g.info),
     }
 }
 
@@ -151,7 +151,7 @@ pub fn link(url: &str) -> String {
 /// The wordmark with the Serrallonga icon beside it (our own 8-line drawing).
 pub fn wordmark_with_icon(tagline: &str) {
     let c = cfg();
-    let icon: [&str; 8] = if c.g.cursor == "_" {
+    let icon: [&str; 8] = if c.g.ascii {
         [
             r"   ___   ",
             r"  /###\  ",
@@ -195,7 +195,6 @@ fn sleep(ms: u64) {
 
 /// A running task: braille spinner, elapsed time, nested `↳` lines.
 pub struct Task {
-    label: String,
     start: Instant,
     state: Arc<Mutex<()>>,
     stop: Arc<AtomicBool>,
@@ -234,7 +233,6 @@ impl Task {
             }));
         }
         Task {
-            label: running.to_string(),
             start,
             state,
             stop,
@@ -275,7 +273,6 @@ impl Task {
             c.pal.e(Tok::Fg, done),
             c.pal.e(Tok::Subtle, format!("{secs:.1}s"))
         ));
-        let _ = &self.label;
         secs
     }
 }
@@ -376,17 +373,5 @@ pub fn outro(title: &str, rows: &[(Kind, String, Option<f32>)]) {
         edge(c.g.box_bl),
         edge(&c.g.box_h.repeat(inner)),
         edge(c.g.box_br)
-    ));
-}
-
-/// An answered prompt in collapsed form, for flags and `--yes`.
-pub fn answered(label: &str, value: &str) {
-    let c = cfg();
-    eprint_line(format!(
-        "{} {} {} {}",
-        c.pal.e(Tok::Subtle, c.g.answered),
-        c.pal.e(Tok::Muted, label),
-        c.pal.e(Tok::Subtle, "·"),
-        c.pal.e(Tok::Fg, value)
     ));
 }

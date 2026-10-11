@@ -35,6 +35,7 @@ Scoped and agreed, not started.
 
 ## Done
 
+- **PAL-016 · Ultraviolet example uses paloma's current tools.** Answered lines for flags and `--yes` drawn by the theme's hooks, earlier answers kept when going back, ASCII fallback for the info glyph. Plan: [docs/plans/PAL-016-ultraviolet-uses-paloma.md](docs/plans/PAL-016-ultraviolet-uses-paloma.md). PR #9.
 - **PAL-003 · App-wide options.** `paloma::set_options` with per-prompt groups and `general`, `PromptBase` shared by all prompts, `Confirm` buttons and `on_shortcut`, `Password` mask and fixed-length result, input on its own line with errors under it. Recorded after the fact: it had no plan. PR #8.
 - **PAL-002 · Ultraviolet example app.** A fake VPN CLI in `examples/ultraviolet/` themed as faithfully as possible to the [Ultraviolet design system](docs/design/ultraviolet.md), plus a list of what paloma's theming cannot express yet. Plan: [docs/plans/PAL-002-ultraviolet-example.md](docs/plans/PAL-002-ultraviolet-example.md). Plan in PR #6, implemented in PR #7.
 
