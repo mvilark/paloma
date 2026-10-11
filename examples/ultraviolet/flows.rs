@@ -1,18 +1,12 @@
 //! One function per command, with canned data.
-use std::io::Write;
+use std::time::Duration;
 
-use console::Term;
 use paloma::{
-    terminal::Stream,
-    theme::{Answer, AnsweredView, Context, PromptKind, Theme},
-    Confirm, FuzzySelect, Input, MultiSelect, Password, Result, Select, Sort,
+    terminal::Stream, text::link, Confirm, FuzzySelect, Input, KeyValue, Message, MultiSelect,
+    Panel, PanelRow, Password, Result, Select, Sort, Status, Table,
 };
 
-use crate::{
-    theme,
-    ui::{self, Kind},
-    Args,
-};
+use crate::{theme, ui, Args};
 
 /// id, place, load in percent, ping in ms
 const SERVERS: [(&str, &str, u8, u16); 6] = [
@@ -41,17 +35,21 @@ fn valid_email(s: &String) -> std::result::Result<(), String> {
     }
 }
 
-/// Prints the line a prompt leaves once answered, for flags and `--yes`, drawn by the
-/// theme's own answered-prompt hook so it matches a real answer exactly.
-fn answered(kind: PromptKind, prompt: &str, answer: Answer) {
-    let theme = theme::app_theme();
-    let tokens = theme.tokens();
-    let ctx = Context::new(&tokens, Stream::Stderr);
-    let mut line = String::new();
-    let view = AnsweredView::new(kind, prompt, answer);
-    if theme.format_answered(&mut line, &ctx, &view).is_ok() {
-        let _ = writeln!(Term::stderr(), "{line}");
+/// Runs a task whose work is faked: the steps print along the way and the whole thing
+/// takes about `secs` when there is motion. Returns the time it took.
+fn task(running: &str, steps: &[&str], done: &str, secs: f32) -> Result<Duration> {
+    let task = paloma::task(running).start()?;
+    for step in steps {
+        ui::work(secs, steps.len() + 1);
+        task.step(*step)?;
     }
+    ui::work(secs, steps.len() + 1);
+    task.success(done)
+}
+
+/// A duration as the panel shows it: `1.4s`.
+fn secs(d: Duration) -> String {
+    format!("{:.1}s", d.as_secs_f32())
 }
 
 pub fn setup(args: &Args) -> Result<i32> {
@@ -67,82 +65,56 @@ pub fn setup(args: &Args) -> Result<i32> {
 
     while step < STEPS {
         let n = step + 1;
-        // `None` means the user pressed Esc: go back one prompt.
+        // `None` means the user pressed Esc: go back one prompt. A flag or `--yes` presets
+        // the answer, and the prompt only prints the line it would have left.
         let advanced: Option<()> = match step {
             0 => {
-                let name = label(n, "Account email");
-                if let Some(preset) = &args.email {
-                    email = preset.clone();
-                    answered(PromptKind::Input, &name, Answer::Text(&email));
-                } else if args.yes {
-                    email = "ada@example.com".into();
-                    answered(PromptKind::Input, &name, Answer::Text(&email));
-                } else {
-                    email = Input::new().prompt(name).validate(valid_email).interact()?;
-                }
+                let preset =
+                    (args.email.clone()).or_else(|| args.yes.then(|| "ada@example.com".into()));
+                email = Input::new()
+                    .prompt(label(n, "Account email"))
+                    .validate(valid_email)
+                    .preset(preset)
+                    .interact()?;
                 Some(())
             }
             1 => {
-                let name = label(n, "Password");
-                if args.yes {
-                    answered(PromptKind::Password, &name, Answer::Hidden(8));
-                } else {
-                    Password::new().prompt(name).interact()?;
-                }
+                Password::new()
+                    .prompt(label(n, "Password"))
+                    .preset(args.yes.then(String::new))
+                    .interact()?;
                 Some(())
             }
             2 => {
-                let name = label(n, "Protocol");
-                if let Some(preset) = args
+                let flag = args
                     .protocol
                     .as_deref()
-                    .and_then(|p| PROTOCOLS.iter().position(|x| x.eq_ignore_ascii_case(p)))
-                {
-                    protocol = preset;
-                    answered(PromptKind::Select, &name, Answer::Text(PROTOCOLS[protocol]));
-                    Some(())
-                } else if args.yes {
-                    answered(PromptKind::Select, &name, Answer::Text(PROTOCOLS[0]));
-                    Some(())
-                } else {
-                    Select::new()
-                        .prompt(name)
-                        .items(PROTOCOLS)
-                        .default(protocol)
-                        .interact_opt()?
-                        .map(|i| protocol = i)
-                }
+                    .and_then(|p| PROTOCOLS.iter().position(|x| x.eq_ignore_ascii_case(p)));
+                Select::new()
+                    .prompt(label(n, "Protocol"))
+                    .items(PROTOCOLS)
+                    .default(protocol)
+                    .preset(flag.or_else(|| args.yes.then_some(protocol)))
+                    .interact_opt()?
+                    .map(|i| protocol = i)
             }
             3 => {
-                let name = label(n, "Features");
-                if args.yes {
-                    let picked: Vec<&str> = features.iter().map(|&i| FEATURES[i]).collect();
-                    answered(PromptKind::MultiSelect, &name, Answer::List(&picked));
-                    Some(())
-                } else {
-                    let checked: Vec<bool> =
-                        (0..FEATURES.len()).map(|i| features.contains(&i)).collect();
-                    MultiSelect::new()
-                        .prompt(name)
-                        .items(FEATURES)
-                        .defaults(&checked)
-                        .interact_opt()?
-                        .map(|picked| features = picked)
-                }
+                let checked: Vec<bool> =
+                    (0..FEATURES.len()).map(|i| features.contains(&i)).collect();
+                MultiSelect::new()
+                    .prompt(label(n, "Features"))
+                    .items(FEATURES)
+                    .defaults(&checked)
+                    .preset(args.yes.then(|| features.clone()))
+                    .interact_opt()?
+                    .map(|picked| features = picked)
             }
-            _ => {
-                let name = label(n, "Connect on startup?");
-                if args.yes {
-                    answered(PromptKind::Confirm, &name, Answer::Bool(startup));
-                    Some(())
-                } else {
-                    Confirm::new()
-                        .prompt(name)
-                        .default(startup)
-                        .interact_opt()?
-                        .map(|v| startup = v)
-                }
-            }
+            _ => Confirm::new()
+                .prompt(label(n, "Connect on startup?"))
+                .default(startup)
+                .preset(args.yes.then_some(startup))
+                .interact_opt()?
+                .map(|v| startup = v),
         };
         match advanced {
             Some(()) => step += 1,
@@ -151,48 +123,42 @@ pub fn setup(args: &Args) -> Result<i32> {
     }
 
     theme::clear_step();
-    ui::blank();
-    ui::section("Setup");
-    let a = ui::task(
+    paloma::section("Setup").print()?;
+    let a = task(
         "Creating your profile...",
         &["Generated device key"],
         "Created your profile",
-        Kind::Ok,
         0.9,
-    );
-    let b = ui::task(
-        "Applying settings...",
-        &[],
-        "Applied settings",
-        Kind::Ok,
-        0.5,
-    );
-    ui::blank();
-    ui::outro(
-        "Setup complete",
-        &[
-            (Kind::Ok, format!("Signed in as {email}"), Some(a)),
-            (
-                Kind::Ok,
-                format!(
-                    "{} · {} {}",
-                    PROTOCOLS[protocol],
-                    features.len(),
-                    if features.len() == 1 {
-                        "feature"
-                    } else {
-                        "features"
-                    }
-                ),
-                Some(b),
-            ),
-            (
-                Kind::Info,
-                format!("Connect on startup: {}", if startup { "On" } else { "Off" }),
-                None,
-            ),
-        ],
-    );
+    )?;
+    let b = task("Applying settings...", &[], "Applied settings", 0.5)?;
+    Panel::new("Setup complete")
+        .row(
+            PanelRow::new(format!("Signed in as {email}"))
+                .status(Status::Success)
+                .trailing(secs(a)),
+        )
+        .row(
+            PanelRow::new(format!(
+                "{} · {} {}",
+                PROTOCOLS[protocol],
+                features.len(),
+                if features.len() == 1 {
+                    "feature"
+                } else {
+                    "features"
+                }
+            ))
+            .status(Status::Success)
+            .trailing(secs(b)),
+        )
+        .row(
+            PanelRow::new(format!(
+                "Connect on startup: {}",
+                if startup { "On" } else { "Off" }
+            ))
+            .status(Status::Info),
+        )
+        .print()?;
     println!("{email}");
     Ok(0)
 }
@@ -202,34 +168,31 @@ pub fn connect(args: &Args) -> Result<i32> {
         .iter()
         .map(|(id, place, ..)| format!("{id} · {place}"))
         .collect();
-    let idx = match &args.server {
+    let preset = match &args.server {
         Some(id) => match SERVERS.iter().position(|s| s.0 == id) {
-            Some(i) => {
-                answered(PromptKind::Select, "Server", Answer::Text(&places[i]));
-                i
-            }
+            Some(i) => Some(i),
             None => {
-                ui::log(Kind::Err, &format!("Server {id} not found"));
-                ui::hint("ultraviolet servers");
+                paloma::error(format!("Server {id} not found"))
+                    .nest(Message::hint("ultraviolet servers"))
+                    .print()?;
                 return Ok(1);
             }
         },
-        None if args.yes => {
-            answered(PromptKind::Select, "Server", Answer::Text(&places[0]));
-            0
-        }
-        None => match FuzzySelect::new()
-            .prompt("Server")
-            .items(&places)
-            .default(0)
-            .interact_opt()?
-        {
-            Some(i) => i,
-            None => return Ok(1),
-        },
+        None => args.yes.then_some(0),
+    };
+    let Some(idx) = FuzzySelect::new()
+        .prompt("Server")
+        .items(&places)
+        .default(0)
+        .preset(preset)
+        .interact_opt()?
+    else {
+        return Ok(1);
     };
     let (id, place, load, ping) = SERVERS[idx];
 
+    // The kill switch and disconnect confirms are skipped under `--yes` (no preset: a
+    // preset would print an answered line, and the transcripts have none).
     let kill_switch = false;
     if !kill_switch {
         let go = args.yes
@@ -238,52 +201,49 @@ pub fn connect(args: &Args) -> Result<i32> {
                 .default(false)
                 .interact()?;
         if !go {
-            ui::log(Kind::Warn, "Not connected");
+            paloma::warning("Not connected").print()?;
             return Ok(0);
         }
     }
 
-    ui::blank();
-    ui::section("Connect");
-    let t = ui::task(
+    paloma::section("Connect").print()?;
+    let t = task(
         &format!("Connecting to {id}..."),
         &["Resolved endpoint", "Opened tunnel", "Negotiated cipher"],
         &format!("Connected to {id}"),
-        Kind::Ok,
         1.4,
-    );
+    )?;
     ui::progress("Exchanging keys");
-    ui::blank();
-    let mut rows = vec![
-        (
-            Kind::Ok,
-            format!("{place} · {ping} ms · {load}% load"),
-            Some(t),
-        ),
-        (Kind::Ok, "Key exchange complete".to_string(), None),
-    ];
+    let mut panel = Panel::new("Connected")
+        .row(
+            PanelRow::new(format!("{place} · {ping} ms · {load}% load"))
+                .status(Status::Success)
+                .trailing(secs(t)),
+        )
+        .row(PanelRow::new("Key exchange complete").status(Status::Success));
     if !kill_switch {
-        rows.push((Kind::Warn, "Kill switch is off".to_string(), None));
+        panel = panel.row(PanelRow::new("Kill switch is off").status(Status::Warning));
     }
-    ui::outro("Connected", &rows);
+    panel.print()?;
     println!("{id}");
     Ok(0)
 }
 
 pub fn favorites(args: &Args) -> Result<i32> {
     let items = ["es-bcn-01", "de-fra-02", "us-nyc-01", "jp-tyo-03"];
-    let order: Vec<usize> = if args.yes {
-        answered(PromptKind::Sort, "Favourites", Answer::List(&items));
-        (0..items.len()).collect()
+    // The prompt and the line a preset leaves have always had different labels.
+    let label = if args.yes {
+        "Favourites"
     } else {
-        match Sort::new()
-            .prompt("Favourite order")
-            .items(items)
-            .interact_opt()?
-        {
-            Some(order) => order,
-            None => return Ok(1),
-        }
+        "Favourite order"
+    };
+    let Some(order) = Sort::new()
+        .prompt(label)
+        .items(items)
+        .preset(args.yes.then(|| (0..items.len()).collect()))
+        .interact_opt()?
+    else {
+        return Ok(1);
     };
     for i in order {
         println!("{}", items[i]);
@@ -300,7 +260,7 @@ pub fn disconnect(args: &Args) -> Result<i32> {
     if !go {
         return Ok(0);
     }
-    ui::task("Disconnecting...", &[], "Disconnected", Kind::Ok, 0.6);
+    task("Disconnecting...", &[], "Disconnected", 0.6)?;
     Ok(0)
 }
 
@@ -310,44 +270,49 @@ pub fn status(args: &Args) -> Result<i32> {
             "{{\"state\":\"connected\",\"server\":\"es-bcn-01\",\"protocol\":\"wireguard\",\"ping_ms\":12,\"sent_mb\":4.8,\"received_mb\":31.2}}"
         );
     } else {
-        ui::kv(&[
-            ("State", "Connected".into()),
-            ("Server", "es-bcn-01 · Barcelona, ES".into()),
-            ("Protocol", "WireGuard".into()),
-            ("Ping", "12 ms".into()),
-            ("Sent", "4.8 MB".into()),
-            ("Received", "31.2 MB".into()),
-        ]);
+        KeyValue::new()
+            .row("State", "Connected")
+            .row("Server", "es-bcn-01 · Barcelona, ES")
+            .row("Protocol", "WireGuard")
+            .row("Ping", "12 ms")
+            .row("Sent", "4.8 MB")
+            .row("Received", "31.2 MB")
+            .print()?;
     }
     Ok(0)
 }
 
 pub fn servers(_: &Args) -> Result<i32> {
-    let rows: Vec<Vec<String>> = SERVERS
-        .iter()
-        .map(|(id, place, load, ping)| {
-            vec![
-                id.to_string(),
-                place.to_string(),
-                format!("{load}%"),
-                format!("{ping} ms"),
-            ]
-        })
-        .collect();
-    ui::table(&["Server", "Place", "Load", "Ping"], &rows);
+    let rows = SERVERS.iter().map(|(id, place, load, ping)| {
+        [
+            id.to_string(),
+            place.to_string(),
+            format!("{load}%"),
+            format!("{ping} ms"),
+        ]
+    });
+    Table::new(["Server", "Place", "Load", "Ping"])
+        .rows(rows)
+        .print()?;
     Ok(0)
 }
 
 pub fn about(_: &Args) -> Result<i32> {
     ui::wordmark_with_icon("A fake VPN, themed with Ultraviolet");
-    ui::blank();
-    ui::kv(&[
-        ("Version", env!("CARGO_PKG_VERSION").into()),
-        (
+    eprintln!();
+    KeyValue::new()
+        .row("Version", env!("CARGO_PKG_VERSION"))
+        .row(
             "Built with",
             format!("paloma {}", env!("CARGO_PKG_VERSION")),
-        ),
-        ("Docs", ui::link("https://github.com/mvilark/paloma")),
-    ]);
+        )
+        // The value goes to stdout, so the link is styled for stdout.
+        .row(
+            "Docs",
+            link("https://github.com/mvilark/paloma")
+                .stream(Stream::Stdout)
+                .to_string(),
+        )
+        .print()?;
     Ok(0)
 }
