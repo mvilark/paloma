@@ -9,7 +9,7 @@ fn main() {
     ];
     let defaults = &[false, false, true, false];
     let selections = MultiSelect::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Pick your food")
         .items(&multiselected[..])
         .defaults(&defaults[..])
@@ -26,7 +26,7 @@ fn main() {
     }
 
     let selections = MultiSelect::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Pick your food")
         .items(&multiselected[..])
         .defaults(&defaults[..])

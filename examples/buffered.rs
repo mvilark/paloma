@@ -9,7 +9,7 @@ fn main() {
         "A Pile of sweet, sweet mustard",
     ];
     let term = Term::buffered_stderr();
-    let theme = ColorfulTheme::default();
+    let theme = ColorfulTheme;
 
     println!("All the following controls are run in a buffered terminal");
     Confirm::new()

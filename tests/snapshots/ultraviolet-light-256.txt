@@ -6,7 +6,7 @@ ada@example.com
 ␛[38;5;60m◇␛[0m ␛[38;5;60mAccount email␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mada@example.com␛[0m
 ␛[38;5;60m◇␛[0m ␛[38;5;60mPassword␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234m••••••••␛[0m
 ␛[38;5;60m◇␛[0m ␛[38;5;60mProtocol␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mWireGuard␛[0m
-␛[38;5;60m◇␛[0m ␛[38;5;60mFeatures␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mKill switch, Auto reconnect␛[0m
+␛[38;5;60m◇␛[0m ␛[38;5;60mFeatures␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mKill switch␛[0m␛[38;5;234m, ␛[0m␛[38;5;234mAuto reconnect␛[0m
 ␛[38;5;60m◇␛[0m ␛[38;5;60mConnect on startup?␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mYes␛[0m
 
 ␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mSetup␛[0m
@@ -75,7 +75,7 @@ de-fra-02
 us-nyc-01
 jp-tyo-03
 --- stderr
-␛[38;5;60m◇␛[0m ␛[38;5;60mFavourites␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mes-bcn-01, de-fra-02, us-nyc-01, jp-tyo-03␛[0m
+␛[38;5;60m◇␛[0m ␛[38;5;60mFavourites␛[0m ␛[38;5;60m·␛[0m ␛[38;5;234mes-bcn-01␛[0m␛[38;5;234m, ␛[0m␛[38;5;234mde-fra-02␛[0m␛[38;5;234m, ␛[0m␛[38;5;234mus-nyc-01␛[0m␛[38;5;234m, ␛[0m␛[38;5;234mjp-tyo-03␛[0m
 
 $ ultraviolet disconnect --yes
 --- exit 0

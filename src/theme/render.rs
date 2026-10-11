@@ -1,10 +1,17 @@
 use std::{fmt, io, sync::Arc};
 
-use console::{measure_text_width, Term};
-#[cfg(feature = "fuzzy-select")]
-use fuzzy_matcher::skim::SkimMatcherV2;
+use console::{measure_text_width, Term, TermTarget};
 
-use crate::{theme::Theme, Result};
+#[cfg(feature = "fuzzy-select")]
+use crate::theme::FuzzySelectPromptView;
+use crate::{
+    terminal::Stream,
+    theme::{
+        Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, Context, InputPromptView,
+        ItemView, MessageView, PromptKind, PromptView, Status, Theme, Tokens,
+    },
+    Result,
+};
 
 /// The theme a renderer uses: the prompt's own, or the app-wide one.
 enum ThemeHandle<'a> {
@@ -35,6 +42,10 @@ fn rows(text: &str, width: usize) -> usize {
 pub(crate) struct TermThemeRenderer<'a> {
     term: &'a Term,
     theme: ThemeHandle<'a>,
+    /// The theme's tokens, read once when the prompt is shown.
+    tokens: Tokens,
+    /// The stream `term` writes to, so styles follow its terminal.
+    stream: Stream,
     height: usize,
     prompt_height: usize,
     prompts_reset_height: bool,
@@ -48,12 +59,18 @@ pub(crate) struct TermThemeRenderer<'a> {
 
 impl<'a> TermThemeRenderer<'a> {
     pub fn new(term: &'a Term, theme: Option<&'a dyn Theme>) -> TermThemeRenderer<'a> {
+        let theme = match theme {
+            Some(theme) => ThemeHandle::Prompt(theme),
+            None => ThemeHandle::App(super::app::current()),
+        };
         TermThemeRenderer {
             term,
-            theme: match theme {
-                Some(theme) => ThemeHandle::Prompt(theme),
-                None => ThemeHandle::App(super::app::current()),
+            tokens: theme.tokens().into_owned(),
+            stream: match term.target() {
+                TermTarget::Stdout => Stream::Stdout,
+                _ => Stream::Stderr,
             },
+            theme,
             height: 0,
             prompt_height: 0,
             prompts_reset_height: true,
@@ -75,6 +92,7 @@ impl<'a> TermThemeRenderer<'a> {
 
     /// The terminal read a line, so the cursor is now on the row under the input. If
     /// that row holds the input error, it is cleared and reused; otherwise it is a new row.
+    #[cfg(feature = "password")]
     pub fn input_submitted(&mut self) -> Result {
         if self.error_shown {
             self.term.clear_line()?;
@@ -125,45 +143,85 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(())
     }
 
-    fn write_paging_info(buf: &mut dyn fmt::Write, paging_info: (usize, usize)) -> fmt::Result {
-        write!(buf, " [Page {}/{}] ", paging_info.0, paging_info.1)
+    /// The context hooks draw with: this renderer's tokens and the term's stream.
+    fn ctx(&self) -> Context<'_> {
+        Context::new(&self.tokens, self.stream)
+    }
+
+    /// The resolved look of one prompt.
+    #[cfg(feature = "password")]
+    fn look(&self, kind: PromptKind) -> crate::theme::PromptLook {
+        self.tokens.get_prompts().resolve(kind, &self.tokens)
+    }
+
+    /// The question line of a list prompt, with its paging counter.
+    pub fn prompt(
+        &mut self,
+        kind: PromptKind,
+        prompt: &str,
+        paging: Option<(usize, usize)>,
+    ) -> Result {
+        self.write_formatted_prompt(|this, buf| {
+            let view = PromptView::new(kind, prompt, paging);
+            this.theme.format_prompt(buf, &this.ctx(), &view)
+        })
+    }
+
+    /// The line an answered prompt leaves.
+    pub fn answered(&mut self, kind: PromptKind, prompt: &str, answer: Answer) -> Result {
+        self.write_formatted_prompt(|this, buf| {
+            let view = AnsweredView::new(kind, prompt, answer);
+            this.theme.format_answered(buf, &this.ctx(), &view)
+        })
+    }
+
+    /// One item of a list prompt.
+    pub fn item(
+        &mut self,
+        kind: PromptKind,
+        text: &str,
+        active: bool,
+        checked: Option<bool>,
+        matches: Option<&[usize]>,
+    ) -> Result {
+        self.write_formatted_line(|this, buf| {
+            let view = ItemView::new(kind, text, active, checked, matches);
+            this.theme.format_item(buf, &this.ctx(), &view)
+        })
     }
 
     pub fn confirm_prompt(&mut self, prompt: &str, default: Option<bool>) -> Result<usize> {
-        self.write_formatted_str(|this, buf| this.theme.format_confirm_prompt(buf, prompt, default))
+        self.write_formatted_str(|this, buf| {
+            let view = ConfirmPromptView::new(prompt, default, false);
+            this.theme.format_confirm_prompt(buf, &this.ctx(), &view)
+        })
     }
 
     /// The question, then the buttons on the line under it.
     pub fn confirm_buttons(&mut self, prompt: &str, yes_focused: bool) -> Result<usize> {
         self.write_formatted_str(|this, buf| {
-            this.theme.format_confirm_prompt_no_hint(buf, prompt)?;
+            let ctx = this.ctx();
+            let view = ConfirmPromptView::new(prompt, None, true);
+            this.theme.format_confirm_prompt(buf, &ctx, &view)?;
             writeln!(buf)?;
-            this.theme.format_confirm_buttons(buf, yes_focused)
-        })
-    }
-
-    pub fn confirm_prompt_selection(&mut self, prompt: &str, sel: Option<bool>) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme.format_confirm_prompt_selection(buf, prompt, sel)
+            let view = ConfirmButtonsView::new(yes_focused);
+            this.theme.format_confirm_buttons(buf, &ctx, &view)
         })
     }
 
     #[cfg(feature = "fuzzy-select")]
-    pub fn fuzzy_select_prompt(
-        &mut self,
-        prompt: &str,
-        search_term: &str,
-        cursor_pos: usize,
-    ) -> Result {
+    pub fn fuzzy_select_prompt(&mut self, prompt: &str, search: &str, cursor: usize) -> Result {
         self.write_formatted_prompt(|this, buf| {
+            let view = FuzzySelectPromptView::new(prompt, search, cursor);
             this.theme
-                .format_fuzzy_select_prompt(buf, prompt, search_term, cursor_pos)
+                .format_fuzzy_select_prompt(buf, &this.ctx(), &view)
         })
     }
 
     pub fn input_prompt(&mut self, prompt: &str, default: Option<&str>) -> Result<usize> {
         let len = self.write_formatted_str(|this, buf| {
-            this.theme.format_input_prompt(buf, prompt, default)
+            let view = InputPromptView::new(PromptKind::Input, prompt, default);
+            this.theme.format_input_prompt(buf, &this.ctx(), &view)
         })?;
         self.draw_pending_error(len)?;
         Ok(len)
@@ -175,7 +233,8 @@ impl<'a> TermThemeRenderer<'a> {
         if let Some(err) = self.pending_error.take() {
             self.write_formatted_str(|this, buf| {
                 writeln!(buf)?;
-                this.theme.format_error(buf, &err)
+                let view = MessageView::new(Status::Error, &err, 0);
+                this.theme.format_message(buf, &this.ctx(), &view)
             })?;
             self.term.move_cursor_up(1)?;
             self.term.write_str("\r")?;
@@ -192,133 +251,25 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(())
     }
 
-    pub fn input_prompt_selection(&mut self, prompt: &str, sel: &str) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme.format_input_prompt_selection(buf, prompt, sel)
-        })
-    }
-
     #[cfg(feature = "password")]
     pub fn password_prompt(&mut self, prompt: &str) -> Result<usize> {
         let len = self.write_formatted_str(|this, buf| {
             write!(buf, "\r")?;
-            this.theme.format_password_prompt(buf, prompt)
+            let view = InputPromptView::new(PromptKind::Password, prompt, None);
+            this.theme.format_input_prompt(buf, &this.ctx(), &view)
         })?;
         self.draw_pending_error(len)?;
         Ok(len)
     }
 
-    #[cfg(feature = "password")]
-    pub fn password_prompt_selection(&mut self, prompt: &str, mask_len: usize) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme
-                .format_password_prompt_selection_masked(buf, prompt, mask_len)
-        })
-    }
-
+    /// The character a masked password shows for each typed character.
     #[cfg(feature = "password")]
     pub fn password_mask_glyph(&self) -> char {
-        self.theme.password_mask_glyph()
-    }
-
-    pub fn select_prompt(&mut self, prompt: &str, paging_info: Option<(usize, usize)>) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme.format_select_prompt(buf, prompt)?;
-
-            if let Some(paging_info) = paging_info {
-                TermThemeRenderer::write_paging_info(buf, paging_info)?;
-            }
-
-            Ok(())
-        })
-    }
-
-    pub fn select_prompt_selection(&mut self, prompt: &str, sel: &str) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme.format_select_prompt_selection(buf, prompt, sel)
-        })
-    }
-
-    pub fn select_prompt_item(&mut self, text: &str, active: bool) -> Result {
-        self.write_formatted_line(|this, buf| {
-            this.theme.format_select_prompt_item(buf, text, active)
-        })
-    }
-
-    #[cfg(feature = "fuzzy-select")]
-    pub fn fuzzy_select_prompt_item(
-        &mut self,
-        text: &str,
-        active: bool,
-        highlight: bool,
-        matcher: &SkimMatcherV2,
-        search_term: &str,
-    ) -> Result {
-        self.write_formatted_line(|this, buf| {
-            this.theme.format_fuzzy_select_prompt_item(
-                buf,
-                text,
-                active,
-                highlight,
-                matcher,
-                search_term,
-            )
-        })
-    }
-
-    pub fn multi_select_prompt(
-        &mut self,
-        prompt: &str,
-        paging_info: Option<(usize, usize)>,
-    ) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme.format_multi_select_prompt(buf, prompt)?;
-
-            if let Some(paging_info) = paging_info {
-                TermThemeRenderer::write_paging_info(buf, paging_info)?;
-            }
-
-            Ok(())
-        })
-    }
-
-    pub fn multi_select_prompt_selection(&mut self, prompt: &str, sel: &[&str]) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme
-                .format_multi_select_prompt_selection(buf, prompt, sel)
-        })
-    }
-
-    pub fn multi_select_prompt_item(&mut self, text: &str, checked: bool, active: bool) -> Result {
-        self.write_formatted_line(|this, buf| {
-            this.theme
-                .format_multi_select_prompt_item(buf, text, checked, active)
-        })
-    }
-
-    pub fn sort_prompt(&mut self, prompt: &str, paging_info: Option<(usize, usize)>) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme.format_sort_prompt(buf, prompt)?;
-
-            if let Some(paging_info) = paging_info {
-                TermThemeRenderer::write_paging_info(buf, paging_info)?;
-            }
-
-            Ok(())
-        })
-    }
-
-    pub fn sort_prompt_selection(&mut self, prompt: &str, sel: &[&str]) -> Result {
-        self.write_formatted_prompt(|this, buf| {
-            this.theme.format_sort_prompt_selection(buf, prompt, sel)
-        })
-    }
-
-    pub fn sort_prompt_item(&mut self, text: &str, picked: bool, active: bool) -> Result {
-        self.write_formatted_line(|this, buf| {
-            this.theme
-                .format_sort_prompt_item(buf, text, picked, active)
-        })
+        self.look(PromptKind::Password)
+            .mask
+            .chars()
+            .next()
+            .unwrap_or('*')
     }
 
     pub fn clear(&mut self) -> Result {
@@ -359,16 +310,15 @@ mod tests {
 
     #[test]
     fn prompt_theme_overrides_app_theme() {
-        let custom = ColorfulTheme::default();
+        let custom = ColorfulTheme;
         let handle = ThemeHandle::Prompt(&custom);
+        let tokens = custom.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let view = ItemView::new(PromptKind::Select, "item", true, None, None);
 
         let (mut via_handle, mut direct) = (String::new(), String::new());
-        handle
-            .format_select_prompt_item(&mut via_handle, "item", true)
-            .unwrap();
-        custom
-            .format_select_prompt_item(&mut direct, "item", true)
-            .unwrap();
+        handle.format_item(&mut via_handle, &ctx, &view).unwrap();
+        custom.format_item(&mut direct, &ctx, &view).unwrap();
         assert_eq!(via_handle, direct);
     }
 }

@@ -5,7 +5,10 @@ use console::{Key, Term};
 use crate::{
     paging::Paging,
     prompts::base::{base_methods, PromptBase},
-    theme::render::TermThemeRenderer,
+    theme::{
+        render::TermThemeRenderer,
+        {Answer, PromptKind},
+    },
     Result,
 };
 
@@ -195,7 +198,9 @@ impl<'a> Select<'a> {
 
         loop {
             if let Some(ref prompt) = self.prompt {
-                paging.render_prompt(|paging_info| render.select_prompt(prompt, paging_info))?;
+                paging.render_prompt(|paging_info| {
+                    render.prompt(PromptKind::Select, prompt, paging_info)
+                })?;
             }
 
             for (idx, item) in self
@@ -205,7 +210,7 @@ impl<'a> Select<'a> {
                 .skip(paging.current_page * paging.capacity)
                 .take(paging.capacity)
             {
-                render.select_prompt_item(item, sel == idx)?;
+                render.item(PromptKind::Select, item, sel == idx, None, None)?;
             }
 
             term.flush()?;
@@ -258,7 +263,11 @@ impl<'a> Select<'a> {
 
                     if let Some(ref prompt) = self.prompt {
                         if self.report_enabled() {
-                            render.select_prompt_selection(prompt, &self.items[sel])?;
+                            render.answered(
+                                PromptKind::Select,
+                                prompt,
+                                Answer::Text(&self.items[sel]),
+                            )?;
                         }
                     }
 

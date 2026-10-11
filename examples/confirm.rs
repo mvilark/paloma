@@ -2,7 +2,7 @@ use paloma::{theme::ColorfulTheme, Confirm};
 
 fn main() {
     if Confirm::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Do you want to continue?")
         .interact()
         .unwrap()
@@ -13,7 +13,7 @@ fn main() {
     }
 
     if Confirm::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Do you really want to continue?")
         .default(true)
         .interact()
@@ -25,7 +25,7 @@ fn main() {
     }
 
     if Confirm::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Do you really really want to continue?")
         .default(true)
         .show_default(false)
@@ -39,7 +39,7 @@ fn main() {
     }
 
     if Confirm::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Do you really really really want to continue?")
         .on_shortcut(false)
         .interact()
@@ -51,7 +51,7 @@ fn main() {
     }
 
     match Confirm::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Do you really really really really want to continue?")
         .interact_opt()
         .unwrap()
@@ -62,7 +62,7 @@ fn main() {
     }
 
     match Confirm::new()
-        .theme(&ColorfulTheme::default())
+        .theme(&ColorfulTheme)
         .prompt("Do you really really really really really want to continue?")
         .default(true)
         .on_shortcut(false)

@@ -2,7 +2,7 @@ use paloma::{theme::ColorfulTheme, Confirm, Input};
 
 fn main() {
     // Set the theme once; every prompt below uses it.
-    paloma::set_theme(ColorfulTheme::default());
+    paloma::set_theme(ColorfulTheme);
 
     let name: String = Input::new().prompt("Your name").interact().unwrap();
 

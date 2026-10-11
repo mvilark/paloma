@@ -13,7 +13,10 @@ use crate::completion::Completion;
 use crate::history::History;
 use crate::{
     prompts::base::{base_methods, PromptBase},
-    theme::render::TermThemeRenderer,
+    theme::{
+        render::TermThemeRenderer,
+        {Answer, PromptKind},
+    },
     validate::InputValidator,
     Result,
 };
@@ -567,9 +570,10 @@ where
                     }
 
                     if self.report_enabled() {
-                        render.input_prompt_selection(
+                        render.answered(
+                            PromptKind::Input,
                             self.completion_prompt(),
-                            &default.to_string(),
+                            Answer::Text(&default.to_string()),
                         )?;
                     }
                     term.flush()?;
@@ -594,7 +598,11 @@ where
                     }
 
                     if self.report_enabled() {
-                        render.input_prompt_selection(self.completion_prompt(), &input)?;
+                        render.answered(
+                            PromptKind::Input,
+                            self.completion_prompt(),
+                            Answer::Text(&input),
+                        )?;
                     }
                     term.flush()?;
 

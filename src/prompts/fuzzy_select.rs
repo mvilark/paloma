@@ -5,7 +5,10 @@ use fuzzy_matcher::FuzzyMatcher;
 
 use crate::{
     prompts::base::{base_methods, PromptBase},
-    theme::render::TermThemeRenderer,
+    theme::{
+        render::TermThemeRenderer,
+        {Answer, PromptKind},
+    },
     Result,
 };
 
@@ -236,12 +239,17 @@ impl<'a> FuzzySelect<'a> {
                 .skip(starting_row)
                 .take(visible_term_rows)
             {
-                render.fuzzy_select_prompt_item(
+                let matches = self
+                    .highlight_matches
+                    .then(|| matcher.fuzzy_indices(item, &search_term))
+                    .flatten()
+                    .map(|(_, indices)| indices);
+                render.item(
+                    PromptKind::FuzzySelect,
                     item,
                     Some(idx) == sel,
-                    self.highlight_matches,
-                    &matcher,
-                    &search_term,
+                    None,
+                    matches.as_deref(),
                 )?;
             }
             term.flush()?;
@@ -312,8 +320,11 @@ impl<'a> FuzzySelect<'a> {
                     }
 
                     if self.report_enabled() {
-                        render
-                            .input_prompt_selection(self.prompt.as_str(), filtered_list[sel].0)?;
+                        render.answered(
+                            PromptKind::FuzzySelect,
+                            self.prompt.as_str(),
+                            Answer::Text(filtered_list[sel].0),
+                        )?;
                     }
 
                     let sel_string = filtered_list[sel].0;

@@ -11,7 +11,7 @@ fn main() {
 
     loop {
         if let Ok(cmd) = Input::<String>::new()
-            .theme(&ColorfulTheme::default())
+            .theme(&ColorfulTheme)
             .prompt("paloma")
             .history(&mut history)
             .interact()

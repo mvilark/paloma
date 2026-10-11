@@ -12,6 +12,10 @@ use std::{
 
 use paloma::{
     terminal::Stream,
+    theme::{
+        Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, InputPromptView, ItemView,
+        PromptKind, PromptView,
+    },
     theme::{ColorfulTheme, Context, MessageView, SimpleTheme, Status, Theme},
     theme::{KeyValueView, PanelView, SectionView, TableView, TaskState, TaskStepView, TaskView},
     PanelRow,
@@ -30,85 +34,106 @@ impl Sheet {
 
 fn sheet(theme: &dyn Theme) -> String {
     let mut s = Sheet(String::new());
+    let tokens = theme.tokens();
+    let ctx = &Context::new(&tokens, Stream::Stderr);
+    let answered = |f: &mut dyn fmt::Write, kind, prompt, answer| {
+        theme.format_answered(f, ctx, &AnsweredView::new(kind, prompt, answer))
+    };
+    let item = |f: &mut dyn fmt::Write, kind, active, checked| {
+        theme.format_item(f, ctx, &ItemView::new(kind, "b", active, checked, None))
+    };
 
-    s.line("prompt(Name)", |f| theme.format_prompt(f, "Name"));
-    s.line("prompt()", |f| theme.format_prompt(f, ""));
-    s.line("error(Bad)", |f| theme.format_error(f, "Bad"));
+    s.line("prompt(Name)", |f| {
+        theme.format_prompt(f, ctx, &PromptView::new(PromptKind::Select, "Name", None))
+    });
+    s.line("prompt()", |f| {
+        theme.format_prompt(f, ctx, &PromptView::new(PromptKind::Select, "", None))
+    });
+    s.line("error(Bad)", |f| {
+        theme.format_message(f, ctx, &MessageView::new(Status::Error, "Bad", 0))
+    });
 
     for default in [None, Some(true), Some(false)] {
         s.line(&format!("confirm_prompt(Go?, {default:?})"), |f| {
-            theme.format_confirm_prompt(f, "Go?", default)
+            theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("Go?", default, false))
         });
     }
     s.line("confirm_prompt(, None)", |f| {
-        theme.format_confirm_prompt(f, "", None)
+        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("", None, false))
     });
     s.line("confirm_prompt_no_hint(Go?)", |f| {
-        theme.format_confirm_prompt_no_hint(f, "Go?")
+        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("Go?", None, true))
     });
-    for (yes, focused) in [(true, true), (true, false), (false, true), (false, false)] {
-        s.line(&format!("confirm_button({yes}, {focused})"), |f| {
-            theme.format_confirm_button(f, yes, focused)
-        });
-    }
+    s.line("confirm_prompt_no_hint()", |f| {
+        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("", None, true))
+    });
     for yes_focused in [true, false] {
         s.line(&format!("confirm_buttons({yes_focused})"), |f| {
-            theme.format_confirm_buttons(f, yes_focused)
+            theme.format_confirm_buttons(f, ctx, &ConfirmButtonsView::new(yes_focused))
         });
     }
     for sel in [Some(true), Some(false), None] {
+        let answer = sel.map_or(Answer::Skipped, Answer::Bool);
         s.line(&format!("confirm_prompt_selection(Go?, {sel:?})"), |f| {
-            theme.format_confirm_prompt_selection(f, "Go?", sel)
+            answered(f, PromptKind::Confirm, "Go?", answer)
         });
         s.line(&format!("confirm_prompt_selection(, {sel:?})"), |f| {
-            theme.format_confirm_prompt_selection(f, "", sel)
+            answered(f, PromptKind::Confirm, "", answer)
         });
     }
 
     for (prompt, default) in [("Name", None), ("Name", Some("Ada")), ("", Some("Ada"))] {
         s.line(&format!("input_prompt({prompt}, {default:?})"), |f| {
-            theme.format_input_prompt(f, prompt, default)
+            let view = InputPromptView::new(PromptKind::Input, prompt, default);
+            theme.format_input_prompt(f, ctx, &view)
         });
     }
     s.line("input_prompt_selection(Name, Ada)", |f| {
-        theme.format_input_prompt_selection(f, "Name", "Ada")
+        answered(f, PromptKind::Input, "Name", Answer::Text("Ada"))
     });
 
     s.line("select_prompt(Pick)", |f| {
-        theme.format_select_prompt(f, "Pick")
+        theme.format_prompt(f, ctx, &PromptView::new(PromptKind::Select, "Pick", None))
+    });
+    s.line("select_prompt(Pick, page 1/2)", |f| {
+        let view = PromptView::new(PromptKind::Select, "Pick", Some((1, 2)));
+        theme.format_prompt(f, ctx, &view)
     });
     s.line("select_prompt_selection(Pick, b)", |f| {
-        theme.format_select_prompt_selection(f, "Pick", "b")
+        answered(f, PromptKind::Select, "Pick", Answer::Text("b"))
     });
     for active in [true, false] {
         s.line(&format!("select_prompt_item(b, {active})"), |f| {
-            theme.format_select_prompt_item(f, "b", active)
+            item(f, PromptKind::Select, active, None)
         });
     }
 
     s.line("multi_select_prompt(Pick)", |f| {
-        theme.format_multi_select_prompt(f, "Pick")
+        let view = PromptView::new(PromptKind::MultiSelect, "Pick", None);
+        theme.format_prompt(f, ctx, &view)
     });
     for sels in [&[][..], &["a", "b"][..]] {
         s.line(
             &format!("multi_select_prompt_selection(Pick, {sels:?})"),
-            |f| theme.format_multi_select_prompt_selection(f, "Pick", sels),
+            |f| answered(f, PromptKind::MultiSelect, "Pick", Answer::List(sels)),
         );
     }
     for (checked, active) in [(true, true), (true, false), (false, true), (false, false)] {
         s.line(
             &format!("multi_select_prompt_item(b, {checked}, {active})"),
-            |f| theme.format_multi_select_prompt_item(f, "b", checked, active),
+            |f| item(f, PromptKind::MultiSelect, active, Some(checked)),
         );
     }
 
-    s.line("sort_prompt(Rank)", |f| theme.format_sort_prompt(f, "Rank"));
+    s.line("sort_prompt(Rank)", |f| {
+        theme.format_prompt(f, ctx, &PromptView::new(PromptKind::Sort, "Rank", None))
+    });
     s.line("sort_prompt_selection(Rank, [a, b])", |f| {
-        theme.format_sort_prompt_selection(f, "Rank", &["a", "b"])
+        answered(f, PromptKind::Sort, "Rank", Answer::List(&["a", "b"]))
     });
     for (picked, active) in [(true, true), (true, false), (false, true), (false, false)] {
         s.line(&format!("sort_prompt_item(b, {picked}, {active})"), |f| {
-            theme.format_sort_prompt_item(f, "b", picked, active)
+            item(f, PromptKind::Sort, active, Some(picked))
         });
     }
 
@@ -118,46 +143,66 @@ fn sheet(theme: &dyn Theme) -> String {
 #[cfg(feature = "password")]
 fn password_sheet(theme: &dyn Theme) -> String {
     let mut s = Sheet(String::new());
+    let tokens = theme.tokens();
+    let ctx = &Context::new(&tokens, Stream::Stderr);
     s.line("password_prompt(Password)", |f| {
-        theme.format_password_prompt(f, "Password")
-    });
-    s.line("password_prompt_selection(Password)", |f| {
-        theme.format_password_prompt_selection(f, "Password")
+        let view = InputPromptView::new(PromptKind::Password, "Password", None);
+        theme.format_input_prompt(f, ctx, &view)
     });
     s.line("password_mask_glyph()", |f| {
-        write!(f, "{}", theme.password_mask_glyph())
+        let look = tokens.get_prompts().resolve(PromptKind::Password, &tokens);
+        write!(f, "{}", look.mask)
     });
     for len in [8, 3] {
         s.line(
             &format!("password_prompt_selection_masked(Password, {len})"),
-            |f| theme.format_password_prompt_selection_masked(f, "Password", len),
+            |f| {
+                let view = AnsweredView::new(PromptKind::Password, "Password", Answer::Hidden(len));
+                theme.format_answered(f, ctx, &view)
+            },
         );
     }
     s.0
 }
 
 #[cfg(feature = "fuzzy-select")]
+use paloma::theme::FuzzySelectPromptView;
+
+#[cfg(feature = "fuzzy-select")]
 fn fuzzy_sheet(theme: &dyn Theme) -> String {
-    use fuzzy_matcher::skim::SkimMatcherV2;
+    use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
     let mut s = Sheet(String::new());
+    let tokens = theme.tokens();
+    let ctx = &Context::new(&tokens, Stream::Stderr);
     let matcher = SkimMatcherV2::default();
     for (active, highlight) in [(true, true), (true, false), (false, true), (false, false)] {
         s.line(
             &format!("fuzzy_select_prompt_item(banana, {active}, {highlight}, an)"),
             |f| {
-                theme
-                    .format_fuzzy_select_prompt_item(f, "banana", active, highlight, &matcher, "an")
+                let matches = highlight
+                    .then(|| matcher.fuzzy_indices("banana", "an"))
+                    .flatten()
+                    .map(|(_, indices)| indices);
+                let view = ItemView::new(
+                    PromptKind::FuzzySelect,
+                    "banana",
+                    active,
+                    None,
+                    matches.as_deref(),
+                );
+                theme.format_item(f, ctx, &view)
             },
         );
     }
     for pos in [0, 2, 3] {
         s.line(&format!("fuzzy_select_prompt(Search, ban, {pos})"), |f| {
-            theme.format_fuzzy_select_prompt(f, "Search", "ban", pos)
+            let view = FuzzySelectPromptView::new("Search", "ban", pos);
+            theme.format_fuzzy_select_prompt(f, ctx, &view)
         });
     }
     s.line("fuzzy_select_prompt(, ban, 3)", |f| {
-        theme.format_fuzzy_select_prompt(f, "", "ban", 3)
+        theme.format_fuzzy_select_prompt(f, ctx, &FuzzySelectPromptView::new("", "ban", 3))
     });
     s.0
 }
@@ -261,7 +306,7 @@ fn task_sheet(theme: &dyn Theme) -> String {
 fn built_in_themes_render_unchanged() {
     console::set_colors_enabled(true);
     console::set_colors_enabled_stderr(true);
-    let colorful = ColorfulTheme::default();
+    let colorful = ColorfulTheme;
     common::assert_snapshot("theme-simple", &sheet(&SimpleTheme));
     common::assert_snapshot("theme-colorful", &sheet(&colorful));
     common::assert_snapshot("theme-simple-messages", &message_sheet(&SimpleTheme));
@@ -271,13 +316,13 @@ fn built_in_themes_render_unchanged() {
     common::assert_snapshot("theme-simple-tasks", &task_sheet(&SimpleTheme));
     common::assert_snapshot("theme-colorful-tasks", &task_sheet(&colorful));
     // A restyled theme keeps every hook of the theme it wraps.
-    let restyled = ColorfulTheme::default().restyle(|t| t);
+    let restyled = ColorfulTheme.restyle(|t| t);
     assert_eq!(sheet(&restyled), sheet(&colorful));
     assert_eq!(message_sheet(&restyled), message_sheet(&colorful));
     assert_eq!(block_sheet(&restyled), block_sheet(&colorful));
     assert_eq!(task_sheet(&restyled), task_sheet(&colorful));
     // `restyle` reaches the live tokens: a task without the elapsed time.
-    let quiet = ColorfulTheme::default().restyle(|t| t.live(|l| l.task(|s| s.show_elapsed(false))));
+    let quiet = ColorfulTheme.restyle(|t| t.live(|l| l.task(|s| s.show_elapsed(false))));
     let running_line = |theme: &dyn Theme| {
         let tokens = theme.tokens();
         let ctx = Context::new(&tokens, Stream::Stderr);

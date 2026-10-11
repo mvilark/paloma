@@ -5,7 +5,10 @@ use zeroize::Zeroizing;
 
 use crate::{
     prompts::base::{base_methods, PromptBase},
-    theme::render::TermThemeRenderer,
+    theme::{
+        render::TermThemeRenderer,
+        {Answer, PromptKind},
+    },
     validate::PasswordValidator,
     Result,
 };
@@ -68,7 +71,7 @@ impl<'a> Password<'a> {
     }
 
     /// Sets whether typed characters are echoed as mask characters, drawn with the
-    /// theme's [`password_mask_glyph`](crate::theme::Theme::password_mask_glyph). Use
+    /// theme's `mask` token ([`PromptStyle`](crate::theme::PromptStyle)). Use
     /// [`mask_char`](Self::mask_char) to pick the character yourself.
     ///
     /// Left unset, the app option applies; by default nothing is echoed.
@@ -169,7 +172,11 @@ impl<'a> Password<'a> {
             render.clear()?;
 
             if self.report_enabled() {
-                render.password_prompt_selection(&self.prompt, result_len)?;
+                render.answered(
+                    PromptKind::Password,
+                    &self.prompt,
+                    Answer::Hidden(result_len),
+                )?;
             }
             term.flush()?;
 

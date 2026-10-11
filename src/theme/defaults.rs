@@ -18,9 +18,13 @@
 //! ```
 use std::fmt;
 
+use console::Style;
+
 use crate::theme::{
-    BlockKind, Context, GlyphName, KeyValueView, LiveKind, MessageView, PanelView, Role,
-    SectionView, TableView, TaskState, TaskStepView, TaskView,
+    Answer, AnsweredView, BlockKind, ConfirmButtonsView, ConfirmPromptView, Context,
+    FuzzySelectPromptView, GlyphName, InputPromptView, ItemView, KeyValueView, LiveKind,
+    MessageView, PanelView, PromptKind, PromptLook, PromptView, Role, SectionView, TableView,
+    TaskState, TaskStepView, TaskView,
 };
 
 /// One message line: the indent for its depth, then the glyph, the word and the text,
@@ -227,6 +231,288 @@ pub fn format_task_step(f: &mut dyn fmt::Write, ctx: &Context, view: &TaskStepVi
     write!(f, "{}", ctx.paint(&look.step_style, view.text))
 }
 
+/// Writes the parts of a prompt line one space apart, skipping empty parts.
+struct Parts<'f, 'c> {
+    f: &'f mut dyn fmt::Write,
+    ctx: &'c Context<'c>,
+    wrote: bool,
+}
+
+impl<'f, 'c> Parts<'f, 'c> {
+    fn new(f: &'f mut dyn fmt::Write, ctx: &'c Context<'c>) -> Self {
+        Parts {
+            f,
+            ctx,
+            wrote: false,
+        }
+    }
+
+    /// `text` in `style`, after a space when something precedes it.
+    fn part(&mut self, style: &Style, text: &str) -> fmt::Result {
+        if text.is_empty() {
+            return Ok(());
+        }
+        if self.wrote {
+            write!(self.f, " ")?;
+        }
+        self.wrote = true;
+        write!(self.f, "{}", self.ctx.paint(style, text))
+    }
+
+    /// A suffix or separator: `text` in `style`, after `gap` spaces when something
+    /// precedes it.
+    fn attached(&mut self, style: &Style, text: &str, gap: usize) -> fmt::Result {
+        if text.is_empty() {
+            return Ok(());
+        }
+        if self.wrote {
+            write!(self.f, "{}", " ".repeat(gap))?;
+        }
+        self.wrote = true;
+        write!(self.f, "{}", self.ctx.paint(style, text))
+    }
+
+    /// The question: the mark and the prompt, both only when the prompt is not empty.
+    fn question(&mut self, look: &PromptLook, prompt: &str) -> fmt::Result {
+        if !prompt.is_empty() {
+            self.part(&look.mark_style, look.mark)?;
+            self.part(&look.label_style, prompt)?;
+        }
+        Ok(())
+    }
+
+    /// Writes `value` after a space when something precedes it, even when the value is
+    /// empty.
+    fn value(&mut self, value: impl fmt::Display) -> fmt::Result {
+        if self.wrote {
+            write!(self.f, " ")?;
+        }
+        self.wrote = true;
+        write!(self.f, "{value}")
+    }
+}
+
+fn prompt_look(ctx: &Context, kind: PromptKind) -> PromptLook {
+    let tokens = ctx.tokens();
+    tokens.get_prompts().resolve(kind, tokens)
+}
+
+/// The question line of a list prompt: mark, question and suffix, then the paging
+/// counter (` [Page 1/3] `) in `paging_style`.
+pub fn format_prompt(f: &mut dyn fmt::Write, ctx: &Context, view: &PromptView) -> fmt::Result {
+    let look = prompt_look(ctx, view.kind);
+    let mut line = Parts::new(f, ctx);
+    line.question(&look, view.prompt)?;
+    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    if let Some((page, pages)) = view.paging {
+        let counter = format!("[Page {page}/{pages}]");
+        write!(f, " {} ", ctx.paint(&look.paging_style, counter))?;
+    }
+    Ok(())
+}
+
+/// The input line: mark, question, the default in `default_brackets` and `hint_style`,
+/// the suffix, then a space for the typed text.
+pub fn format_input_prompt(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &InputPromptView,
+) -> fmt::Result {
+    let look = prompt_look(ctx, view.kind);
+    let mut line = Parts::new(f, ctx);
+    line.question(&look, view.prompt)?;
+    if let Some(default) = view.default {
+        let (open, close) = look.default_brackets;
+        line.part(&look.hint_style, &format!("{open}{default}{close}"))?;
+    }
+    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    if line.wrote {
+        write!(f, " ")?;
+    }
+    Ok(())
+}
+
+/// The confirm line: mark, question, the choices in `hint_style`, the suffix, then the
+/// answer `Enter` gives in `default_style` (when `show_default`). With buttons, only
+/// the mark, question and suffix.
+pub fn format_confirm_prompt(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &ConfirmPromptView,
+) -> fmt::Result {
+    let look = prompt_look(ctx, PromptKind::Confirm);
+    let mut line = Parts::new(f, ctx);
+    line.question(&look, view.prompt)?;
+    if !view.buttons {
+        let choices = match view.default {
+            None => look.choices,
+            Some(true) => look.choices_yes,
+            Some(false) => look.choices_no,
+        };
+        line.part(&look.hint_style, choices)?;
+    }
+    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    if let (false, true, Some(default)) = (view.buttons, look.show_default, view.default) {
+        line.part(
+            &look.default_style,
+            if default { look.yes } else { look.no },
+        )?;
+    }
+    Ok(())
+}
+
+/// The button row: the yes and the no button two spaces apart, the focused one in
+/// `button_brackets` and `focused_button_style`, the other padded to the same width.
+pub fn format_confirm_buttons(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &ConfirmButtonsView,
+) -> fmt::Result {
+    let look = prompt_look(ctx, PromptKind::Confirm);
+    let (open, close) = look.button_brackets;
+    let button = |label: &str, focused: bool| {
+        if focused {
+            ctx.paint(&look.focused_button_style, format!("{open}{label}{close}"))
+        } else {
+            let pad = |s: &str| " ".repeat(console::measure_text_width(s));
+            ctx.paint(
+                &look.button_style,
+                format!("{}{label}{}", pad(open), pad(close)),
+            )
+        }
+    };
+    write!(
+        f,
+        "{}  {}",
+        button(look.yes_button, view.yes_focused),
+        button(look.no_button, !view.yes_focused)
+    )
+}
+
+/// The search line: mark, question and suffix, a space, then the search in
+/// `text_style` with the cursor glyph in `cursor_style` at the cursor. With an empty
+/// cursor glyph the character under the cursor (a space at the end) is drawn in
+/// `cursor_style` instead.
+pub fn format_fuzzy_select_prompt(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &FuzzySelectPromptView,
+) -> fmt::Result {
+    let look = prompt_look(ctx, PromptKind::FuzzySelect);
+    let mut line = Parts::new(f, ctx);
+    line.question(&look, view.prompt)?;
+    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    if line.wrote {
+        write!(f, " ")?;
+    }
+    let (head, tail) = view.search.split_at(view.cursor.min(view.search.len()));
+    let text = |s: &str| ctx.paint(&look.text_style, s.to_string());
+    if look.cursor.is_empty() {
+        let mut chars = tail.chars();
+        let under = chars.next().unwrap_or(' ');
+        write!(
+            f,
+            "{}{}{}",
+            text(head),
+            ctx.paint(&look.cursor_style, under),
+            text(chars.as_str())
+        )
+    } else {
+        write!(
+            f,
+            "{}{}{}",
+            text(head),
+            ctx.paint(&look.cursor_style, look.cursor),
+            text(tail)
+        )
+    }
+}
+
+/// One item: `item_indent` spaces, the focus glyph on the active item (spaces on the
+/// others), the checked or unchecked glyph when the item has one, then the text in
+/// `active_style` or `item_style`, with search matches in `match_style` inside it.
+/// A sort item shows `checked` only while it is active (only the active item can be
+/// picked up).
+pub fn format_item(f: &mut dyn fmt::Write, ctx: &Context, view: &ItemView) -> fmt::Result {
+    let look = prompt_look(ctx, view.kind);
+    write!(f, "{}", " ".repeat(look.item_indent))?;
+    if !look.focus.is_empty() {
+        if view.active {
+            write!(f, "{} ", ctx.paint(&look.focus_style, look.focus))?;
+        } else {
+            write!(
+                f,
+                "{} ",
+                " ".repeat(console::measure_text_width(look.focus))
+            )?;
+        }
+    }
+    if let Some(checked) = view.checked {
+        let on = checked && (view.kind != PromptKind::Sort || view.active);
+        let (style, glyph) = if on {
+            (&look.checked_style, look.checked)
+        } else {
+            (&look.unchecked_style, look.unchecked)
+        };
+        write!(f, "{} ", ctx.paint(style, glyph))?;
+    }
+    let style = if view.active {
+        &look.active_style
+    } else {
+        &look.item_style
+    };
+    match view.matches {
+        Some(matches) => {
+            for (i, c) in view.text.chars().enumerate() {
+                if matches.contains(&i) {
+                    write!(f, "{}", ctx.paint(style, ctx.paint(&look.match_style, c)))?;
+                } else {
+                    write!(f, "{}", ctx.paint(style, c))?;
+                }
+            }
+            Ok(())
+        }
+        None => write!(f, "{}", ctx.paint(style, view.text)),
+    }
+}
+
+/// The line an answered prompt leaves: answered mark, question, separator, then the
+/// answer in `value_style` (a list joined by `, ` in `list_separator_style`, a password as `hidden_value` or mask
+/// glyphs), or `empty_value` in `empty_style` for a skipped answer or an empty list.
+pub fn format_answered(f: &mut dyn fmt::Write, ctx: &Context, view: &AnsweredView) -> fmt::Result {
+    let look = prompt_look(ctx, view.kind);
+    let mut line = Parts::new(f, ctx);
+    if !view.prompt.is_empty() {
+        line.part(&look.answered_mark_style, look.answered_mark)?;
+        line.part(&look.answered_label_style, view.prompt)?;
+    }
+    line.attached(&look.separator_style, look.separator, look.gap)?;
+    let value = |text: &str| ctx.paint(&look.value_style, text.to_string()).to_string();
+    let empty = look
+        .empty_value
+        .map(|e| ctx.paint(&look.empty_style, e).to_string());
+    match view.answer {
+        Answer::Text(text) => line.value(value(text)),
+        Answer::Bool(yes) => line.value(value(if yes { look.yes } else { look.no })),
+        Answer::List([]) if empty.is_some() => line.value(empty.unwrap_or_default()),
+        Answer::List(items) => {
+            let items: Vec<String> = items.iter().map(|item| value(item)).collect();
+            let separator = ctx.paint(&look.list_separator_style, ", ").to_string();
+            line.value(items.join(&separator))
+        }
+        Answer::Hidden(len) => {
+            let hidden = look
+                .hidden_value
+                .map_or_else(|| look.mask.repeat(len), str::to_string);
+            line.value(value(&hidden))
+        }
+        Answer::Skipped => match empty {
+            Some(empty) => line.value(empty),
+            None => Ok(()),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,5 +561,93 @@ mod tests {
         assert!(out.starts_with("+- Done -"));
         assert!(out.contains("| Signed in "));
         assert!(out.contains(" 1.8s |"));
+    }
+
+    fn plain_with(
+        f: impl FnOnce(crate::theme::PromptTokens) -> crate::theme::PromptTokens,
+        draw: impl FnOnce(&mut String, &Context) -> fmt::Result,
+    ) -> String {
+        let tokens = Tokens::plain().prompts(f);
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let mut out = String::new();
+        draw(&mut out, &ctx).unwrap();
+        out
+    }
+
+    #[test]
+    fn items_keep_columns_for_indent_and_wide_focus() {
+        let item = |active, checked| {
+            plain_with(
+                |p| p.base(|b| b.item_indent(2).focus("→→")),
+                |f, ctx| {
+                    let view = ItemView::new(PromptKind::MultiSelect, "b", active, checked, None);
+                    format_item(f, ctx, &view)
+                },
+            )
+        };
+        assert_eq!(item(true, Some(true)), "  →→ [x] b");
+        assert_eq!(item(false, Some(false)), "     [ ] b");
+        assert_eq!(item(false, None), "     b");
+    }
+
+    #[test]
+    fn sort_items_show_the_pick_only_on_the_active_item() {
+        let item = |active| {
+            plain(|f, ctx| {
+                let view = ItemView::new(PromptKind::Sort, "b", active, Some(true), None);
+                format_item(f, ctx, &view)
+            })
+        };
+        assert_eq!(item(true), "> [x] b");
+        assert_eq!(item(false), "  [ ] b");
+    }
+
+    #[test]
+    fn empty_answers_show_the_empty_value_when_set() {
+        let answered = |kind, answer| {
+            plain_with(
+                |p| p.base(|b| b.empty_value("none")),
+                |f, ctx| format_answered(f, ctx, &AnsweredView::new(kind, "Pick", answer)),
+            )
+        };
+        assert_eq!(
+            answered(PromptKind::MultiSelect, Answer::List(&[])),
+            "Pick: none"
+        );
+        assert_eq!(answered(PromptKind::Confirm, Answer::Skipped), "Pick none");
+        assert_eq!(
+            answered(PromptKind::MultiSelect, Answer::List(&["a", "b"])),
+            "Pick: a, b"
+        );
+        let unset = plain(|f, ctx| {
+            let view = AnsweredView::new(PromptKind::MultiSelect, "Pick", Answer::List(&[]));
+            format_answered(f, ctx, &view)
+        });
+        assert_eq!(unset, "Pick: ");
+    }
+
+    #[test]
+    fn buttons_pad_the_unfocused_one_to_the_brackets() {
+        let out = plain_with(
+            |p| p.base(|b| b.button_brackets(("<<", ">"))),
+            |f, ctx| format_confirm_buttons(f, ctx, &ConfirmButtonsView::new(false)),
+        );
+        assert_eq!(out, "  Yes   <<No>");
+    }
+
+    #[test]
+    fn an_empty_cursor_glyph_marks_the_character_under_the_cursor() {
+        let search = |cursor| {
+            plain_with(
+                |p| p.fuzzy_select(|s| s.cursor("")),
+                |f, ctx| {
+                    let view = FuzzySelectPromptView::new("Find", "ab", cursor);
+                    format_fuzzy_select_prompt(f, ctx, &view)
+                },
+            )
+        };
+        // Plain tokens draw no style, so the character stays where it was.
+        assert_eq!(search(0), "Find ab");
+        assert_eq!(search(2), "Find ab ");
     }
 }

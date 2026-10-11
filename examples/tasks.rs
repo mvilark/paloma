@@ -7,7 +7,7 @@ fn work(millis: u64) {
 }
 
 fn main() -> paloma::Result {
-    paloma::set_theme(ColorfulTheme::default());
+    paloma::set_theme(ColorfulTheme);
 
     // paloma installs no signal handler: give the terminal back on Ctrl+C.
     ctrlc::set_handler(|| {

@@ -5,7 +5,10 @@ use console::{Key, Term};
 use crate::{
     paging::Paging,
     prompts::base::{base_methods, PromptBase},
-    theme::render::TermThemeRenderer,
+    theme::{
+        render::TermThemeRenderer,
+        {Answer, PromptKind},
+    },
     Result,
 };
 
@@ -209,8 +212,9 @@ impl<'a> MultiSelect<'a> {
 
         loop {
             if let Some(ref prompt) = self.prompt {
-                paging
-                    .render_prompt(|paging_info| render.multi_select_prompt(prompt, paging_info))?;
+                paging.render_prompt(|paging_info| {
+                    render.prompt(PromptKind::MultiSelect, prompt, paging_info)
+                })?;
             }
 
             for (idx, item) in self
@@ -220,7 +224,13 @@ impl<'a> MultiSelect<'a> {
                 .skip(paging.current_page * paging.capacity)
                 .take(paging.capacity)
             {
-                render.multi_select_prompt_item(item, checked[idx], sel == idx)?;
+                render.item(
+                    PromptKind::MultiSelect,
+                    item,
+                    sel == idx,
+                    Some(checked[idx]),
+                    None,
+                )?;
             }
 
             term.flush()?;
@@ -294,7 +304,11 @@ impl<'a> MultiSelect<'a> {
                                 })
                                 .collect();
 
-                            render.multi_select_prompt_selection(prompt, &selections[..])?;
+                            render.answered(
+                                PromptKind::MultiSelect,
+                                prompt,
+                                Answer::List(&selections),
+                            )?;
                         }
                     }
 
