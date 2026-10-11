@@ -21,6 +21,7 @@ Rough ideas that are not yet scoped.
 Scoped and agreed, not started.
 
 - **PAL-004 · CLI UI framework.** Umbrella plan: build the rest of paloma's CLI UI framework (flows, messages, output blocks, spinners, progress bars) next to the existing prompts, with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
+- **PAL-020 · Loam, a cozy garden journal example.** A second full example app on every paloma feature: mock garden data, a warm earth theme made of tokens only, no `ui.rs`, and three seams where PAL-011 progress bars will slot in. Executor: Sonnet 5.5, high. Plan: [docs/plans/PAL-020-loam-example.md](docs/plans/PAL-020-loam-example.md).
 - **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars).
 
 ## In progress
