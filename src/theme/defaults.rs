@@ -27,8 +27,8 @@ use crate::theme::{
     SectionView, TableView, TaskState, TaskStepView, TaskView,
 };
 
-/// One message line: the indent for its depth, then the glyph, the word and the text,
-/// each styled by the resolved [`MessageLook`](crate::theme::MessageLook).
+/// One message line: the indent for its depth, then the glyph, the word (followed by
+/// `word_gap` spaces) and the text, each styled by the resolved [`MessageLook`](crate::theme::MessageLook).
 pub fn format_message(f: &mut dyn fmt::Write, ctx: &Context, view: &MessageView) -> fmt::Result {
     let tokens = ctx.tokens();
     let look = tokens.get_messages().resolve(view.status, tokens);
@@ -41,7 +41,12 @@ pub fn format_message(f: &mut dyn fmt::Write, ctx: &Context, view: &MessageView)
         write!(f, "{} ", ctx.paint(&look.glyph_style, glyph))?;
     }
     if let Some(word) = look.word {
-        write!(f, "{} ", ctx.paint(&look.word_style, word))?;
+        write!(
+            f,
+            "{}{}",
+            ctx.paint(&look.word_style, word),
+            " ".repeat(look.word_gap)
+        )?;
     }
     write!(f, "{}", ctx.paint(&look.text_style, view.text))
 }
@@ -762,6 +767,23 @@ mod tests {
         };
         assert_eq!(search("|"), "Find |fruit");
         assert_eq!(search(""), "Find  fruit");
+    }
+
+    #[test]
+    fn the_word_is_followed_by_word_gap_spaces() {
+        let hint = |gap: Option<usize>| {
+            let tokens = Tokens::plain().messages(|m| match gap {
+                Some(gap) => m.hint(|h| h.word_gap(gap)),
+                None => m,
+            });
+            let ctx = Context::new(&tokens, Stream::Stderr);
+            let mut out = String::new();
+            format_message(&mut out, &ctx, &MessageView::new(Status::Hint, "try", 0)).unwrap();
+            out
+        };
+        assert_eq!(hint(None), "hint: try");
+        assert_eq!(hint(Some(2)), "hint:  try");
+        assert_eq!(hint(Some(0)), "hint:try");
     }
 
     #[test]

@@ -379,6 +379,8 @@ settings! {
         glyph_style: Style,
         /// The word's style.
         word_style: Style,
+        /// Spaces between the word and the text. Default 1.
+        word_gap: usize,
         /// The text's style.
         text_style: Style,
     }
@@ -440,6 +442,8 @@ pub struct MessageLook {
     pub glyph_style: Style,
     /// The word's style.
     pub word_style: Style,
+    /// Spaces between the word and the text.
+    pub word_gap: usize,
     /// The text's style.
     pub text_style: Style,
 }
@@ -473,6 +477,7 @@ impl MessageTokens {
             word: style.word.flatten(),
             glyph_style: style.glyph_style.unwrap_or_else(|| role_style.clone()),
             word_style: style.word_style.unwrap_or_else(|| role_style.clone()),
+            word_gap: style.word_gap.unwrap_or(1),
             text_style: style.text_style.unwrap_or_else(|| match status {
                 Status::Description | Status::Hint => role_style,
                 _ => tokens.palette.get(Role::text).clone(),
@@ -1367,6 +1372,13 @@ mod tests {
         let plain = Tokens::plain();
         let hint = plain.messages.resolve(Status::Hint, &plain);
         assert_eq!((hint.glyph, hint.word), (None, Some("hint:")));
+        assert_eq!(hint.word_gap, 1);
+
+        // The gap after the word: the status group wins over the base.
+        let tokens =
+            Tokens::plain().messages(|m| m.base(|b| b.word_gap(3)).hint(|h| h.word_gap(2)));
+        assert_eq!(tokens.messages.resolve(Status::Hint, &tokens).word_gap, 2);
+        assert_eq!(tokens.messages.resolve(Status::Error, &tokens).word_gap, 3);
     }
 
     #[test]

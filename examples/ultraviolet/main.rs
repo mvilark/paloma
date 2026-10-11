@@ -8,8 +8,9 @@ mod ui;
 
 use std::env;
 
-use console::Term;
-use theme::{Config, Depth, Glyphs, Palette, UltravioletTheme};
+use console::{Style, Term};
+use paloma::theme::Theme;
+use theme::{Config, Depth, Glyphs, Palette, Tok, UltravioletTheme};
 
 #[derive(Default)]
 pub struct Args {
@@ -78,6 +79,26 @@ fn depth() -> Depth {
     }
 }
 
+/// The line the flow leaves when Ctrl+C stops it: `◇ … · Cancelled`. It is the
+/// description message with a glyph and a word, so the line is drawn like any message.
+fn cancelled() {
+    let c = theme::cfg();
+    let subtle = c.pal.style(Tok::Subtle);
+    let theme = theme::app_theme().restyle(|t| {
+        t.messages(|m| {
+            m.description(|d| {
+                d.glyph(Some(c.g.answered))
+                    .glyph_style(subtle.clone())
+                    // The ellipsis stands for the question and is not coloured.
+                    .word(Some("…"))
+                    .word_style(Style::new())
+                    .text_style(subtle.clone().italic())
+            })
+        })
+    });
+    let _ = paloma::description("· Cancelled").theme(&theme).print();
+}
+
 fn main() {
     let mut args = parse_args();
     let tty = Term::stderr().is_term();
@@ -98,13 +119,16 @@ fn main() {
     paloma::set_options(
         paloma::Options::new()
             .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
-            .password(|p| p.mask(true).result_len(8)),
+            .password(|p| p.mask(true).result_len(8))
+            // Spinners follow the example's own motion rule.
+            .live(|l| l.motion(motion)),
     );
 
     // Ctrl+C while a spinner runs (no prompt is reading keys then; a prompt reads it as
     // a key and returns `Error::Cancelled`).
     let _ = ctrlc::set_handler(|| {
-        ui::cancelled();
+        paloma::terminal::restore();
+        cancelled();
         std::process::exit(130);
     });
 
@@ -112,7 +136,7 @@ fn main() {
         Some(c) => c.to_string(),
         None => {
             ui::wordmark_with_icon("a fake vpn, themed with Ultraviolet");
-            ui::blank();
+            eprintln!();
             "setup".into()
         }
     };
@@ -125,8 +149,9 @@ fn main() {
         "servers" => flows::servers(&args),
         "about" => flows::about(&args),
         other => {
-            ui::log(ui::Kind::Err, &format!("Unknown command {other}"));
-            ui::hint("ultraviolet about");
+            let _ = paloma::error(format!("Unknown command {other}"))
+                .nest(paloma::Message::hint("ultraviolet about"))
+                .print();
             std::process::exit(2);
         }
     };
@@ -135,7 +160,7 @@ fn main() {
         // `^C` at a prompt: it has erased itself and drawn the theme's cancelled line.
         Err(paloma::Error::Cancelled) => 130,
         Err(err) => {
-            ui::log(ui::Kind::Err, &err.to_string());
+            let _ = paloma::error(err.to_string()).print();
             1
         }
     };

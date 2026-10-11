@@ -10,8 +10,9 @@ use std::{
 
 use console::{Color, Style};
 use paloma::theme::{
-    ConfirmButtonsView, ConfirmPromptView, Context, CursorShape, FuzzySelectPromptView,
-    InputPromptView, PromptKind, PromptLook, PromptTokens, PromptView, Theme, Tokens,
+    BlockTokens, ConfirmButtonsView, ConfirmPromptView, Context, CursorShape,
+    FuzzySelectPromptView, InputPromptView, LiveTokens, MessageTokens, PromptKind, PromptLook,
+    PromptTokens, PromptView, Theme, Tokens,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -91,41 +92,18 @@ impl Palette {
         }
     }
 
-    /// Text in a token, styled for stderr (prompts and progress).
+    /// Text in a token, styled for stderr (the icon and the progress bar).
     pub fn e(&self, tok: Tok, text: impl fmt::Display) -> String {
         self.style(tok).for_stderr().apply_to(text).to_string()
     }
 
-    /// Text in a token, styled for stdout (results).
-    pub fn o(&self, tok: Tok, text: impl fmt::Display) -> String {
-        self.style(tok).apply_to(text).to_string()
-    }
-
-    /// Wordmark gradient: 24-bit only, otherwise `accent-strong`.
-    pub fn gradient(&self, text: &str) -> String {
-        let (from, to) = if self.dark {
-            ((0xd5u8, 0xc6u8, 0xffu8), (0x6du8, 0x4au8, 0xffu8))
+    /// The wordmark gradient's end points (`wordmark-from`, `wordmark-to`).
+    pub fn wordmark(&self) -> ((u8, u8, u8), (u8, u8, u8)) {
+        if self.dark {
+            ((0xd5, 0xc6, 0xff), (0x6d, 0x4a, 0xff))
         } else {
             ((0x4b, 0x2f, 0xd0), (0x8c, 0x6b, 0xff))
-        };
-        let n = text.chars().count().max(2) - 1;
-        text.chars()
-            .enumerate()
-            .map(|(i, c)| {
-                let lerp =
-                    |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * i as f32 / n as f32) as u8;
-                let style = if self.depth == Depth::True {
-                    Style::new().fg(Color::TrueColor(
-                        lerp(from.0, to.0),
-                        lerp(from.1, to.1),
-                        lerp(from.2, to.2),
-                    ))
-                } else {
-                    self.style(Tok::Strong)
-                };
-                style.bold().for_stderr().apply_to(c).to_string()
-            })
-            .collect()
+        }
     }
 }
 
@@ -381,10 +359,50 @@ impl Theme for UltravioletTheme {
                     .cursor_blink(true)
             })
             .sort(|s| s.checked(g.chosen).unchecked(g.pending));
+        // The hint nests under the message it belongs to (depth 1, so the layout indent
+        // of 2): `Hint` in italic `fg-subtle`, two spaces, then the command to paste.
+        let messages = MessageTokens::default().hint(|h| {
+            h.glyph(None)
+                .word(Some("Hint"))
+                .word_gap(2)
+                .word_style(p.style(Tok::Subtle).italic())
+                .text_style(p.style(Tok::Strong))
+        });
+        let blocks = BlockTokens::default()
+            .section(|s| s.title_style(p.style(Tok::Fg).bold()).space_before(1))
+            .key_value(|k| {
+                k.key_style(p.style(Tok::Muted))
+                    .value_style(p.style(Tok::Fg))
+                    .gap(3)
+            })
+            .table(|t| {
+                t.header_style(p.style(Tok::Fg).bold())
+                    .cell_style(p.style(Tok::Fg))
+                    .gap(3)
+            })
+            .panel(|b| {
+                b.title_style(p.style(Tok::Strong).bold())
+                    .border_style(p.style(Tok::Faint))
+                    .trailing_style(p.style(Tok::Subtle))
+                    .min_width(40)
+                    .max_width(64)
+                    .space_before(1)
+            });
+        let live = LiveTokens::default().task(|t| {
+            t.spinner_style(p.style(Tok::Accent))
+                .label_style(p.style(Tok::Muted))
+                .step_style(p.style(Tok::Muted))
+                .nested_style(p.style(Tok::Faint))
+                .elapsed_style(p.style(Tok::Subtle))
+                .step_indent(4)
+        });
         Cow::Owned(
             Tokens::default()
                 .palette(|_| palette)
                 .glyphs(|_| glyphs)
+                .messages(|_| messages)
+                .blocks(|_| blocks)
+                .live(|_| live)
                 .prompts(|_| prompts),
         )
     }
@@ -505,8 +523,12 @@ mod tests {
     use super::*;
     use paloma::{
         terminal::Stream,
-        theme::{Answer, AnsweredView, MessageSource, MessageView, PromptMessageView, Status},
+        theme::{
+            Answer, AnsweredView, BlockKind, MessageSource, MessageView, PromptMessageView,
+            SectionView, Status, TaskState, TaskStepView, TaskView,
+        },
     };
+    use std::time::Duration;
 
     fn plain(cfg: Config) -> UltravioletTheme {
         console::set_colors_enabled(false);
@@ -608,6 +630,51 @@ mod tests {
         );
         theme.format_prompt_message(&mut row, &ctx, &view).unwrap();
         assert_eq!(row, "  ✕ Enter a valid email");
+    }
+
+    #[test]
+    fn a_hint_nests_under_its_message() {
+        let theme = plain(config(false));
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let mut out = String::new();
+        let hint = MessageView::new(Status::Hint, "ultraviolet servers", 1);
+        theme.format_message(&mut out, &ctx, &hint).unwrap();
+        assert_eq!(out, "  Hint  ultraviolet servers");
+    }
+
+    #[test]
+    fn blocks_and_tasks_follow_the_guide() {
+        let theme = plain(config(false));
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let mut out = String::new();
+        let section = SectionView::new("Setup");
+        theme.format_section(&mut out, &ctx, &section).unwrap();
+        assert_eq!(out, "# Setup");
+        let blocks = tokens.get_blocks();
+        let panel = blocks.resolve(BlockKind::Panel, &tokens);
+        assert_eq!(
+            (panel.space_before, panel.min_width, panel.max_width),
+            (1, 40, 64)
+        );
+        assert_eq!(blocks.resolve(BlockKind::Section, &tokens).space_before, 1);
+        assert_eq!(blocks.resolve(BlockKind::KeyValue, &tokens).space_before, 0);
+
+        let mut step = String::new();
+        theme
+            .format_task_step(&mut step, &ctx, &TaskStepView::new("Opened tunnel"))
+            .unwrap();
+        assert_eq!(step, "    ↳ Opened tunnel");
+        let mut done = String::new();
+        let finished = TaskView::new(
+            "Connected",
+            TaskState::Finished(Status::Success),
+            Duration::from_millis(1400),
+            0,
+        );
+        theme.format_task(&mut done, &ctx, &finished).unwrap();
+        assert_eq!(done, "✓ Connected  1.4s");
     }
 
     #[test]
