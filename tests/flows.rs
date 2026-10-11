@@ -20,6 +20,8 @@ struct State {
 
 #[test]
 fn flows_run_their_steps_over_the_state() {
+    // Cancelling returns `Error::Cancelled` here instead of exiting the test.
+    paloma::set_options(paloma::Options::new().general(|g| g.cancel_exits(false)));
     let theme = SimpleTheme;
     let (term, out) = term();
     let name = |preset: &str| {
@@ -90,7 +92,11 @@ fn flows_run_their_steps_over_the_state() {
     assert_eq!(out.take(), "Name: Cy\n");
 
     // `Options::flows` sets it app-wide; the flow's own setter wins.
-    paloma::set_options(Options::new().flows(|f| f.step_done(Done::Erase)));
+    paloma::set_options(
+        Options::new()
+            .general(|g| g.cancel_exits(false))
+            .flows(|f| f.step_done(Done::Erase)),
+    );
     Flow::new(())
         .step("a", |_| name("Ada").interact_on(&term).map(drop))
         .run()
@@ -102,7 +108,7 @@ fn flows_run_their_steps_over_the_state() {
         .run()
         .unwrap();
     assert_eq!(out.take(), "Name: Ada\n");
-    paloma::set_options(Options::new());
+    paloma::set_options(Options::new().general(|g| g.cancel_exits(false)));
 
     // `back_to` runs the named step again, then the steps after it.
     let tries = RefCell::new(0);

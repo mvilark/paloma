@@ -793,10 +793,6 @@ settings! {
         hidden_value: &'static str,
         /// What a skipped answer or an empty list shows. Default: none (nothing).
         empty_value: &'static str,
-        /// What follows the question of a prompt the user cancelled with `Ctrl+C`, on
-        /// the line the cancelled prompt leaves. Default: none, and then the prompt
-        /// leaves no line at all.
-        cancelled_value: &'static str,
         /// The keys a prompt's legend line lists, as `(key, action)` pairs. Default per
         /// prompt: `input` and `password` `[("enter", "submit")]`, `select` and
         /// `fuzzy_select` `[("↑↓", "move"), ("enter", "choose")]`, `multi_select`
@@ -816,6 +812,9 @@ settings! {
         gap: usize,
         /// Columns before each item of a list. Default 0.
         item_indent: usize,
+        /// Columns before the buttons of a confirm (the line under its question).
+        /// Default 0.
+        button_indent: usize,
         /// Columns between an item and its description. Default 2.
         item_description_gap: usize,
         /// Columns between the question and the flow step counter (`01/05`). Default 2.
@@ -857,8 +856,6 @@ settings! {
         empty_style: Style,
         /// The `, ` between the items of a list answer. Default: unstyled.
         list_separator_style: Style,
-        /// `cancelled_value`. Default: `subtle`.
-        cancelled_style: Style,
         /// The focus glyph. Default: `accent`.
         focus_style: Style,
         /// The active item's text. Default: `accent`.
@@ -987,8 +984,6 @@ pub struct PromptLook {
     pub hidden_value: Option<&'static str>,
     /// See [`PromptStyle::empty_value`].
     pub empty_value: Option<&'static str>,
-    /// See [`PromptStyle::cancelled_value`].
-    pub cancelled_value: Option<&'static str>,
     /// See [`PromptStyle::legend`].
     pub legend: &'static [(&'static str, &'static str)],
     /// See [`PromptStyle::legend_back`].
@@ -1001,6 +996,8 @@ pub struct PromptLook {
     pub gap: usize,
     /// See [`PromptStyle::item_indent`].
     pub item_indent: usize,
+    /// See [`PromptStyle::button_indent`].
+    pub button_indent: usize,
     /// See [`PromptStyle::item_description_gap`].
     pub item_description_gap: usize,
     /// See [`PromptStyle::step_gap`].
@@ -1037,8 +1034,6 @@ pub struct PromptLook {
     pub empty_style: Style,
     /// See [`PromptStyle::list_separator_style`].
     pub list_separator_style: Style,
-    /// See [`PromptStyle::cancelled_style`].
-    pub cancelled_style: Style,
     /// See [`PromptStyle::focus_style`].
     pub focus_style: Style,
     /// See [`PromptStyle::active_style`].
@@ -1135,13 +1130,13 @@ impl PromptTokens {
             default_brackets: s.default_brackets.unwrap_or(("(", ")")),
             hidden_value: s.hidden_value,
             empty_value: s.empty_value,
-            cancelled_value: s.cancelled_value,
             legend: s.legend.unwrap_or_else(|| default_legend(kind)),
             legend_back: s.legend_back.unwrap_or(("esc", "back")),
             legend_separator: s.legend_separator.unwrap_or("  "),
             flow_steps_word: s.flow_steps_word.unwrap_or("steps"),
             gap: s.gap.unwrap_or(1),
             item_indent: s.item_indent.unwrap_or(0),
+            button_indent: s.button_indent.unwrap_or(0),
             item_description_gap: s.item_description_gap.unwrap_or(2),
             step_gap: s.step_gap.unwrap_or(2),
             message_indent: s.message_indent.unwrap_or(0),
@@ -1164,7 +1159,6 @@ impl PromptTokens {
             value_style: s.value_style.unwrap_or_else(|| role(Role::text)),
             empty_style: s.empty_style.unwrap_or_else(|| role(Role::subtle)),
             list_separator_style: s.list_separator_style.unwrap_or_default(),
-            cancelled_style: s.cancelled_style.unwrap_or_else(|| role(Role::subtle)),
             focus_style: s.focus_style.unwrap_or_else(|| role(Role::accent)),
             active_style: s.active_style.unwrap_or_else(|| role(Role::accent)),
             item_style: s.item_style.unwrap_or_else(|| role(Role::text)),
@@ -1442,6 +1436,21 @@ mod tests {
         );
         let input = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
         assert_eq!(input.invalid_suffix_style, Style::new().bold());
+    }
+
+    #[test]
+    fn buttons_are_not_indented_unless_asked() {
+        for tokens in [Tokens::plain(), Tokens::colorful()] {
+            let look = tokens.get_prompts().resolve(PromptKind::Confirm, &tokens);
+            assert_eq!(look.button_indent, 0);
+        }
+        let tokens = Tokens::default().prompts(|p| {
+            p.base(|b| b.button_indent(2))
+                .confirm(|c| c.button_indent(4))
+        });
+        let look = |kind| tokens.get_prompts().resolve(kind, &tokens);
+        assert_eq!(look(PromptKind::Confirm).button_indent, 4);
+        assert_eq!(look(PromptKind::Input).button_indent, 2);
     }
 
     #[test]

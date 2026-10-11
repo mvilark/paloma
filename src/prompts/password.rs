@@ -371,7 +371,7 @@ impl<'a> Password<'a> {
                 continue;
             };
             match key {
-                Key::CtrlC => return render.cancel(PromptKind::Password, Some(&self.prompt)),
+                Key::CtrlC => return render.cancel(),
                 Key::Escape if allow_back => return Ok(None),
                 Key::Enter => {
                     let password = Zeroizing::new(editor.text());

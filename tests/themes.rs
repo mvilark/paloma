@@ -122,21 +122,6 @@ fn sheet(theme: &dyn Theme) -> String {
         });
     }
 
-    s.line("answered(Go?, Cancelled)", |f| {
-        answered(f, PromptKind::Confirm, "Go?", Answer::Cancelled)
-    });
-    // What `restyle(|t| t.prompts(|p| p.base(|b| b.cancelled_value("cancelled"))))`
-    // changes: hooks read their tokens from the context.
-    let cancelling = tokens
-        .clone()
-        .into_owned()
-        .prompts(|p| p.base(|b| b.cancelled_value("cancelled")));
-    let cancelling_ctx = Context::new(&cancelling, Stream::Stderr);
-    s.line("answered(Go?, Cancelled, cancelled_value)", |f| {
-        let view = AnsweredView::new(PromptKind::Confirm, "Go?", Answer::Cancelled);
-        theme.format_answered(f, &cancelling_ctx, &view)
-    });
-
     for (prompt, default) in [("Name", None), ("Name", Some("Ada")), ("", Some("Ada"))] {
         s.line(&format!("input_prompt({prompt}, {default:?})"), |f| {
             let view = InputPromptView::new(PromptKind::Input, prompt, default, false, None);

@@ -382,9 +382,7 @@ impl<'a> FuzzySelect<'a> {
                 continue;
             };
             match (key, sel, vim_mode) {
-                (Key::CtrlC, ..) => {
-                    return render.cancel(PromptKind::FuzzySelect, Some(&self.prompt))
-                }
+                (Key::CtrlC, ..) => return render.cancel(),
                 (Key::Escape, _, false) if self.enable_vim_mode => {
                     vim_mode = true;
                 }

@@ -15,7 +15,13 @@ use common::capture::term;
 
 #[test]
 fn unattended_prompts_answer_with_their_defaults() {
-    paloma::set_options(Options::new().general(|g| g.unattended(true)));
+    // Cancelling returns `Error::Cancelled` here instead of exiting the test.
+    paloma::set_options(paloma::Options::new().general(|g| g.cancel_exits(false)));
+    paloma::set_options(
+        Options::new()
+            .general(|g| g.cancel_exits(false))
+            .general(|g| g.unattended(true)),
+    );
     let theme = SimpleTheme;
     let (term, out) = term();
 
@@ -155,7 +161,7 @@ fn unattended_prompts_answer_with_their_defaults() {
     assert_eq!(out.take(), "");
 
     // Without unattended mode a prompt on a non-terminal is still an error.
-    paloma::set_options(Options::new());
+    paloma::set_options(Options::new().general(|g| g.cancel_exits(false)));
     let err = Select::new().items(["a"]).default(0).interact_on(&term);
     assert!(matches!(err, Err(Error::IO(_))));
     let err = Confirm::new()

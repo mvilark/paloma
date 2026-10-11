@@ -279,7 +279,7 @@ impl<'a> Select<'a> {
                 continue;
             };
             match key {
-                Key::CtrlC => return render.cancel(PromptKind::Select, self.prompt.as_deref()),
+                Key::CtrlC => return render.cancel(),
                 Key::ArrowDown | Key::Tab | Key::Char('j') => {
                     sel = step_enabled(&self.items, sel, true).unwrap_or(sel);
                 }

@@ -21,7 +21,7 @@ fn main() -> paloma::Result<()> {
         .interact()?;
     println!("Plan: {plan}");
 
-    // `Esc` goes back (the prompt leaves nothing), `Ctrl+C` returns `Error::Cancelled`.
+    // `Esc` goes back (the prompt leaves nothing), `Ctrl+C` exits with code 130.
     // A disabled item keeps its state: this one is checked and stays checked.
     let features = MultiSelect::new()
         .prompt("Features")

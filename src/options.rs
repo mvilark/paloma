@@ -60,14 +60,41 @@ pub enum Done {
     Erase,
 }
 
-settings! {
-    /// Settings for the whole app.
-    pub struct GeneralOptions {
-        /// Whether prompts answer without asking: a prompt returns its default (the
-        /// table in the usage guide says which) and draws it as an answered prompt
-        /// would. A prompt with no default and no preset returns
-        /// [`Error::NoDefault`](crate::Error::NoDefault). Default: off.
-        unattended: bool,
+/// Settings for the whole app.
+#[derive(Clone, Default, Debug)]
+pub struct GeneralOptions {
+    pub(crate) unattended: Option<bool>,
+    pub(crate) cancel_exits: Option<bool>,
+    pub(crate) cancel_message: Option<crate::prompts::row::MessageData>,
+}
+
+impl GeneralOptions {
+    /// Whether prompts answer without asking: a prompt returns its default (the table
+    /// in the usage guide says which) and draws it as an answered prompt would. A
+    /// prompt with no default and no preset returns
+    /// [`Error::NoDefault`](crate::Error::NoDefault). Default: off.
+    pub fn unattended(mut self, val: bool) -> Self {
+        self.unattended = Some(val);
+        self
+    }
+
+    /// What `Ctrl+C` in a prompt (or `Esc` in a flow with no step to go back to) does
+    /// once the prompt has erased itself. `true` (the default): paloma restores the
+    /// terminal and exits the process with code 130, the shell convention. `false`:
+    /// the prompt (or `Flow::run`) returns [`Error::Cancelled`](crate::Error::Cancelled)
+    /// and the app decides.
+    pub fn cancel_exits(mut self, val: bool) -> Self {
+        self.cancel_exits = Some(val);
+        self
+    }
+
+    /// A message printed on its own line when the user cancels, where the prompt was,
+    /// before paloma exits (or returns the error). Plain text is a description; any
+    /// [`Message`](crate::Message) works too. Default: none (nothing is printed).
+    pub fn cancel_message(mut self, message: impl crate::IntoMessage) -> Self {
+        let message = message.into_message(crate::Status::Description);
+        self.cancel_message = Some(crate::prompts::row::MessageData::new(&message));
+        self
     }
 }
 
@@ -281,6 +308,12 @@ impl Options {
     }
 
     /// Whether prompts answer without asking.
+    /// Whether cancelling exits the process (see [`GeneralOptions::cancel_exits`]).
+    /// Tests of this crate never exit, whatever the setting says.
+    pub(crate) fn cancel_exits(&self) -> bool {
+        !cfg!(test) && self.general.cancel_exits.unwrap_or(true)
+    }
+
     pub(crate) fn unattended(&self) -> bool {
         self.general.unattended == Some(true)
     }

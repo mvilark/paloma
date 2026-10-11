@@ -583,7 +583,7 @@ impl<'a, S> Flow<'a, S> {
                         if matches!(done, Done::Erase | Done::Collapse) {
                             erase_from(0);
                         }
-                        return Err(Error::Cancelled);
+                        return crate::error::cancelled();
                     }
                 },
                 Err(Error::BackTo(to)) => {

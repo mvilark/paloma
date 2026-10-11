@@ -1,0 +1,115 @@
+{
+  "schedule": {
+    "wake": {
+      "at": "07:00:00"
+    },
+    "sleep_minutes": 480,
+    "wind_down_minutes": 60,
+    "caffeine_hours": 8,
+    "ease": null
+  },
+  "habits": [
+    "park",
+    "screens",
+    "light",
+    "caffeine"
+  ],
+  "nights": [
+    {
+      "date": "2026-10-02",
+      "bed": "23:10:00",
+      "up": "07:05:00",
+      "rested": 3,
+      "habits": [
+        "park",
+        "light"
+      ]
+    },
+    {
+      "date": "2026-10-03",
+      "bed": "23:30:00",
+      "up": "07:10:00",
+      "rested": 3,
+      "habits": [
+        "park",
+        "screens",
+        "light"
+      ]
+    },
+    {
+      "date": "2026-10-04",
+      "bed": "00:20:00",
+      "up": "07:45:00",
+      "rested": 2,
+      "habits": [
+        "screens"
+      ]
+    },
+    {
+      "date": "2026-10-05",
+      "bed": "23:15:00",
+      "up": "07:00:00",
+      "rested": 4,
+      "habits": [
+        "park",
+        "screens",
+        "light",
+        "caffeine"
+      ]
+    },
+    {
+      "date": "2026-10-06",
+      "bed": "23:40:00",
+      "up": "07:05:00",
+      "rested": 3,
+      "habits": [
+        "park",
+        "light"
+      ]
+    },
+    {
+      "date": "2026-10-07",
+      "bed": "23:05:00",
+      "up": "07:00:00",
+      "rested": 4,
+      "habits": [
+        "park",
+        "screens",
+        "light"
+      ]
+    },
+    {
+      "date": "2026-10-08",
+      "bed": "00:50:00",
+      "up": "08:00:00",
+      "rested": 2,
+      "habits": []
+    },
+    {
+      "date": "2026-10-09",
+      "bed": "23:20:00",
+      "up": "07:05:00",
+      "rested": 3,
+      "habits": [
+        "screens",
+        "light"
+      ]
+    },
+    {
+      "date": "2026-10-10",
+      "bed": "23:10:00",
+      "up": "07:00:00",
+      "rested": 4,
+      "habits": [
+        "park",
+        "screens",
+        "light",
+        "caffeine"
+      ]
+    }
+  ],
+  "parked": {
+    "at": "2026-10-10T21:58:00",
+    "note": "fix the flaky test in render.rs"
+  }
+}

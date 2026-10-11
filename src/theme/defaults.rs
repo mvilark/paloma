@@ -392,8 +392,9 @@ pub fn format_confirm_prompt(
     Ok(())
 }
 
-/// The button row: the yes and the no button two spaces apart, the focused one in
-/// `button_brackets` and `focused_button_style`, the other padded to the same width.
+/// The button row: `button_indent` spaces, then the yes and the no button two spaces
+/// apart, the focused one in `button_brackets` and `focused_button_style`, the other
+/// padded to the same width.
 pub fn format_confirm_buttons(
     f: &mut dyn fmt::Write,
     ctx: &Context,
@@ -414,7 +415,8 @@ pub fn format_confirm_buttons(
     };
     write!(
         f,
-        "{}  {}",
+        "{}{}  {}",
+        " ".repeat(look.button_indent),
         button(look.yes_button, view.yes_focused),
         button(look.no_button, !view.yes_focused)
     )
@@ -605,7 +607,6 @@ pub fn format_flow_summary(
 /// The line an answered prompt leaves: answered mark, question, separator, then the
 /// answer in `value_style` (a list joined by `, ` in `list_separator_style`, a password as `hidden_value` or mask
 /// glyphs), or `empty_value` in `empty_style` for a skipped answer or an empty list.
-/// A cancelled prompt shows `cancelled_value` in `cancelled_style`, when it is set.
 pub fn format_answered(f: &mut dyn fmt::Write, ctx: &Context, view: &AnsweredView) -> fmt::Result {
     let look = prompt_look(ctx, view.kind);
     let mut line = Parts::new(f, ctx);
@@ -635,10 +636,6 @@ pub fn format_answered(f: &mut dyn fmt::Write, ctx: &Context, view: &AnsweredVie
         }
         Answer::Skipped => match empty {
             Some(empty) => line.value(empty),
-            None => Ok(()),
-        },
-        Answer::Cancelled => match look.cancelled_value {
-            Some(cancelled) => line.value(ctx.paint(&look.cancelled_style, cancelled)),
             None => Ok(()),
         },
     }
@@ -773,6 +770,15 @@ mod tests {
             |f, ctx| format_confirm_buttons(f, ctx, &ConfirmButtonsView::new(false)),
         );
         assert_eq!(out, "  Yes   <<No>");
+    }
+
+    #[test]
+    fn buttons_start_after_the_button_indent() {
+        let out = plain_with(
+            |p| p.base(|b| b.button_indent(2)),
+            |f, ctx| format_confirm_buttons(f, ctx, &ConfirmButtonsView::new(true)),
+        );
+        assert_eq!(out, "  [Yes]   No ");
     }
 
     #[test]
@@ -968,26 +974,5 @@ mod tests {
         let look = plain.get_prompts().resolve(PromptKind::Select, &plain);
         assert_eq!(look.legend_back, ("esc", "back"));
         assert_eq!(look.legend_separator, "  ");
-    }
-
-    #[test]
-    fn a_cancelled_answer_shows_the_cancelled_value_only_when_set() {
-        let answered = |value: bool| {
-            plain_with(
-                |p| {
-                    if value {
-                        p.base(|b| b.cancelled_value("cancelled"))
-                    } else {
-                        p
-                    }
-                },
-                |f, ctx| {
-                    let view = AnsweredView::new(PromptKind::Input, "Name", Answer::Cancelled);
-                    format_answered(f, ctx, &view)
-                },
-            )
-        };
-        assert_eq!(answered(false), "Name:");
-        assert_eq!(answered(true), "Name: cancelled");
     }
 }

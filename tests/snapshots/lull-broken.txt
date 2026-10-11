@@ -1,0 +1,6 @@
+$ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull-broken.json lull today
+--- exit 1
+--- stdout
+--- stderr
+error: tests/fixtures/lull-broken.json could not be read: unknown variant `yoga`, expected one of `park`, `screens`, `light`, `caffeine`, `alcohol`, `naps` at line 13 column 10
+

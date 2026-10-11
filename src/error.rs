@@ -61,6 +61,22 @@ impl From<Error> for IoError {
     }
 }
 
+/// The user cancelled (`Ctrl+C` in a prompt, or `Esc` in a flow with no step to go
+/// back to), and whatever was live is already erased: prints the app's cancel message
+/// on its own line, if it has one, then exits with code 130 or returns
+/// [`Error::Cancelled`], per [`GeneralOptions::cancel_exits`](crate::options::GeneralOptions::cancel_exits).
+pub(crate) fn cancelled<T>() -> Result<T> {
+    let options = crate::options::current();
+    if let Some(message) = options.general.cancel_message.clone() {
+        let _ = message.into_message().print();
+    }
+    if options.cancel_exits() {
+        crate::terminal::restore();
+        std::process::exit(130);
+    }
+    Err(Error::Cancelled)
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::ErrorKind;
