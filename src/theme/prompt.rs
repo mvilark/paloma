@@ -32,15 +32,23 @@ pub struct PromptView<'a> {
     pub prompt: &'a str,
     /// The current page and the number of pages, when the items do not fit.
     pub paging: Option<(usize, usize)>,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> PromptView<'a> {
     /// A view of the question line.
-    pub fn new(kind: PromptKind, prompt: &'a str, paging: Option<(usize, usize)>) -> Self {
+    pub fn new(
+        kind: PromptKind,
+        prompt: &'a str,
+        paging: Option<(usize, usize)>,
+        invalid: bool,
+    ) -> Self {
         PromptView {
             kind,
             prompt,
             paging,
+            invalid,
         }
     }
 }
@@ -56,15 +64,18 @@ pub struct InputPromptView<'a> {
     pub prompt: &'a str,
     /// The value `Enter` gives on an empty input, when it is shown.
     pub default: Option<&'a str>,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> InputPromptView<'a> {
     /// A view of the input line.
-    pub fn new(kind: PromptKind, prompt: &'a str, default: Option<&'a str>) -> Self {
+    pub fn new(kind: PromptKind, prompt: &'a str, default: Option<&'a str>, invalid: bool) -> Self {
         InputPromptView {
             kind,
             prompt,
             default,
+            invalid,
         }
     }
 }
@@ -82,15 +93,18 @@ pub struct ConfirmPromptView<'a> {
     /// ([`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons)), so this
     /// line holds only the question.
     pub buttons: bool,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> ConfirmPromptView<'a> {
     /// A view of the confirm line.
-    pub fn new(prompt: &'a str, default: Option<bool>, buttons: bool) -> Self {
+    pub fn new(prompt: &'a str, default: Option<bool>, buttons: bool, invalid: bool) -> Self {
         ConfirmPromptView {
             prompt,
             default,
             buttons,
+            invalid,
         }
     }
 }
@@ -122,15 +136,29 @@ pub struct FuzzySelectPromptView<'a> {
     pub search: &'a str,
     /// The cursor, as a byte offset into `search`.
     pub cursor: usize,
+    /// The placeholder to show in place of the search: `Some` only while the search
+    /// is empty and the prompt has one
+    /// (`FuzzySelect::placeholder`, feature `fuzzy-select`).
+    pub placeholder: Option<&'a str>,
+    /// The message row shows a validation error.
+    pub invalid: bool,
 }
 
 impl<'a> FuzzySelectPromptView<'a> {
     /// A view of the search line.
-    pub fn new(prompt: &'a str, search: &'a str, cursor: usize) -> Self {
+    pub fn new(
+        prompt: &'a str,
+        search: &'a str,
+        cursor: usize,
+        placeholder: Option<&'a str>,
+        invalid: bool,
+    ) -> Self {
         FuzzySelectPromptView {
             prompt,
             search,
             cursor,
+            placeholder,
+            invalid,
         }
     }
 }
@@ -152,6 +180,11 @@ pub struct ItemView<'a> {
     /// The characters (by index) that match the search, when a fuzzy select
     /// highlights matches.
     pub matches: Option<&'a [usize]>,
+    /// Extra text to draw after the item ([`Item::description`](crate::Item::description)).
+    pub description: Option<&'a str>,
+    /// The item is disabled ([`Item::disabled`](crate::Item::disabled)): it is shown
+    /// but cannot be focused or chosen.
+    pub disabled: bool,
 }
 
 impl<'a> ItemView<'a> {
@@ -162,6 +195,8 @@ impl<'a> ItemView<'a> {
         active: bool,
         checked: Option<bool>,
         matches: Option<&'a [usize]>,
+        description: Option<&'a str>,
+        disabled: bool,
     ) -> Self {
         ItemView {
             kind,
@@ -169,6 +204,76 @@ impl<'a> ItemView<'a> {
             active,
             checked,
             matches,
+            description,
+            disabled,
+        }
+    }
+}
+
+/// The line of keys under a prompt; see
+/// [`Theme::format_legend`](crate::theme::Theme::format_legend).
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct LegendView<'a> {
+    /// Which prompt.
+    pub kind: PromptKind,
+    /// The keys and what they do, as `(key, action)`: the prompt's `legend` token, plus
+    /// the `legend_back` token while `Esc` goes back.
+    pub keys: &'a [(&'a str, &'a str)],
+}
+
+impl<'a> LegendView<'a> {
+    /// A view of the legend line.
+    pub fn new(kind: PromptKind, keys: &'a [(&'a str, &'a str)]) -> Self {
+        LegendView { kind, keys }
+    }
+}
+
+/// Where the message row under a prompt got its message from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MessageSource {
+    /// The prompt's `description(..)`, shown while nothing newer applies.
+    Description,
+    /// What the prompt's `on_change(..)` closure returned for the current value.
+    Change,
+    /// A failed validation (or a parse error), shown until the value changes.
+    Validation,
+}
+
+/// One line of the message row under a prompt: the message or one of its nested
+/// messages; see
+/// [`Theme::format_prompt_message`](crate::theme::Theme::format_prompt_message).
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct PromptMessageView<'a> {
+    /// Which prompt.
+    pub kind: PromptKind,
+    /// The message's kind.
+    pub status: crate::Status,
+    /// The message's text.
+    pub text: &'a str,
+    /// 0 for the message, 1 and more for nested messages.
+    pub depth: usize,
+    /// Where the message came from.
+    pub source: MessageSource,
+}
+
+impl<'a> PromptMessageView<'a> {
+    /// A view of one line of the message row.
+    pub fn new(
+        kind: PromptKind,
+        status: crate::Status,
+        text: &'a str,
+        depth: usize,
+        source: MessageSource,
+    ) -> Self {
+        PromptMessageView {
+            kind,
+            status,
+            text,
+            depth,
+            source,
         }
     }
 }
@@ -186,8 +291,12 @@ pub enum Answer<'a> {
     /// A password, by its number of mask characters
     /// ([`Password::result_len`](crate::Password::result_len)).
     Hidden(usize),
-    /// No answer (a confirm left with `Esc`).
+    /// No answer: drawn as the `empty_value` token, nothing by default.
     Skipped,
+    /// The user cancelled the prompt with `Ctrl+C`: drawn as the `cancelled_value`
+    /// token in `cancelled_style`. The prompt draws this line only when the token is
+    /// set.
+    Cancelled,
 }
 
 /// The line an answered prompt leaves; see

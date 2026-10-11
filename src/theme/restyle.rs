@@ -3,8 +3,8 @@ use std::{borrow::Cow, fmt};
 
 use crate::theme::{
     AnsweredView, ConfirmButtonsView, ConfirmPromptView, Context, FuzzySelectPromptView,
-    InputPromptView, ItemView, KeyValueView, MessageView, PanelView, PromptView, SectionView,
-    TableView, TaskStepView, TaskView, Theme, Tokens,
+    InputPromptView, ItemView, KeyValueView, LegendView, MessageView, PanelView, PromptMessageView,
+    PromptView, SectionView, TableView, TaskStepView, TaskView, Theme, Tokens,
 };
 
 /// A theme drawn with other tokens. Every hook is the wrapped theme's own; only
@@ -58,6 +58,8 @@ impl<T: Theme> Theme for Restyled<T> {
         fn format_confirm_buttons(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &ConfirmButtonsView) -> fmt::Result;
         fn format_fuzzy_select_prompt(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &FuzzySelectPromptView) -> fmt::Result;
         fn format_item(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &ItemView) -> fmt::Result;
+        fn format_legend(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &LegendView) -> fmt::Result;
+        fn format_prompt_message(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &PromptMessageView) -> fmt::Result;
         fn format_answered(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &AnsweredView) -> fmt::Result;
     }
 }

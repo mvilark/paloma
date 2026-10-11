@@ -5,14 +5,14 @@
 //! member underneath (`confirm`, `select`, …, `error`, `warning`, …, `task`):
 //!
 //! ```rust,no_run
-//! use paloma::{terminal::Stream, Options};
+//! use paloma::{terminal::Stream, Done, Options};
 //!
 //! paloma::set_options(
 //!     Options::new()
-//!         .prompts(|p| p.report(true))
+//!         .prompts(|p| p.done(Done::Collapse).legend(true))
 //!         .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
 //!         .password(|p| p.mask(true).result_len(8))
-//!         .select(|s| s.report(false))
+//!         .select(|s| s.done(Done::Erase))
 //!         .messages(|m| m.stream(Stream::Stderr))
 //!         .success(|s| s.stream(Stream::Stdout)),
 //! );
@@ -46,12 +46,28 @@ pub(crate) fn current() -> Options {
     guard.clone().unwrap_or_default()
 }
 
+/// What an answered prompt leaves on the screen; see
+/// [`PromptOptions::done`] and the `done` method every prompt has.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Done {
+    /// One line with the answer (drawn by `format_answered`). The default.
+    #[default]
+    Collapse,
+    /// The prompt stays as it was when answered, without its message row and legend.
+    Keep,
+    /// Nothing stays.
+    Erase,
+}
+
 settings! {
     /// Settings for the whole app.
     pub struct GeneralOptions {
-        /// Whether a prompt prints its one-line result after it is answered.
-        #[deprecated(note = "use `Options::prompts(|p| p.report(..))`")]
-        report: bool,
+        /// Whether prompts answer without asking: a prompt returns its default (the
+        /// table in the usage guide says which) and draws it as an answered prompt
+        /// would. A prompt with no default and no preset returns
+        /// [`Error::NoDefault`](crate::Error::NoDefault). Default: off.
+        unattended: bool,
     }
 }
 
@@ -59,16 +75,20 @@ settings! {
     /// Settings shared by prompts: the `prompts` family group, and the group of
     /// `Input`, `Select`, `MultiSelect`, `Sort` and `FuzzySelect`.
     pub struct PromptOptions {
-        /// Whether a prompt prints its one-line result after it is answered.
-        report: bool,
+        /// What an answered prompt leaves ([`Done`]). Default: [`Done::Collapse`].
+        done: Done,
+        /// Whether the prompt shows a line with its keys under it. Default: off.
+        legend: bool,
     }
 }
 
 settings! {
     /// Settings for [`Confirm`](crate::Confirm).
     pub struct ConfirmOptions {
-        /// Whether the prompt prints its one-line result after it is answered.
-        report: bool,
+        /// What an answered prompt leaves ([`Done`]). Default: [`Done::Collapse`].
+        done: Done,
+        /// Whether the prompt shows a line with its keys under it. Default: off.
+        legend: bool,
         /// `Yes` / `No` buttons (`true`) or the classic `(y/n)` text (`false`, the
         /// default). See [`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons).
         choices_as_buttons: bool,
@@ -82,8 +102,10 @@ settings! {
 settings! {
     /// Settings for [`Password`](crate::Password).
     pub struct PasswordOptions {
-        /// Whether the prompt prints its one-line result after it is answered.
-        report: bool,
+        /// What an answered prompt leaves ([`Done`]). Default: [`Done::Collapse`].
+        done: Done,
+        /// Whether the prompt shows a line with its keys under it. Default: off.
+        legend: bool,
         /// Whether typed characters are echoed as mask characters (`true`) or not at
         /// all (`false`, the default). The theme picks the character: the password
         /// prompt's `mask` token ([`PromptStyle`](crate::theme::PromptStyle)).
@@ -225,12 +247,20 @@ impl Options {
         Self::default()
     }
 
-    /// Resolves `report`: the prompt's own value, its group, `prompts`, then the
-    /// deprecated `general` value.
-    pub(crate) fn report(&self, own: Option<bool>, group: Option<bool>) -> Option<bool> {
-        own.or(group)
-            .or(self.prompts.report)
-            .or(self.general.report)
+    /// Resolves `done`: the prompt's own value, its group, `prompts`, then the
+    /// default ([`Done::Collapse`]).
+    pub(crate) fn done(&self, own: Option<Done>, group: Option<Done>) -> Done {
+        own.or(group).or(self.prompts.done).unwrap_or_default()
+    }
+
+    /// Resolves `legend`: the prompt's own value, its group, `prompts`, then off.
+    pub(crate) fn legend(&self, own: Option<bool>, group: Option<bool>) -> bool {
+        own.or(group).or(self.prompts.legend).unwrap_or(false)
+    }
+
+    /// Whether prompts answer without asking.
+    pub(crate) fn unattended(&self) -> bool {
+        self.general.unattended == Some(true)
     }
 
     /// The group of one output block.
@@ -268,18 +298,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn report_resolves_prompt_then_group_then_family_then_general() {
+    fn done_resolves_prompt_then_group_then_family_then_default() {
         let o = Options::new()
-            .prompts(|p| p.report(false))
-            .select(|s| s.report(true));
-        assert_eq!(o.report(None, o.select.report), Some(true));
-        assert_eq!(o.report(None, o.input.report), Some(false));
-        assert_eq!(o.report(Some(true), o.input.report), Some(true));
-        assert_eq!(Options::new().report(None, None), None);
+            .prompts(|p| p.done(Done::Erase))
+            .select(|s| s.done(Done::Keep));
+        assert_eq!(o.done(None, o.select.done), Done::Keep);
+        assert_eq!(o.done(None, o.input.done), Done::Erase);
+        assert_eq!(o.done(Some(Done::Collapse), o.input.done), Done::Collapse);
+        assert_eq!(Options::new().done(None, None), Done::Collapse);
+        assert_eq!(Done::default(), Done::Collapse);
+        // The member groups that are not `PromptOptions` resolve the same way.
+        let o = Options::new()
+            .prompts(|p| p.done(Done::Keep))
+            .confirm(|c| c.done(Done::Erase))
+            .password(|p| p.done(Done::Collapse));
+        assert_eq!(o.done(None, o.confirm.done), Done::Erase);
+        assert_eq!(o.done(None, o.password.done), Done::Collapse);
+    }
 
-        #[allow(deprecated)]
-        let o = Options::new().general(|g| g.report(false));
-        assert_eq!(o.report(None, None), Some(false));
+    #[test]
+    fn legend_resolves_prompt_then_group_then_family_then_off() {
+        let o = Options::new()
+            .prompts(|p| p.legend(true))
+            .sort(|s| s.legend(false));
+        assert!(o.legend(None, o.select.legend));
+        assert!(!o.legend(None, o.sort.legend));
+        assert!(!o.legend(Some(false), o.select.legend));
+        assert!(!Options::new().legend(None, None));
+    }
+
+    #[test]
+    fn unattended_is_off_unless_set() {
+        assert!(!Options::new().unattended());
+        assert!(Options::new().general(|g| g.unattended(true)).unattended());
+        assert!(!Options::new().general(|g| g.unattended(false)).unattended());
     }
 
     #[test]

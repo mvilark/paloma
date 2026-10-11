@@ -43,8 +43,10 @@ pub use error::{Error, Result};
 #[cfg(feature = "history")]
 pub use history::{BasicHistory, History};
 pub use live::task::{task, RunningTask, Task};
-pub use options::{set_options, Options};
-pub use output::message::{description, error, hint, info, success, warning, Message, Status};
+pub use options::{set_options, Done, Options};
+pub use output::message::{
+    description, error, hint, info, success, warning, IntoMessage, Message, Status,
+};
 pub use output::{
     key_value::KeyValue,
     panel::{Panel, PanelRow},
@@ -60,7 +62,12 @@ pub use prompts::fuzzy_select::FuzzySelect;
 #[cfg(feature = "password")]
 pub use prompts::password::Password;
 pub use prompts::{
-    confirm::Confirm, input::Input, multi_select::MultiSelect, select::Select, sort::Sort,
+    confirm::Confirm,
+    input::Input,
+    item::{IntoItem, Item},
+    multi_select::MultiSelect,
+    select::Select,
+    sort::Sort,
 };
 
 #[cfg(feature = "completion")]

@@ -101,7 +101,8 @@ fn main() {
             .password(|p| p.mask(true).result_len(8)),
     );
 
-    // Ctrl+C while a spinner runs (no prompt is reading keys then).
+    // Ctrl+C while a spinner runs (no prompt is reading keys then; a prompt reads it as
+    // a key and returns `Error::Cancelled`).
     let _ = ctrlc::set_handler(|| {
         ui::cancelled();
         std::process::exit(130);
@@ -131,10 +132,8 @@ fn main() {
     };
     let code = match result {
         Ok(code) => code,
-        Err(err) if flows::is_cancel(&err) => {
-            ui::cancelled();
-            130
-        }
+        // `^C` at a prompt: it has erased itself and drawn the theme's cancelled line.
+        Err(paloma::Error::Cancelled) => 130,
         Err(err) => {
             ui::log(ui::Kind::Err, &err.to_string());
             1

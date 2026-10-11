@@ -1,15 +1,21 @@
-use std::{io, ops::Rem};
+use std::io;
 
 use console::{Key, Term};
 use fuzzy_matcher::FuzzyMatcher;
 
 use crate::{
-    prompts::base::{base_methods, PromptBase},
-    theme::{
-        render::TermThemeRenderer,
-        {Answer, PromptKind},
+    options::Done,
+    output::message::{IntoMessage, Message, Status},
+    prompts::{
+        base::{base_methods, PromptBase},
+        item::{check_index, next_enabled, next_where, IntoItem, Item},
+        row::{Row, Validators},
     },
-    Result,
+    theme::{
+        render::{row_lines, TermThemeRenderer},
+        {Answer, ItemView, PromptKind},
+    },
+    Error, Result,
 };
 
 /// Renders a select prompt with fuzzy search.
@@ -37,9 +43,9 @@ use crate::{
 #[derive(Clone)]
 pub struct FuzzySelect<'a> {
     default: Option<usize>,
-    items: Vec<String>,
+    items: Vec<Item>,
     prompt: String,
-    clear: bool,
+    preset: Option<usize>,
     highlight_matches: bool,
     enable_vim_mode: bool,
     max_length: Option<usize>,
@@ -47,6 +53,9 @@ pub struct FuzzySelect<'a> {
     /// Search string that a fuzzy search with start with.
     /// Defaults to an empty string.
     prefill: String,
+    placeholder: Option<String>,
+    validators: Validators<'a, usize>,
+    row: Row<'a, usize>,
 }
 
 impl Default for FuzzySelect<'_> {
@@ -56,34 +65,39 @@ impl Default for FuzzySelect<'_> {
 }
 
 impl<'a> FuzzySelect<'a> {
-    /// Sets the clear behavior of the menu.
-    ///
-    /// The default is to clear the menu.
-    pub fn clear(mut self, val: bool) -> Self {
-        self.clear = val;
-        self
-    }
-
-    /// Sets a default for the menu
+    /// Sets a default for the menu: the position in the list when it opens (an item
+    /// index while the search is empty). A disabled item starts on the next enabled
+    /// one. With `general().unattended(true)` the prompt answers with the item of this
+    /// index.
     pub fn default(mut self, val: usize) -> Self {
         self.default = Some(val);
         self
     }
 
-    /// Add a single item to the fuzzy selector.
-    pub fn item<T: ToString>(mut self, item: T) -> Self {
-        self.items.push(item.to_string());
+    /// Skips the prompt when `val` is `Some`: it returns that item's index without
+    /// needing a terminal, and draws the answered line as the prompt would have left
+    /// it ([`done`](Self::done); `Keep` draws like `Collapse`). The preset is not
+    /// validated and `on_change` is not called. `None` asks as usual.
+    pub fn preset(mut self, val: Option<usize>) -> Self {
+        self.preset = val;
         self
     }
 
-    /// Adds multiple items to the fuzzy selector.
+    /// Add a single item to the fuzzy selector: an [`Item`] (with a description, or
+    /// disabled) or any `Display` value. Items are matched on their text.
+    pub fn item(mut self, item: impl IntoItem) -> Self {
+        self.items.push(item.into_item());
+        self
+    }
+
+    /// Adds multiple items to the fuzzy selector (see [`item`](Self::item)).
     pub fn items<T, I>(mut self, items: I) -> Self
     where
-        T: ToString,
+        T: IntoItem,
         I: IntoIterator<Item = T>,
     {
         self.items
-            .extend(items.into_iter().map(|item| item.to_string()));
+            .extend(items.into_iter().map(IntoItem::into_item));
 
         self
     }
@@ -96,14 +110,52 @@ impl<'a> FuzzySelect<'a> {
 
     /// Prefaces the menu with a prompt.
     ///
-    /// When a prompt is set the system also prints out a confirmation after
-    /// the fuzzy selection.
+    /// The answer is left as one line after the fuzzy selection; change that with
+    /// [`done`](Self::done).
     pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = prompt.into();
         self
     }
 
-    base_methods!(fuzzy_select, |_| true);
+    base_methods!(fuzzy_select);
+
+    /// Shows `text` in place of the search while it is empty, in the theme's
+    /// `placeholder_style`. It goes away at the first key and is never searched for
+    /// (unlike [`prefill`](Self::prefill)).
+    pub fn placeholder<S: Into<String>>(mut self, text: S) -> Self {
+        self.placeholder = Some(text.into());
+        self
+    }
+
+    /// Called each time the highlighted item changes, with its index in the items
+    /// (not in the filtered list), once an item is highlighted. `Some(message)` shows
+    /// in the row under the items; `None` brings the
+    /// [`description`](Self::description) back.
+    ///
+    /// A later call replaces an earlier closure.
+    pub fn on_change(
+        mut self,
+        f: impl FnMut(&usize) -> Option<Message<'static>> + Send + 'a,
+    ) -> Self {
+        self.row.on_change(f);
+        self
+    }
+
+    /// Registers a validator, run with the chosen item's index (in the items) when the
+    /// user picks it. An error keeps the prompt open and shows in the row under the
+    /// items until the highlighted item changes. Several validators run in order; the
+    /// first error wins.
+    ///
+    /// The error can be any `Display` value (shown as an error message) or a
+    /// [`Message`] of any kind (see [`IntoMessage`]).
+    pub fn validate<E: IntoMessage>(
+        mut self,
+        mut f: impl FnMut(&usize) -> std::result::Result<(), E> + 'a,
+    ) -> Self {
+        self.validators
+            .push(move |i: &usize| f(i).err().map(|e| e.into_message(Status::Error)));
+        self
+    }
 
     /// Indicates whether to highlight matched indices
     ///
@@ -138,6 +190,7 @@ impl<'a> FuzzySelect<'a> {
     /// The dialog is rendered on stderr.
     /// Result contains `index` of selected item if user hit 'Enter'.
     /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q'.
+    /// `Ctrl+C` returns [`Error::Cancelled`].
     #[inline]
     pub fn interact(self) -> Result<usize> {
         self.interact_on(&Term::stderr())
@@ -147,7 +200,8 @@ impl<'a> FuzzySelect<'a> {
     ///
     /// The user can select the items using 'Enter' and the index of selected item will be returned.
     /// The dialog is rendered on stderr.
-    /// Result contains `Some(index)` if user hit 'Enter' or `None` if user cancelled with 'Esc' or 'q'.
+    /// Result contains `Some(index)` if user hit 'Enter' or `None` if user went back with 'Esc' or 'q' (the prompt is erased; with
+    /// [`vim_mode`](Self::vim_mode) `Esc` enters vim mode and `q` goes back).
     ///
     /// ## Example
     ///
@@ -187,12 +241,35 @@ impl<'a> FuzzySelect<'a> {
         self._interact_on(term, true)
     }
 
-    fn _interact_on(self, term: &Term, allow_quit: bool) -> Result<Option<usize>> {
+    fn _interact_on(mut self, term: &Term, allow_back: bool) -> Result<Option<usize>> {
+        let options = crate::options::current();
+        let done = self.done_mode(&options);
+
+        // A preset or an unattended run answers without a terminal.
+        let given = match self.preset {
+            Some(sel) => Some(check_index(sel, self.items.len())?),
+            None if options.unattended() => Some(self.unattended()?),
+            None => None,
+        };
+        if let Some(sel) = given {
+            if done != Done::Erase {
+                let mut render = TermThemeRenderer::new(term, self.base.theme);
+                let answer = Answer::Text(self.items[sel].text());
+                render.finish_preset(done, PromptKind::FuzzySelect, &self.prompt, answer)?;
+            }
+            return Ok(Some(sel));
+        }
+
+        if !term.is_term() {
+            return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
+        }
+
         // Place cursor at the end of the search term
         let mut cursor = self.prefill.chars().count();
         let mut search_term = self.prefill.to_owned();
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
+        render.set_legend(self.legend_enabled(&options), allow_back);
         let mut sel = self.default;
 
         // Fuzzy matcher
@@ -210,6 +287,9 @@ impl<'a> FuzzySelect<'a> {
         term.hide_cursor()?;
 
         let mut vim_mode = false;
+        // The highlighted item (its index in the items) the row last heard of.
+        let mut highlighted = None;
+        let mut opened = false;
 
         loop {
             let mut byte_indices = search_term
@@ -219,51 +299,89 @@ impl<'a> FuzzySelect<'a> {
 
             byte_indices.push(search_term.len());
 
-            render.clear()?;
-            render.fuzzy_select_prompt(self.prompt.as_str(), &search_term, byte_indices[cursor])?;
-
             // Maps all items to a tuple of item and its match score.
             let mut filtered_list = self
                 .items
                 .iter()
-                .map(|item| (item, matcher.fuzzy_match(item, &search_term)))
-                .filter_map(|(item, score)| score.map(|s| (item, s)))
+                .enumerate()
+                .map(|(idx, item)| (idx, item, matcher.fuzzy_match(item.text(), &search_term)))
+                .filter_map(|(idx, item, score)| score.map(|s| (idx, item, s)))
                 .collect::<Vec<_>>();
 
             // Renders all matching items, from best match to worst.
-            filtered_list.sort_unstable_by(|(_, s1), (_, s2)| s2.cmp(s1));
+            filtered_list.sort_unstable_by(|(_, _, s1), (_, _, s2)| s2.cmp(s1));
 
-            for (idx, (item, _)) in filtered_list
+            // The highlight never rests on a disabled item.
+            if let Some(at) = sel.filter(|_| !filtered_list.is_empty()) {
+                let enabled = |i: usize| !filtered_list[i].1.is_disabled();
+                let len = filtered_list.len();
+                sel = next_where(len, at, true, enabled);
+            }
+
+            let now = sel
+                .and_then(|sel| filtered_list.get(sel))
+                .map(|(idx, ..)| *idx);
+            if let (true, true, Some(now)) = (opened, now != highlighted, now) {
+                self.row.changed(&now);
+            }
+            highlighted = now;
+            opened = true;
+
+            // The row and the legend take rows from the list, so the whole prompt fits.
+            let row = self.row.current(self.base.description.as_ref());
+            let reserved = row_lines(row) + render.legend_lines(PromptKind::FuzzySelect);
+            let visible_rows = visible_term_rows.saturating_sub(reserved).max(1);
+            if let Some(sel) = sel {
+                if sel >= starting_row + visible_rows {
+                    starting_row = sel + 1 - visible_rows;
+                } else if sel < starting_row {
+                    starting_row = sel;
+                }
+            }
+
+            let shown: Vec<_> = filtered_list
                 .iter()
                 .enumerate()
                 .skip(starting_row)
-                .take(visible_term_rows)
-            {
-                let matches = self
-                    .highlight_matches
-                    .then(|| matcher.fuzzy_indices(item, &search_term))
-                    .flatten()
-                    .map(|(_, indices)| indices);
-                render.item(
-                    PromptKind::FuzzySelect,
-                    item,
-                    Some(idx) == sel,
-                    None,
-                    matches.as_deref(),
-                )?;
-            }
-            term.flush()?;
+                .take(visible_rows)
+                .map(|(pos, (_, item, _))| {
+                    let matches = self
+                        .highlight_matches
+                        .then(|| matcher.fuzzy_indices(item.text(), &search_term))
+                        .flatten()
+                        .map(|(_, indices)| indices);
+                    (pos, *item, matches)
+                })
+                .collect();
+            render.fuzzy_frame(
+                self.prompt.as_str(),
+                &search_term,
+                byte_indices[cursor],
+                self.placeholder.as_deref(),
+                self.row.is_invalid(),
+                shown.iter().map(|(pos, item, matches)| {
+                    ItemView::new(
+                        PromptKind::FuzzySelect,
+                        item.text(),
+                        Some(*pos) == sel,
+                        None,
+                        matches.as_deref(),
+                        item.description_text(),
+                        item.is_disabled(),
+                    )
+                }),
+                row,
+            )?;
 
-            match (term.read_key()?, sel, vim_mode) {
+            match (term.read_key_raw()?, sel, vim_mode) {
+                (Key::CtrlC, ..) => {
+                    return render.cancel(PromptKind::FuzzySelect, Some(&self.prompt))
+                }
                 (Key::Escape, _, false) if self.enable_vim_mode => {
                     vim_mode = true;
                 }
-                (Key::Escape, _, false) | (Key::Char('q'), _, true) if allow_quit => {
-                    if self.clear {
-                        render.clear()?;
-                        term.flush()?;
-                    }
-                    term.show_cursor()?;
+                (Key::Escape, _, false) | (Key::Char('q'), _, true) if allow_back => {
+                    render.back()?;
                     return Ok(None);
                 }
                 (Key::Char('i' | 'a'), _, true) => {
@@ -272,90 +390,69 @@ impl<'a> FuzzySelect<'a> {
                 (Key::ArrowUp | Key::BackTab, _, _) | (Key::Char('k'), _, true)
                     if !filtered_list.is_empty() =>
                 {
-                    if sel == Some(0) {
-                        starting_row =
-                            filtered_list.len().max(visible_term_rows) - visible_term_rows;
-                    } else if sel == Some(starting_row) {
-                        starting_row -= 1;
-                    }
-                    sel = match sel {
-                        None => Some(filtered_list.len() - 1),
-                        Some(sel) => Some(
-                            ((sel as i64 - 1 + filtered_list.len() as i64)
-                                % (filtered_list.len() as i64))
-                                as usize,
-                        ),
-                    };
-                    term.flush()?;
+                    let len = filtered_list.len();
+                    let enabled = |i: usize| !filtered_list[i].1.is_disabled();
+                    let from = sel.map_or(len - 1, |sel| (sel + len - 1) % len);
+                    sel = next_where(len, from, false, enabled).or(sel);
                 }
                 (Key::ArrowDown | Key::Tab, _, _) | (Key::Char('j'), _, true)
                     if !filtered_list.is_empty() =>
                 {
-                    sel = match sel {
-                        None => Some(0),
-                        Some(sel) => {
-                            Some((sel as u64 + 1).rem(filtered_list.len() as u64) as usize)
-                        }
-                    };
-                    if sel == Some(visible_term_rows + starting_row) {
-                        starting_row += 1;
-                    } else if sel == Some(0) {
-                        starting_row = 0;
-                    }
-                    term.flush()?;
+                    let len = filtered_list.len();
+                    let enabled = |i: usize| !filtered_list[i].1.is_disabled();
+                    let from = sel.map_or(0, |sel| (sel + 1) % len);
+                    sel = next_where(len, from, true, enabled).or(sel);
                 }
                 (Key::ArrowLeft, _, _) | (Key::Char('h'), _, true) if cursor > 0 => {
                     cursor -= 1;
-                    term.flush()?;
                 }
                 (Key::ArrowRight, _, _) | (Key::Char('l'), _, true)
                     if cursor < byte_indices.len() - 1 =>
                 {
                     cursor += 1;
-                    term.flush()?;
                 }
-                (Key::Enter, Some(sel), _) if !filtered_list.is_empty() => {
-                    if self.clear {
-                        render.clear()?;
+                (Key::Enter, Some(sel), _) if sel < filtered_list.len() => {
+                    let (index, item, _) = filtered_list[sel];
+
+                    if let Some(err) = self.validators.check(&index) {
+                        self.row.invalid(err);
+                        continue;
                     }
 
-                    if self.report_enabled() {
-                        render.answered(
-                            PromptKind::FuzzySelect,
-                            self.prompt.as_str(),
-                            Answer::Text(filtered_list[sel].0),
-                        )?;
-                    }
+                    render.finish(
+                        done,
+                        PromptKind::FuzzySelect,
+                        &self.prompt,
+                        Answer::Text(item.text()),
+                    )?;
 
-                    let sel_string = filtered_list[sel].0;
-                    let sel_string_pos_in_items =
-                        self.items.iter().position(|item| item.eq(sel_string));
-
-                    term.show_cursor()?;
-                    return Ok(sel_string_pos_in_items);
+                    return Ok(Some(index));
                 }
                 (Key::Backspace, _, _) if cursor > 0 => {
                     cursor -= 1;
                     search_term.remove(byte_indices[cursor]);
-                    term.flush()?;
                 }
                 (Key::Del, _, _) if cursor < byte_indices.len() - 1 => {
                     search_term.remove(byte_indices[cursor]);
-                    term.flush()?;
                 }
                 (Key::Char(chr), _, _) if !chr.is_ascii_control() => {
                     search_term.insert(byte_indices[cursor], chr);
                     cursor += 1;
-                    term.flush()?;
                     sel = Some(0);
                     starting_row = 0;
                 }
 
                 _ => {}
             }
-
-            render.clear_preserve_prompt()?;
         }
+    }
+
+    /// The index an unattended run answers with: the item at the default's index, or the
+    /// next enabled item when that one is disabled.
+    fn unattended(&self) -> Result<usize> {
+        let default = self.default.ok_or(Error::NoDefault)?;
+        let default = check_index(default, self.items.len())?;
+        next_enabled(&self.items, default, true).ok_or(Error::NoDefault)
     }
 }
 
@@ -368,12 +465,15 @@ impl<'a> FuzzySelect<'a> {
             default: None,
             items: vec![],
             prompt: "".into(),
-            clear: true,
+            preset: None,
             highlight_matches: true,
             enable_vim_mode: false,
             max_length: None,
             base: PromptBase::new(),
             prefill: "".into(),
+            placeholder: None,
+            validators: Validators::default(),
+            row: Row::default(),
         }
     }
 }
@@ -394,6 +494,67 @@ mod tests {
         let items = ["First", "Second", "Third"];
         let iterator = items.iter().skip(1);
 
-        assert_eq!(FuzzySelect::new().items(iterator).items, &items[1..]);
+        let texts: Vec<_> = FuzzySelect::new()
+            .items(iterator)
+            .items
+            .iter()
+            .map(|i| i.text().to_string())
+            .collect();
+        assert_eq!(texts, &items[1..]);
+    }
+
+    #[cfg(unix)]
+    mod unattended {
+        use super::*;
+        use crate::{prompts::testing::capture, theme::SimpleTheme};
+
+        #[test]
+        fn a_preset_answers_without_a_terminal() {
+            let (term, out) = capture();
+            let picked = FuzzySelect::new()
+                .theme(&SimpleTheme)
+                .prompt("Search")
+                .items(["apple", "banana"])
+                .preset(Some(1))
+                .interact_on(&term)
+                .unwrap();
+            assert_eq!(picked, 1);
+            assert_eq!(out.text(), "Search: banana\n");
+        }
+
+        #[test]
+        fn a_preset_draws_as_done_says() {
+            for (done, expected) in [
+                (Done::Collapse, "Search: apple\n"),
+                (Done::Keep, "Search: apple\n"),
+                (Done::Erase, ""),
+            ] {
+                let (term, out) = capture();
+                FuzzySelect::new()
+                    .theme(&SimpleTheme)
+                    .prompt("Search")
+                    .items(["apple", "banana"])
+                    .done(done)
+                    .preset(Some(0))
+                    .interact_on(&term)
+                    .unwrap();
+                assert_eq!(out.text(), expected, "{done:?}");
+            }
+        }
+
+        #[test]
+        fn an_unattended_run_needs_a_default() {
+            let select = FuzzySelect::new().items(["apple", "banana"]);
+            assert!(matches!(select.unattended(), Err(Error::NoDefault)));
+            let select = select.default(1);
+            assert_eq!(select.unattended().unwrap(), 1);
+        }
+
+        #[test]
+        fn a_prompt_on_a_non_terminal_is_an_error() {
+            let (term, _) = capture();
+            let err = FuzzySelect::new().items(["apple"]).interact_on(&term);
+            assert!(matches!(err, Err(Error::IO(_))));
+        }
     }
 }

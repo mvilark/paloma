@@ -22,9 +22,9 @@ use console::Style;
 
 use crate::theme::{
     Answer, AnsweredView, BlockKind, ConfirmButtonsView, ConfirmPromptView, Context,
-    FuzzySelectPromptView, GlyphName, InputPromptView, ItemView, KeyValueView, LiveKind,
-    MessageView, PanelView, PromptKind, PromptLook, PromptView, Role, SectionView, TableView,
-    TaskState, TaskStepView, TaskView,
+    FuzzySelectPromptView, GlyphName, InputPromptView, ItemView, KeyValueView, LegendView,
+    LiveKind, MessageView, PanelView, PromptKind, PromptLook, PromptMessageView, PromptView, Role,
+    SectionView, TableView, TaskState, TaskStepView, TaskView,
 };
 
 /// One message line: the indent for its depth, then the glyph, the word and the text,
@@ -297,13 +297,22 @@ fn prompt_look(ctx: &Context, kind: PromptKind) -> PromptLook {
     tokens.get_prompts().resolve(kind, tokens)
 }
 
+/// The suffix style: `invalid_suffix_style` while the row shows a validation error.
+fn suffix_style(look: &PromptLook, invalid: bool) -> &Style {
+    if invalid {
+        &look.invalid_suffix_style
+    } else {
+        &look.suffix_style
+    }
+}
+
 /// The question line of a list prompt: mark, question and suffix, then the paging
 /// counter (` [Page 1/3] `) in `paging_style`.
 pub fn format_prompt(f: &mut dyn fmt::Write, ctx: &Context, view: &PromptView) -> fmt::Result {
     let look = prompt_look(ctx, view.kind);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if let Some((page, pages)) = view.paging {
         let counter = format!("[Page {page}/{pages}]");
         write!(f, " {} ", ctx.paint(&look.paging_style, counter))?;
@@ -312,7 +321,8 @@ pub fn format_prompt(f: &mut dyn fmt::Write, ctx: &Context, view: &PromptView) -
 }
 
 /// The input line: mark, question, the default in `default_brackets` and `hint_style`,
-/// the suffix, then a space for the typed text.
+/// the suffix (in `invalid_suffix_style` while the row shows an error), then a space
+/// for the typed text.
 pub fn format_input_prompt(
     f: &mut dyn fmt::Write,
     ctx: &Context,
@@ -325,7 +335,7 @@ pub fn format_input_prompt(
         let (open, close) = look.default_brackets;
         line.part(&look.hint_style, &format!("{open}{default}{close}"))?;
     }
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if line.wrote {
         write!(f, " ")?;
     }
@@ -351,7 +361,7 @@ pub fn format_confirm_prompt(
         };
         line.part(&look.hint_style, choices)?;
     }
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if let (false, true, Some(default)) = (view.buttons, look.show_default, view.default) {
         line.part(
             &look.default_style,
@@ -392,7 +402,8 @@ pub fn format_confirm_buttons(
 /// The search line: mark, question and suffix, a space, then the search in
 /// `text_style` with the cursor glyph in `cursor_style` at the cursor. With an empty
 /// cursor glyph the character under the cursor (a space at the end) is drawn in
-/// `cursor_style` instead.
+/// `cursor_style` instead. An empty search with a placeholder shows the cursor, then
+/// the placeholder in `placeholder_style`.
 pub fn format_fuzzy_select_prompt(
     f: &mut dyn fmt::Write,
     ctx: &Context,
@@ -401,9 +412,22 @@ pub fn format_fuzzy_select_prompt(
     let look = prompt_look(ctx, PromptKind::FuzzySelect);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
-    line.attached(&look.suffix_style, look.suffix, look.gap)?;
+    line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if line.wrote {
         write!(f, " ")?;
+    }
+    if let (true, Some(placeholder)) = (view.search.is_empty(), view.placeholder) {
+        let cursor = if look.cursor.is_empty() {
+            " "
+        } else {
+            look.cursor
+        };
+        return write!(
+            f,
+            "{}{}",
+            ctx.paint(&look.cursor_style, cursor),
+            ctx.paint(&look.placeholder_style, placeholder)
+        );
     }
     let (head, tail) = view.search.split_at(view.cursor.min(view.search.len()));
     let text = |s: &str| ctx.paint(&look.text_style, s.to_string());
@@ -430,7 +454,9 @@ pub fn format_fuzzy_select_prompt(
 
 /// One item: `item_indent` spaces, the focus glyph on the active item (spaces on the
 /// others), the checked or unchecked glyph when the item has one, then the text in
-/// `active_style` or `item_style`, with search matches in `match_style` inside it.
+/// `active_style` or `item_style` (`disabled_style` for a disabled item), with search
+/// matches in `match_style` inside it, and the description, if any, after
+/// `item_description_gap` spaces in `item_description_style`.
 /// A sort item shows `checked` only while it is active (only the active item can be
 /// picked up).
 pub fn format_item(f: &mut dyn fmt::Write, ctx: &Context, view: &ItemView) -> fmt::Result {
@@ -456,7 +482,9 @@ pub fn format_item(f: &mut dyn fmt::Write, ctx: &Context, view: &ItemView) -> fm
         };
         write!(f, "{} ", ctx.paint(style, glyph))?;
     }
-    let style = if view.active {
+    let style = if view.disabled {
+        &look.disabled_style
+    } else if view.active {
         &look.active_style
     } else {
         &look.item_style
@@ -470,15 +498,72 @@ pub fn format_item(f: &mut dyn fmt::Write, ctx: &Context, view: &ItemView) -> fm
                     write!(f, "{}", ctx.paint(style, c))?;
                 }
             }
-            Ok(())
         }
-        None => write!(f, "{}", ctx.paint(style, view.text)),
+        None => write!(f, "{}", ctx.paint(style, view.text))?,
     }
+    match view.description {
+        Some(description) => write!(
+            f,
+            "{}{}",
+            " ".repeat(look.item_description_gap),
+            ctx.paint(&look.item_description_style, description)
+        ),
+        None => Ok(()),
+    }
+}
+
+/// The line of keys under a prompt: `message_indent` spaces, then each `key action`
+/// pair (the key in `legend_key_style`, the action in `legend_style`) joined by
+/// `legend_separator` in `legend_style`.
+pub fn format_legend(f: &mut dyn fmt::Write, ctx: &Context, view: &LegendView) -> fmt::Result {
+    let look = prompt_look(ctx, view.kind);
+    write!(f, "{}", " ".repeat(look.message_indent))?;
+    for (i, (key, action)) in view.keys.iter().enumerate() {
+        if i > 0 {
+            write!(
+                f,
+                "{}",
+                ctx.paint(&look.legend_style, look.legend_separator)
+            )?;
+        }
+        write!(f, "{}", ctx.paint(&look.legend_key_style, key))?;
+        if !key.is_empty() && !action.is_empty() {
+            write!(f, " ")?;
+        }
+        write!(f, "{}", ctx.paint(&look.legend_style, action))?;
+    }
+    Ok(())
+}
+
+/// The `message_indent` token of the view's prompt, as spaces.
+pub(crate) fn prompt_message_indent(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &PromptMessageView,
+) -> fmt::Result {
+    let indent = prompt_look(ctx, view.kind).message_indent;
+    write!(f, "{}", " ".repeat(indent))
+}
+
+/// One line of the message row under a prompt: the `message_indent` token as spaces,
+/// then the line as [`format_message`] draws it (a nested message at its depth).
+pub fn format_prompt_message(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &PromptMessageView,
+) -> fmt::Result {
+    prompt_message_indent(f, ctx, view)?;
+    format_message(
+        f,
+        ctx,
+        &MessageView::new(view.status, view.text, view.depth),
+    )
 }
 
 /// The line an answered prompt leaves: answered mark, question, separator, then the
 /// answer in `value_style` (a list joined by `, ` in `list_separator_style`, a password as `hidden_value` or mask
 /// glyphs), or `empty_value` in `empty_style` for a skipped answer or an empty list.
+/// A cancelled prompt shows `cancelled_value` in `cancelled_style`, when it is set.
 pub fn format_answered(f: &mut dyn fmt::Write, ctx: &Context, view: &AnsweredView) -> fmt::Result {
     let look = prompt_look(ctx, view.kind);
     let mut line = Parts::new(f, ctx);
@@ -508,6 +593,10 @@ pub fn format_answered(f: &mut dyn fmt::Write, ctx: &Context, view: &AnsweredVie
         }
         Answer::Skipped => match empty {
             Some(empty) => line.value(empty),
+            None => Ok(()),
+        },
+        Answer::Cancelled => match look.cancelled_value {
+            Some(cancelled) => line.value(ctx.paint(&look.cancelled_style, cancelled)),
             None => Ok(()),
         },
     }
@@ -580,7 +669,15 @@ mod tests {
             plain_with(
                 |p| p.base(|b| b.item_indent(2).focus("→→")),
                 |f, ctx| {
-                    let view = ItemView::new(PromptKind::MultiSelect, "b", active, checked, None);
+                    let view = ItemView::new(
+                        PromptKind::MultiSelect,
+                        "b",
+                        active,
+                        checked,
+                        None,
+                        None,
+                        false,
+                    );
                     format_item(f, ctx, &view)
                 },
             )
@@ -594,7 +691,8 @@ mod tests {
     fn sort_items_show_the_pick_only_on_the_active_item() {
         let item = |active| {
             plain(|f, ctx| {
-                let view = ItemView::new(PromptKind::Sort, "b", active, Some(true), None);
+                let view =
+                    ItemView::new(PromptKind::Sort, "b", active, Some(true), None, None, false);
                 format_item(f, ctx, &view)
             })
         };
@@ -641,7 +739,7 @@ mod tests {
             plain_with(
                 |p| p.fuzzy_select(|s| s.cursor("")),
                 |f, ctx| {
-                    let view = FuzzySelectPromptView::new("Find", "ab", cursor);
+                    let view = FuzzySelectPromptView::new("Find", "ab", cursor, None, false);
                     format_fuzzy_select_prompt(f, ctx, &view)
                 },
             )
@@ -649,5 +747,187 @@ mod tests {
         // Plain tokens draw no style, so the character stays where it was.
         assert_eq!(search(0), "Find ab");
         assert_eq!(search(2), "Find ab ");
+    }
+
+    #[test]
+    fn an_empty_search_shows_the_cursor_then_the_placeholder() {
+        let search = |cursor: &'static str| {
+            plain_with(
+                |p| p.fuzzy_select(|s| s.cursor(cursor)),
+                |f, ctx| {
+                    let view = FuzzySelectPromptView::new("Find", "", 0, Some("fruit"), false);
+                    format_fuzzy_select_prompt(f, ctx, &view)
+                },
+            )
+        };
+        assert_eq!(search("|"), "Find |fruit");
+        assert_eq!(search(""), "Find  fruit");
+    }
+
+    #[test]
+    fn prompt_messages_are_indented_messages() {
+        use crate::theme::MessageSource;
+        let line = |depth| {
+            plain_with(
+                |p| p.input(|i| i.message_indent(2)),
+                |f, ctx| {
+                    let view = PromptMessageView::new(
+                        PromptKind::Input,
+                        Status::Error,
+                        "Bad",
+                        depth,
+                        MessageSource::Validation,
+                    );
+                    format_prompt_message(f, ctx, &view)
+                },
+            )
+        };
+        assert_eq!(line(0), "  error: Bad");
+        assert_eq!(line(1), "    error: Bad");
+    }
+
+    #[test]
+    fn items_show_their_description_after_the_gap() {
+        let item = |gap: Option<usize>, description| {
+            plain_with(
+                |p| match gap {
+                    Some(gap) => p.base(|b| b.item_description_gap(gap)),
+                    None => p,
+                },
+                |f, ctx| {
+                    let view = ItemView::new(
+                        PromptKind::Select,
+                        "b",
+                        false,
+                        None,
+                        None,
+                        description,
+                        false,
+                    );
+                    format_item(f, ctx, &view)
+                },
+            )
+        };
+        assert_eq!(item(None, Some("more")), "  b  more");
+        assert_eq!(item(Some(4), Some("more")), "  b    more");
+        assert_eq!(item(None, None), "  b");
+    }
+
+    #[test]
+    fn disabled_items_use_the_disabled_style_with_matches_inside() {
+        let styled = |disabled, matches: Option<&[usize]>| {
+            let tokens = Tokens::plain().prompts(|p| {
+                p.base(|b| {
+                    b.disabled_style(Style::new().red().force_styling(true))
+                        .match_style(Style::new().bold().force_styling(true))
+                })
+            });
+            let ctx = Context::new(&tokens, Stream::Stderr);
+            let mut out = String::new();
+            let view = ItemView::new(
+                PromptKind::FuzzySelect,
+                "ab",
+                true,
+                None,
+                matches,
+                None,
+                disabled,
+            );
+            format_item(&mut out, &ctx, &view).unwrap();
+            out
+        };
+        // Plain text for an enabled item; the disabled style, with the matched
+        // character nested in it, for a disabled one.
+        assert_eq!(styled(false, None), "> ab");
+        assert_eq!(styled(true, None), "> \x1b[31mab\x1b[0m");
+        assert_eq!(
+            styled(true, Some(&[1])),
+            "> \x1b[31ma\x1b[0m\x1b[31m\x1b[1mb\x1b[0m\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn the_legend_lists_keys_and_actions() {
+        let legend =
+            |keys: &[(&str, &str)],
+             tokens: fn(crate::theme::PromptTokens) -> crate::theme::PromptTokens| {
+                plain_with(tokens, |f, ctx| {
+                    format_legend(f, ctx, &LegendView::new(PromptKind::Select, keys))
+                })
+            };
+        let keys = [("up/down", "move"), ("enter", "choose")];
+        assert_eq!(legend(&keys, |p| p), "up/down move  enter choose");
+        assert_eq!(legend(&[], |p| p), "");
+        assert_eq!(
+            legend(&keys, |p| p
+                .base(|b| b.legend_separator(" | ").message_indent(2))),
+            "  up/down move | enter choose"
+        );
+    }
+
+    #[test]
+    fn the_legend_defaults_per_prompt_and_plain_uses_ascii_arrows() {
+        let legend = |tokens: &Tokens, kind| {
+            let look = tokens.get_prompts().resolve(kind, tokens);
+            look.legend
+                .iter()
+                .map(|(k, a)| format!("{k} {a}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let colorful = Tokens::colorful();
+        assert_eq!(
+            legend(&colorful, PromptKind::Select),
+            "↑↓ move, enter choose"
+        );
+        assert_eq!(legend(&colorful, PromptKind::Input), "enter submit");
+        assert_eq!(legend(&colorful, PromptKind::Password), "enter submit");
+        assert_eq!(legend(&colorful, PromptKind::Confirm), "");
+        assert_eq!(
+            legend(&colorful, PromptKind::MultiSelect),
+            "↑↓ move, space check, a all, enter submit"
+        );
+        assert_eq!(
+            legend(&colorful, PromptKind::Sort),
+            "↑↓ move, space pick up, enter submit"
+        );
+        assert_eq!(
+            legend(&colorful, PromptKind::FuzzySelect),
+            "↑↓ move, enter choose"
+        );
+        let plain = Tokens::plain();
+        assert_eq!(
+            legend(&plain, PromptKind::Select),
+            "up/down move, enter choose"
+        );
+        assert_eq!(
+            legend(&plain, PromptKind::Sort),
+            "up/down move, space pick up, enter submit"
+        );
+        assert_eq!(legend(&plain, PromptKind::Input), "enter submit");
+        let look = plain.get_prompts().resolve(PromptKind::Select, &plain);
+        assert_eq!(look.legend_back, ("esc", "back"));
+        assert_eq!(look.legend_separator, "  ");
+    }
+
+    #[test]
+    fn a_cancelled_answer_shows_the_cancelled_value_only_when_set() {
+        let answered = |value: bool| {
+            plain_with(
+                |p| {
+                    if value {
+                        p.base(|b| b.cancelled_value("cancelled"))
+                    } else {
+                        p
+                    }
+                },
+                |f, ctx| {
+                    let view = AnsweredView::new(PromptKind::Input, "Name", Answer::Cancelled);
+                    format_answered(f, ctx, &view)
+                },
+            )
+        };
+        assert_eq!(answered(false), "Name:");
+        assert_eq!(answered(true), "Name: cancelled");
     }
 }

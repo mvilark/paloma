@@ -771,10 +771,31 @@ settings! {
         hidden_value: &'static str,
         /// What a skipped answer or an empty list shows. Default: none (nothing).
         empty_value: &'static str,
+        /// What follows the question of a prompt the user cancelled with `Ctrl+C`, on
+        /// the line the cancelled prompt leaves. Default: none, and then the prompt
+        /// leaves no line at all.
+        cancelled_value: &'static str,
+        /// The keys a prompt's legend line lists, as `(key, action)` pairs. Default per
+        /// prompt: `input` and `password` `[("enter", "submit")]`, `select` and
+        /// `fuzzy_select` `[("↑↓", "move"), ("enter", "choose")]`, `multi_select`
+        /// `[("↑↓", "move"), ("space", "check"), ("a", "all"), ("enter", "submit")]`,
+        /// `sort` `[("↑↓", "move"), ("space", "pick up"), ("enter", "submit")]`, and
+        /// `confirm` none (an empty legend draws no line at all).
+        legend: &'static [(&'static str, &'static str)],
+        /// The key added to the legend while `Esc` goes back (`interact_opt`). Default
+        /// `("esc", "back")`.
+        legend_back: (&'static str, &'static str),
+        /// Between the entries of the legend. Default two spaces.
+        legend_separator: &'static str,
         /// Columns between the question and its suffix or separator. Default 1.
         gap: usize,
         /// Columns before each item of a list. Default 0.
         item_indent: usize,
+        /// Columns between an item and its description. Default 2.
+        item_description_gap: usize,
+        /// Columns before each line of the message row under a prompt (nested
+        /// messages are indented further by the message layout). Default 0.
+        message_indent: usize,
         /// Whether an open confirm shows the answer `Enter` gives after its suffix.
         /// Default true.
         show_default: bool,
@@ -784,6 +805,9 @@ settings! {
         label_style: Style,
         /// The suffix. Default: `subtle`.
         suffix_style: Style,
+        /// The suffix while the message row shows a validation error. Default:
+        /// `suffix_style`.
+        invalid_suffix_style: Style,
         /// An input's default value and a confirm's choices. Default: `subtle`.
         hint_style: Style,
         /// The answer `Enter` gives, after an open confirm. Default: `accent`.
@@ -800,12 +824,18 @@ settings! {
         empty_style: Style,
         /// The `, ` between the items of a list answer. Default: unstyled.
         list_separator_style: Style,
+        /// `cancelled_value`. Default: `subtle`.
+        cancelled_style: Style,
         /// The focus glyph. Default: `accent`.
         focus_style: Style,
         /// The active item's text. Default: `accent`.
         active_style: Style,
         /// Other items' text. Default: `text`.
         item_style: Style,
+        /// An item's description. Default: `subtle`.
+        item_description_style: Style,
+        /// The text of a disabled item. Default: `muted` plus strikethrough.
+        disabled_style: Style,
         /// The checked glyph. Default: `accent`.
         checked_style: Style,
         /// The unchecked glyph. Default: `subtle`.
@@ -814,10 +844,16 @@ settings! {
         match_style: Style,
         /// The search cursor. Default: `accent`.
         cursor_style: Style,
-        /// The typed search. Default: `text`.
+        /// The typed text: input, password mask, search. Default: `text`.
         text_style: Style,
+        /// The placeholder of an empty input or search. Default: `subtle`.
+        placeholder_style: Style,
         /// The paging counter (`[Page 1/3]`). Default: unstyled.
         paging_style: Style,
+        /// The keys of the legend. Default: `muted`.
+        legend_key_style: Style,
+        /// The actions and separators of the legend. Default: `subtle`.
+        legend_style: Style,
         /// A button without focus. Default: `text`.
         button_style: Style,
         /// The focused button. Default: `text`.
@@ -916,10 +952,22 @@ pub struct PromptLook {
     pub hidden_value: Option<&'static str>,
     /// See [`PromptStyle::empty_value`].
     pub empty_value: Option<&'static str>,
+    /// See [`PromptStyle::cancelled_value`].
+    pub cancelled_value: Option<&'static str>,
+    /// See [`PromptStyle::legend`].
+    pub legend: &'static [(&'static str, &'static str)],
+    /// See [`PromptStyle::legend_back`].
+    pub legend_back: (&'static str, &'static str),
+    /// See [`PromptStyle::legend_separator`].
+    pub legend_separator: &'static str,
     /// See [`PromptStyle::gap`].
     pub gap: usize,
     /// See [`PromptStyle::item_indent`].
     pub item_indent: usize,
+    /// See [`PromptStyle::item_description_gap`].
+    pub item_description_gap: usize,
+    /// See [`PromptStyle::message_indent`].
+    pub message_indent: usize,
     /// See [`PromptStyle::show_default`].
     pub show_default: bool,
     /// See [`PromptStyle::mark_style`].
@@ -928,6 +976,8 @@ pub struct PromptLook {
     pub label_style: Style,
     /// See [`PromptStyle::suffix_style`].
     pub suffix_style: Style,
+    /// See [`PromptStyle::invalid_suffix_style`].
+    pub invalid_suffix_style: Style,
     /// See [`PromptStyle::hint_style`].
     pub hint_style: Style,
     /// See [`PromptStyle::default_style`].
@@ -944,12 +994,18 @@ pub struct PromptLook {
     pub empty_style: Style,
     /// See [`PromptStyle::list_separator_style`].
     pub list_separator_style: Style,
+    /// See [`PromptStyle::cancelled_style`].
+    pub cancelled_style: Style,
     /// See [`PromptStyle::focus_style`].
     pub focus_style: Style,
     /// See [`PromptStyle::active_style`].
     pub active_style: Style,
     /// See [`PromptStyle::item_style`].
     pub item_style: Style,
+    /// See [`PromptStyle::item_description_style`].
+    pub item_description_style: Style,
+    /// See [`PromptStyle::disabled_style`].
+    pub disabled_style: Style,
     /// See [`PromptStyle::checked_style`].
     pub checked_style: Style,
     /// See [`PromptStyle::unchecked_style`].
@@ -960,12 +1016,34 @@ pub struct PromptLook {
     pub cursor_style: Style,
     /// See [`PromptStyle::text_style`].
     pub text_style: Style,
+    /// See [`PromptStyle::placeholder_style`].
+    pub placeholder_style: Style,
     /// See [`PromptStyle::paging_style`].
     pub paging_style: Style,
+    /// See [`PromptStyle::legend_key_style`].
+    pub legend_key_style: Style,
+    /// See [`PromptStyle::legend_style`].
+    pub legend_style: Style,
     /// See [`PromptStyle::button_style`].
     pub button_style: Style,
     /// See [`PromptStyle::focused_button_style`].
     pub focused_button_style: Style,
+}
+
+/// The keys a prompt's legend lists unless its `legend` token says otherwise.
+fn default_legend(kind: PromptKind) -> &'static [(&'static str, &'static str)] {
+    match kind {
+        PromptKind::Confirm => &[],
+        PromptKind::Select | PromptKind::FuzzySelect => &[("↑↓", "move"), ("enter", "choose")],
+        PromptKind::MultiSelect => &[
+            ("↑↓", "move"),
+            ("space", "check"),
+            ("a", "all"),
+            ("enter", "submit"),
+        ],
+        PromptKind::Sort => &[("↑↓", "move"), ("space", "pick up"), ("enter", "submit")],
+        _ => &[("enter", "submit")],
+    }
 }
 
 impl PromptTokens {
@@ -986,6 +1064,7 @@ impl PromptTokens {
         let choices = s.choices.unwrap_or("(y/n)");
         let label_style = s.label_style.unwrap_or_else(|| role(Role::text));
         let mask = s.mask.unwrap_or_else(|| glyph(GlyphName::Mask));
+        let suffix_style = s.suffix_style.unwrap_or_else(|| role(Role::subtle));
         PromptLook {
             mark: s.mark.unwrap_or_else(|| glyph(GlyphName::Prompt)),
             answered_mark: s
@@ -1011,15 +1090,24 @@ impl PromptTokens {
             default_brackets: s.default_brackets.unwrap_or(("(", ")")),
             hidden_value: s.hidden_value,
             empty_value: s.empty_value,
+            cancelled_value: s.cancelled_value,
+            legend: s.legend.unwrap_or_else(|| default_legend(kind)),
+            legend_back: s.legend_back.unwrap_or(("esc", "back")),
+            legend_separator: s.legend_separator.unwrap_or("  "),
             gap: s.gap.unwrap_or(1),
             item_indent: s.item_indent.unwrap_or(0),
+            item_description_gap: s.item_description_gap.unwrap_or(2),
+            message_indent: s.message_indent.unwrap_or(0),
             show_default: s.show_default.unwrap_or(true),
             mark_style: s.mark_style.unwrap_or_else(|| role(Role::accent)),
             answered_label_style: s
                 .answered_label_style
                 .unwrap_or_else(|| label_style.clone()),
             label_style,
-            suffix_style: s.suffix_style.unwrap_or_else(|| role(Role::subtle)),
+            invalid_suffix_style: s
+                .invalid_suffix_style
+                .unwrap_or_else(|| suffix_style.clone()),
+            suffix_style,
             hint_style: s.hint_style.unwrap_or_else(|| role(Role::subtle)),
             default_style: s.default_style.unwrap_or_else(|| role(Role::accent)),
             answered_mark_style: s.answered_mark_style.unwrap_or_else(|| role(Role::success)),
@@ -1027,15 +1115,25 @@ impl PromptTokens {
             value_style: s.value_style.unwrap_or_else(|| role(Role::text)),
             empty_style: s.empty_style.unwrap_or_else(|| role(Role::subtle)),
             list_separator_style: s.list_separator_style.unwrap_or_default(),
+            cancelled_style: s.cancelled_style.unwrap_or_else(|| role(Role::subtle)),
             focus_style: s.focus_style.unwrap_or_else(|| role(Role::accent)),
             active_style: s.active_style.unwrap_or_else(|| role(Role::accent)),
             item_style: s.item_style.unwrap_or_else(|| role(Role::text)),
+            item_description_style: s
+                .item_description_style
+                .unwrap_or_else(|| role(Role::subtle)),
+            disabled_style: s
+                .disabled_style
+                .unwrap_or_else(|| role(Role::muted).strikethrough()),
             checked_style: s.checked_style.unwrap_or_else(|| role(Role::accent)),
             unchecked_style: s.unchecked_style.unwrap_or_else(|| role(Role::subtle)),
             match_style: s.match_style.unwrap_or_else(|| Style::new().bold()),
             cursor_style: s.cursor_style.unwrap_or_else(|| role(Role::accent)),
             text_style: s.text_style.unwrap_or_else(|| role(Role::text)),
+            placeholder_style: s.placeholder_style.unwrap_or_else(|| role(Role::subtle)),
             paging_style: s.paging_style.unwrap_or_default(),
+            legend_key_style: s.legend_key_style.unwrap_or_else(|| role(Role::muted)),
+            legend_style: s.legend_style.unwrap_or_else(|| role(Role::subtle)),
             button_style: s.button_style.unwrap_or_else(|| role(Role::text)),
             focused_button_style: s.focused_button_style.unwrap_or_else(|| role(Role::text)),
         }
@@ -1075,7 +1173,26 @@ impl Tokens {
                 })
                 .confirm(|c| c.suffix("").separator(""))
                 .password(|p| p.hidden_value("[hidden]"))
-                .fuzzy_select(|f| f.suffix("")),
+                .select(|s| s.legend(&[("up/down", "move"), ("enter", "choose")]))
+                .multi_select(|m| {
+                    m.legend(&[
+                        ("up/down", "move"),
+                        ("space", "check"),
+                        ("a", "all"),
+                        ("enter", "submit"),
+                    ])
+                })
+                .sort(|s| {
+                    s.legend(&[
+                        ("up/down", "move"),
+                        ("space", "pick up"),
+                        ("enter", "submit"),
+                    ])
+                })
+                .fuzzy_select(|f| {
+                    f.suffix("")
+                        .legend(&[("up/down", "move"), ("enter", "choose")])
+                }),
             messages: MessageTokens::default()
                 .hint(|s| s.word(Some("hint:")))
                 .info(|s| s.word(Some("info:")))
@@ -1243,5 +1360,30 @@ mod tests {
         assert_eq!((look.focus, look.mask, look.choices), (">", "*", "(y/n)"));
         assert_eq!(look.choices_yes, "(y/n)");
         assert_eq!(look.gap, 1);
+    }
+
+    #[test]
+    fn row_and_placeholder_tokens_fall_back_to_the_suffix_and_subtle() {
+        let tokens = Tokens::colorful();
+        let look = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
+        assert_eq!(look.message_indent, 0);
+        assert_eq!(look.invalid_suffix_style, look.suffix_style);
+        assert_eq!(
+            &look.placeholder_style,
+            tokens.get_palette().get(Role::subtle)
+        );
+
+        let red = Style::new().red();
+        let tokens = Tokens::colorful().prompts(|p| {
+            p.base(|b| b.suffix_style(red.clone()).message_indent(2))
+                .input(|i| i.invalid_suffix_style(Style::new().bold()))
+        });
+        let select = tokens.get_prompts().resolve(PromptKind::Select, &tokens);
+        assert_eq!(
+            (&select.invalid_suffix_style, select.message_indent),
+            (&red, 2)
+        );
+        let input = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
+        assert_eq!(input.invalid_suffix_style, Style::new().bold());
     }
 }

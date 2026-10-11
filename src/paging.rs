@@ -1,7 +1,5 @@
 use console::Term;
 
-use crate::Result;
-
 /// Creates a paging module
 ///
 /// The paging module serves as tracking structure to allow paged views
@@ -15,30 +13,52 @@ pub struct Paging<'a> {
     term: &'a Term,
     current_term_size: (u16, u16),
     items_len: usize,
-    activity_transition: bool,
+    /// Rows the message row under the prompt takes, kept free for it.
+    reserved: usize,
 }
 
 impl<'a> Paging<'a> {
     pub fn new(term: &'a Term, items_len: usize, max_capacity: Option<usize>) -> Paging<'a> {
-        let term_size = term.size();
-        // Subtract -2 because we need space to render the prompt, if paging is active
-        let capacity = max_capacity
-            .unwrap_or(usize::MAX)
-            .clamp(3, term_size.0 as usize)
-            - 2;
-        let pages = (items_len as f64 / capacity as f64).ceil() as usize;
-
-        Paging {
-            pages,
+        let mut paging = Paging {
+            pages: 0,
             current_page: 0,
-            capacity,
-            active: pages > 1,
+            capacity: 1,
+            active: false,
             term,
-            current_term_size: term_size,
+            current_term_size: term.size(),
             items_len,
             max_capacity,
-            // Set transition initially to true to trigger prompt rendering for inactive paging on start
-            activity_transition: true,
+            reserved: 0,
+        };
+        paging.resize();
+        paging
+    }
+
+    /// Recomputes the capacity and the number of pages for the terminal size and the
+    /// reserved rows.
+    fn resize(&mut self) {
+        // Subtract 2 because we need space to render the prompt, if paging is active
+        self.capacity = (self
+            .max_capacity
+            .unwrap_or(usize::MAX)
+            .clamp(3, self.current_term_size.0 as usize)
+            - 2)
+        .saturating_sub(self.reserved)
+        .max(1);
+        self.pages = self.items_len.div_ceil(self.capacity);
+        self.active = self.pages > 1;
+    }
+
+    /// Keeps `rows` rows free under the items for the message row (its line count),
+    /// so the whole prompt fits on the screen. Call it before each frame.
+    ///
+    /// The reservation only grows: once a taller row has shown, the pages keep their
+    /// size, so page boundaries do not move under the user while the row changes.
+    pub fn set_reserved(&mut self, rows: usize, cursor_pos: usize) {
+        if rows > self.reserved {
+            self.reserved = rows;
+            self.resize();
+            self.update_page(cursor_pos);
         }
     }
 
@@ -52,50 +72,21 @@ impl<'a> Paging<'a> {
     }
 
     /// Updates all internal based on the current terminal size and cursor position
-    pub fn update(&mut self, cursor_pos: usize) -> Result {
+    pub fn update(&mut self, cursor_pos: usize) {
         let new_term_size = self.term.size();
 
         if self.current_term_size != new_term_size {
             self.current_term_size = new_term_size;
-            self.capacity = self
-                .max_capacity
-                .unwrap_or(usize::MAX)
-                .clamp(3, self.current_term_size.0 as usize)
-                - 2;
-            self.pages = (self.items_len as f64 / self.capacity as f64).ceil() as usize;
-        }
-
-        if self.active == (self.pages > 1) {
-            self.activity_transition = false;
-        } else {
-            self.active = self.pages > 1;
-            self.activity_transition = true;
-            // Clear everything to prevent "ghost" lines in terminal when a resize happened
-            self.term.clear_last_lines(self.capacity)?;
+            self.resize();
         }
 
         self.update_page(cursor_pos);
-
-        Ok(())
     }
 
-    /// Renders a prompt when the following conditions are met:
-    /// * Paging is active
-    /// * Transition of the paging activity happened (active -> inactive / inactive -> active)
-    pub fn render_prompt<F>(&mut self, mut render_prompt: F) -> Result
-    where
-        F: FnMut(Option<(usize, usize)>) -> Result,
-    {
-        if self.active {
-            let paging_info = Some((self.current_page + 1, self.pages));
-            render_prompt(paging_info)?;
-        } else if self.activity_transition {
-            render_prompt(None)?;
-        }
-
-        self.term.flush()?;
-
-        Ok(())
+    /// The paging counter for the question line: the current page and the number of
+    /// pages, while paging is active.
+    pub fn counter(&self) -> Option<(usize, usize)> {
+        self.active.then_some((self.current_page + 1, self.pages))
     }
 
     /// Navigates to the next page

@@ -1,13 +1,19 @@
-use std::{io, ops::Rem};
+use std::io;
 
 use console::{Key, Term};
 
 use crate::{
+    options::Done,
+    output::message::{IntoMessage, Message, Status},
     paging::Paging,
-    prompts::base::{base_methods, PromptBase},
+    prompts::{
+        base::{base_methods, PromptBase},
+        item::check_index,
+        row::{Row, Validators},
+    },
     theme::{
-        render::TermThemeRenderer,
-        {Answer, PromptKind},
+        render::{row_lines, TermThemeRenderer},
+        {Answer, ItemView, PromptKind},
     },
     Result,
 };
@@ -41,9 +47,11 @@ use crate::{
 pub struct Sort<'a> {
     items: Vec<String>,
     prompt: Option<String>,
-    clear: bool,
+    preset: Option<Vec<usize>>,
     max_length: Option<usize>,
     base: PromptBase<'a>,
+    validators: Validators<'a, [usize]>,
+    row: Row<'a, [usize]>,
 }
 
 impl Default for Sort<'_> {
@@ -53,11 +61,15 @@ impl Default for Sort<'_> {
 }
 
 impl<'a> Sort<'a> {
-    /// Sets the clear behavior of the menu.
+    /// Skips the prompt when `val` is `Some`: it returns that order (item indices,
+    /// first to last) without needing a terminal, and draws the answered line as the
+    /// prompt would have left it ([`done`](Self::done); `Keep` draws like `Collapse`).
+    /// The preset is not validated and `on_change` is not called. `None` asks as usual.
     ///
-    /// The default is to clear the menu after user interaction.
-    pub fn clear(mut self, val: bool) -> Self {
-        self.clear = val;
+    /// With `general().unattended(true)` and no preset, the prompt answers with the
+    /// original order.
+    pub fn preset(mut self, val: Option<Vec<usize>>) -> Self {
+        self.preset = val;
         self
     }
 
@@ -93,14 +105,42 @@ impl<'a> Sort<'a> {
 
     /// Prefaces the menu with a prompt.
     ///
-    /// By default, when a prompt is set the system also prints out a confirmation after
-    /// the selection. You can opt-out of this with [`report`](#method.report).
+    /// By default, when a prompt is set the answer is left as one line after the
+    /// selection. Change that with [`done`](Self::done).
     pub fn prompt<S: Into<String>>(mut self, prompt: S) -> Self {
         self.prompt = Some(prompt.into());
         self
     }
 
-    base_methods!(sort, |_| true);
+    base_methods!(sort);
+
+    /// Called each time the order changes, with the item indices from first to last.
+    /// `Some(message)` shows in the row under the items; `None` brings the
+    /// [`description`](Self::description) back.
+    ///
+    /// A later call replaces an earlier closure.
+    pub fn on_change(
+        mut self,
+        f: impl FnMut(&[usize]) -> Option<Message<'static>> + Send + 'a,
+    ) -> Self {
+        self.row.on_change(f);
+        self
+    }
+
+    /// Registers a validator, run with the order (item indices, first to last) when the user submits. An error keeps the prompt open and shows in
+    /// the row under the items until they change. Several validators run in order;
+    /// the first error wins.
+    ///
+    /// The error can be any `Display` value (shown as an error message) or a
+    /// [`Message`] of any kind (see [`IntoMessage`]).
+    pub fn validate<E: IntoMessage>(
+        mut self,
+        mut f: impl FnMut(&[usize]) -> std::result::Result<(), E> + 'a,
+    ) -> Self {
+        self.validators
+            .push(move |v: &[usize]| f(v).err().map(|e| e.into_message(Status::Error)));
+        self
+    }
 
     /// Enables user interaction and returns the result.
     ///
@@ -108,6 +148,7 @@ impl<'a> Sort<'a> {
     /// The dialog is rendered on stderr.
     /// Result contains `Vec<index>` if user hit 'Enter'.
     /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q'.
+    /// `Ctrl+C` returns [`Error::Cancelled`](crate::Error::Cancelled).
     #[inline]
     pub fn interact(self) -> Result<Vec<usize>> {
         self.interact_on(&Term::stderr())
@@ -117,7 +158,7 @@ impl<'a> Sort<'a> {
     ///
     /// The user can order the items with the 'Space' bar and the arrows. On 'Enter' ordered list of the incides of items will be returned.
     /// The dialog is rendered on stderr.
-    /// Result contains `Some(Vec<index>)` if user hit 'Enter' or `None` if user cancelled with 'Esc' or 'q'.
+    /// Result contains `Some(Vec<index>)` if user hit 'Enter' or `None` if user went back with 'Esc' or 'q' (the prompt is erased).
     ///
     /// ## Example
     ///
@@ -163,7 +204,35 @@ impl<'a> Sort<'a> {
         self._interact_on(term, true)
     }
 
-    fn _interact_on(self, term: &Term, allow_quit: bool) -> Result<Option<Vec<usize>>> {
+    fn _interact_on(mut self, term: &Term, allow_back: bool) -> Result<Option<Vec<usize>>> {
+        let options = crate::options::current();
+        let done = match self.done_mode(&options) {
+            Done::Collapse if self.prompt.is_none() => Done::Erase,
+            done => done,
+        };
+
+        // A preset or an unattended run answers without a terminal.
+        let given = match &self.preset {
+            Some(order) => {
+                for &i in order {
+                    check_index(i, self.items.len())?;
+                }
+                Some(order.clone())
+            }
+            // The original order.
+            None if options.unattended() => Some((0..self.items.len()).collect()),
+            None => None,
+        };
+        if let Some(given) = given {
+            if done != Done::Erase {
+                let mut render = TermThemeRenderer::new(term, self.base.theme);
+                let prompt = self.prompt.as_deref().unwrap_or("");
+                let list: Vec<&str> = given.iter().map(|&i| self.items[i].as_str()).collect();
+                render.finish_preset(done, PromptKind::Sort, prompt, Answer::List(&list))?;
+            }
+            return Ok(Some(given));
+        }
+
         if !term.is_term() {
             return Err(io::Error::new(io::ErrorKind::NotConnected, "not a terminal").into());
         }
@@ -174,6 +243,7 @@ impl<'a> Sort<'a> {
 
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
         let mut render = TermThemeRenderer::new(term, self.base.theme);
+        render.set_legend(self.legend_enabled(&options), allow_back);
         let mut sel = 0;
 
         let mut order: Vec<_> = (0..self.items.len()).collect();
@@ -182,38 +252,15 @@ impl<'a> Sort<'a> {
         term.hide_cursor()?;
 
         loop {
-            if let Some(ref prompt) = self.prompt {
-                paging.render_prompt(|paging_info| {
-                    render.prompt(PromptKind::Sort, prompt, paging_info)
-                })?;
-            }
+            self.draw(&mut render, &mut paging, sel, &order, checked)?;
+            let before = order.clone();
 
-            for (idx, item) in order
-                .iter()
-                .enumerate()
-                .skip(paging.current_page * paging.capacity)
-                .take(paging.capacity)
-            {
-                render.item(
-                    PromptKind::Sort,
-                    &self.items[*item],
-                    sel == idx,
-                    Some(checked),
-                    None,
-                )?;
-            }
-
-            term.flush()?;
-
-            match term.read_key()? {
+            match term.read_key_raw()? {
+                Key::CtrlC => return render.cancel(PromptKind::Sort, self.prompt.as_deref()),
                 Key::ArrowDown | Key::Tab | Key::Char('j') => {
                     let old_sel = sel;
 
-                    if sel == !0 {
-                        sel = 0;
-                    } else {
-                        sel = (sel as u64 + 1).rem(self.items.len() as u64) as usize;
-                    }
+                    sel = (sel + 1) % self.items.len();
 
                     if checked && old_sel != sel {
                         order.swap(old_sel, sel);
@@ -222,12 +269,7 @@ impl<'a> Sort<'a> {
                 Key::ArrowUp | Key::BackTab | Key::Char('k') => {
                     let old_sel = sel;
 
-                    if sel == !0 {
-                        sel = self.items.len() - 1;
-                    } else {
-                        sel = ((sel as i64 - 1 + self.items.len() as i64)
-                            % (self.items.len() as i64)) as usize;
-                    }
+                    sel = (sel + self.items.len() - 1) % self.items.len();
 
                     if checked && old_sel != sel {
                         order.swap(old_sel, sel);
@@ -281,50 +323,75 @@ impl<'a> Sort<'a> {
                     checked = !checked;
                 }
                 Key::Escape | Key::Char('q') => {
-                    if allow_quit {
-                        if self.clear {
-                            render.clear()?;
-                        } else {
-                            term.clear_last_lines(paging.capacity)?;
-                        }
-
-                        term.show_cursor()?;
-                        term.flush()?;
-
+                    if allow_back {
+                        render.back()?;
                         return Ok(None);
                     }
                 }
                 Key::Enter => {
-                    if self.clear {
-                        render.clear()?;
+                    if let Some(err) = self.validators.check(&order) {
+                        self.row.invalid(err);
+                        continue;
                     }
 
-                    if let Some(ref prompt) = self.prompt {
-                        if self.report_enabled() {
-                            let list: Vec<_> = order
-                                .iter()
-                                .map(|item| self.items[*item].as_str())
-                                .collect();
-                            render.answered(PromptKind::Sort, prompt, Answer::List(&list))?;
-                        }
-                    }
-
-                    term.show_cursor()?;
-                    term.flush()?;
+                    let list: Vec<_> = order
+                        .iter()
+                        .map(|item| self.items[*item].as_str())
+                        .collect();
+                    let prompt = self.prompt.as_deref().unwrap_or("");
+                    render.finish(done, PromptKind::Sort, prompt, Answer::List(&list))?;
 
                     return Ok(Some(order));
                 }
                 _ => {}
             }
 
-            paging.update(sel)?;
-
-            if paging.active {
-                render.clear()?;
-            } else {
-                render.clear_preserve_prompt()?;
+            if order != before {
+                self.row.changed(&order);
             }
+
+            paging.update(sel);
         }
+    }
+}
+
+impl Sort<'_> {
+    /// Draws the question, the items of the current page in their current order and
+    /// the row.
+    fn draw(
+        &self,
+        render: &mut TermThemeRenderer,
+        paging: &mut Paging,
+        sel: usize,
+        order: &[usize],
+        checked: bool,
+    ) -> Result {
+        let row = self.row.current(self.base.description.as_ref());
+        paging.set_reserved(row_lines(row) + render.legend_lines(PromptKind::Sort), sel);
+        let items = order
+            .iter()
+            .enumerate()
+            .skip(paging.current_page * paging.capacity)
+            .take(paging.capacity)
+            .map(|(idx, item)| {
+                ItemView::new(
+                    PromptKind::Sort,
+                    &self.items[*item],
+                    sel == idx,
+                    Some(checked),
+                    None,
+                    None,
+                    false,
+                )
+            });
+        render.prompt_frame(
+            PromptKind::Sort,
+            self.prompt.as_deref(),
+            paging.counter(),
+            self.row.is_invalid(),
+            items,
+            row,
+        )
     }
 }
 
@@ -335,10 +402,12 @@ impl<'a> Sort<'a> {
     pub fn new() -> Self {
         Self {
             items: vec![],
-            clear: true,
             prompt: None,
+            preset: None,
             max_length: None,
             base: PromptBase::new(),
+            validators: Validators::default(),
+            row: Row::default(),
         }
     }
 }
@@ -360,5 +429,55 @@ mod tests {
         let iterator = items.iter().skip(1);
 
         assert_eq!(Sort::new().items(iterator).items, &items[1..]);
+    }
+
+    #[cfg(unix)]
+    mod unattended {
+        use super::*;
+        use crate::{prompts::testing::capture, theme::SimpleTheme};
+
+        #[test]
+        fn a_preset_answers_without_a_terminal() {
+            let (term, out) = capture();
+            let order = Sort::new()
+                .theme(&SimpleTheme)
+                .prompt("Rank")
+                .items(["x", "y", "z"])
+                .preset(Some(vec![2, 0, 1]))
+                .interact_on(&term)
+                .unwrap();
+            assert_eq!(order, [2, 0, 1]);
+            assert_eq!(out.text(), "Rank: z, x, y\n");
+        }
+
+        #[test]
+        fn a_preset_draws_as_done_says() {
+            for (done, expected) in [
+                (Done::Collapse, "Rank: y, x\n"),
+                (Done::Keep, "Rank: y, x\n"),
+                (Done::Erase, ""),
+            ] {
+                let (term, out) = capture();
+                Sort::new()
+                    .theme(&SimpleTheme)
+                    .prompt("Rank")
+                    .items(["x", "y"])
+                    .done(done)
+                    .preset(Some(vec![1, 0]))
+                    .interact_on(&term)
+                    .unwrap();
+                assert_eq!(out.text(), expected, "{done:?}");
+            }
+        }
+
+        #[test]
+        fn a_preset_that_names_no_item_is_an_error() {
+            let (term, _) = capture();
+            let err = Sort::new()
+                .items(["x"])
+                .preset(Some(vec![1]))
+                .interact_on(&term);
+            assert!(matches!(err, Err(crate::Error::IO(_))));
+        }
     }
 }

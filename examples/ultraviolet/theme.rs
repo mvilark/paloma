@@ -346,6 +346,12 @@ impl Theme for UltravioletTheme {
                     .list_separator_style(p.style(Tok::Fg))
                     .paging_style(p.style(Tok::Subtle))
                     .empty_value("none")
+                    .cancelled_value("cancelled")
+                    .cancelled_style(p.style(Tok::Subtle).italic())
+                    .legend_key_style(p.style(Tok::Muted))
+                    .legend_style(p.style(Tok::Subtle).italic())
+                    .disabled_style(p.style(Tok::Muted).strikethrough())
+                    .item_description_style(p.style(Tok::Subtle).italic())
                     .item_indent(2)
                     .yes("Yes")
                     .no("No")
@@ -357,8 +363,15 @@ impl Theme for UltravioletTheme {
                     .button_style(p.style(Tok::Muted))
                     .focused_button_style(p.style(Tok::Accent).bold())
                     .suffix(g.caret)
+                    // The row under a prompt sits at `col-2`; the caret turns `error`
+                    // while it shows a validation error.
+                    .message_indent(2)
+                    .invalid_suffix_style(p.style(Tok::Error))
             })
             .confirm(|c| c.empty_value("Skipped"))
+            // Typed text is drawn unstyled.
+            .input(|i| i.text_style(Style::new()))
+            .password(|pw| pw.text_style(Style::new()))
             .sort(|s| s.checked(g.chosen).unchecked(g.pending));
         Cow::Owned(
             Tokens::default()
@@ -387,7 +400,8 @@ impl Theme for UltravioletTheme {
         Ok(())
     }
 
-    /// The input sits on its own line, indented to `col-2`, after the caret.
+    /// The input sits on its own line, indented to `col-2`, after the caret (in `error`
+    /// while the row shows a validation error).
     fn format_input_prompt(
         &self,
         f: &mut dyn fmt::Write,
@@ -403,7 +417,12 @@ impl Theme for UltravioletTheme {
                 ctx.paint(&look.hint_style, format!("({default})"))
             )?;
         }
-        write!(f, "\n  {} ", ctx.paint(&look.mark_style, look.suffix))
+        let caret = if view.invalid {
+            &look.invalid_suffix_style
+        } else {
+            &look.mark_style
+        };
+        write!(f, "\n  {} ", ctx.paint(caret, look.suffix))
     }
 
     /// `◆ Label  [Y]es / [n]o`, or only the label above the buttons.
@@ -478,7 +497,7 @@ mod tests {
     use super::*;
     use paloma::{
         terminal::Stream,
-        theme::{Answer, AnsweredView, MessageView, Status},
+        theme::{Answer, AnsweredView, MessageSource, MessageView, PromptMessageView, Status},
     };
 
     fn plain(cfg: Config) -> UltravioletTheme {
@@ -547,9 +566,36 @@ mod tests {
         let tokens = theme.tokens();
         let ctx = Context::new(&tokens, Stream::Stderr);
         let mut out = String::new();
-        let view = PromptView::new(PromptKind::Select, "Name", None);
+        let view = PromptView::new(PromptKind::Select, "Name", None, false);
         theme.format_prompt(&mut out, &ctx, &view).unwrap();
         assert_eq!(out, "* Name");
+    }
+
+    #[test]
+    fn the_caret_turns_error_and_the_row_is_indented() {
+        let theme = plain(config(false));
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let look = look(&ctx, PromptKind::Input);
+        let error = Palette::new(true, Depth::True).style(Tok::Error);
+        assert_eq!((look.invalid_suffix_style, look.message_indent), (error, 2));
+        assert_eq!(look.text_style, Style::new());
+
+        let mut line = String::new();
+        let view = InputPromptView::new(PromptKind::Input, "Email", None, true);
+        theme.format_input_prompt(&mut line, &ctx, &view).unwrap();
+        assert_eq!(line, "◆ Email\n  › ");
+
+        let mut row = String::new();
+        let view = PromptMessageView::new(
+            PromptKind::Input,
+            Status::Error,
+            "Enter a valid email",
+            0,
+            MessageSource::Validation,
+        );
+        theme.format_prompt_message(&mut row, &ctx, &view).unwrap();
+        assert_eq!(row, "  ✕ Enter a valid email");
     }
 
     #[test]

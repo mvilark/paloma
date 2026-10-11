@@ -3,7 +3,10 @@
 pub(crate) mod base;
 pub mod confirm;
 pub mod input;
+pub(crate) mod item;
+pub(crate) mod line;
 pub mod multi_select;
+pub(crate) mod row;
 pub mod select;
 pub mod sort;
 
@@ -12,3 +15,6 @@ pub mod fuzzy_select;
 
 #[cfg(feature = "password")]
 pub mod password;
+
+#[cfg(all(test, unix))]
+pub(crate) mod testing;

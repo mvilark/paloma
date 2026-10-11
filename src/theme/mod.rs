@@ -30,7 +30,8 @@ pub use colorful::ColorfulTheme;
 pub use context::Context;
 pub use prompt::{
     Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, FuzzySelectPromptView,
-    InputPromptView, ItemView, PromptKind, PromptView,
+    InputPromptView, ItemView, LegendView, MessageSource, PromptKind, PromptMessageView,
+    PromptView,
 };
 pub use restyle::Restyled;
 pub use simple::SimpleTheme;
@@ -190,7 +191,39 @@ pub trait Theme {
         defaults::format_item(f, ctx, view)
     }
 
-    /// Formats the line a prompt leaves once answered (when it reports its answer).
+    /// Formats the line of keys under a prompt (see
+    /// [`Select::legend`](crate::Select::legend)), drawn below the message row. The
+    /// default is [`defaults::format_legend`].
+    fn format_legend(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &LegendView,
+    ) -> fmt::Result {
+        defaults::format_legend(f, ctx, view)
+    }
+
+    /// Formats one line of the message row under a prompt (its description, what its
+    /// `on_change` returned, or a validation error), drawn below everything else the
+    /// prompt draws, one line per message and nested message. The default writes the
+    /// `message_indent` token as spaces, then the line as this theme's
+    /// [`format_message`](Self::format_message) draws it, so a theme that only
+    /// overrides `format_message` draws its rows the same way;
+    /// [`defaults::format_prompt_message`] does the same with the default message
+    /// layout.
+    fn format_prompt_message(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &PromptMessageView,
+    ) -> fmt::Result {
+        defaults::prompt_message_indent(f, ctx, view)?;
+        let message = MessageView::new(view.status, view.text, view.depth);
+        self.format_message(f, ctx, &message)
+    }
+
+    /// Formats the line a prompt leaves once answered (with [`Done::Collapse`](crate::Done::Collapse))
+    /// or cancelled (the `cancelled_value` token).
     /// The default is [`defaults::format_answered`].
     fn format_answered(
         &self,

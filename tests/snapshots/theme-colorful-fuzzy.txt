@@ -6,3 +6,4 @@ fuzzy_select_prompt(Search, ban, 0) => "\u{1b}[33m?\u{1b}[0m \u{1b}[1mSearch\u{1
 fuzzy_select_prompt(Search, ban, 2) => "\u{1b}[33m?\u{1b}[0m \u{1b}[1mSearch\u{1b}[0m \u{1b}[38;5;8m›\u{1b}[0m ba\u{1b}[30m\u{1b}[47mn\u{1b}[0m"
 fuzzy_select_prompt(Search, ban, 3) => "\u{1b}[33m?\u{1b}[0m \u{1b}[1mSearch\u{1b}[0m \u{1b}[38;5;8m›\u{1b}[0m ban\u{1b}[30m\u{1b}[47m \u{1b}[0m"
 fuzzy_select_prompt(, ban, 3) => "\u{1b}[38;5;8m›\u{1b}[0m ban\u{1b}[30m\u{1b}[47m \u{1b}[0m"
+fuzzy_select_prompt(Search, , 0, placeholder) => "\u{1b}[33m?\u{1b}[0m \u{1b}[1mSearch\u{1b}[0m \u{1b}[38;5;8m›\u{1b}[0m \u{1b}[30m\u{1b}[47m \u{1b}[0m\u{1b}[38;5;8mplaceholder\u{1b}[0m"

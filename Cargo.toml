@@ -42,6 +42,10 @@ name = "password"
 required-features = ["password"]
 
 [[example]]
+name = "prompt_messages"
+required-features = ["password"]
+
+[[example]]
 name = "editor"
 required-features = ["editor"]
 
