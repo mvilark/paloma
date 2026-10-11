@@ -36,9 +36,9 @@ pub use prompt::{
 pub use restyle::Restyled;
 pub use simple::SimpleTheme;
 pub use tokens::{
-    BlockKind, BlockLook, BlockStyle, BlockTokens, GlyphName, Glyphs, Layout, LiveKind, LiveLook,
-    LiveStyle, LiveTokens, MessageLook, MessageStyle, MessageTokens, Palette, PromptLook,
-    PromptStyle, PromptTokens, Role, Tokens,
+    BlockKind, BlockLook, BlockStyle, BlockTokens, CursorShape, GlyphName, Glyphs, Layout,
+    LiveKind, LiveLook, LiveStyle, LiveTokens, MessageLook, MessageStyle, MessageTokens, Palette,
+    PromptLook, PromptStyle, PromptTokens, Role, Tokens,
 };
 
 /// Implements a theme for paloma.

@@ -1,16 +1,37 @@
-//! The message row under prompts: a description, live messages while typing, and
-//! validation errors that keep the input.
+//! The message row under prompts: a description, live messages while typing, slow
+//! checks in the background, and validation errors that keep the input.
+use std::{thread, time::Duration};
+
 use paloma::{theme::ColorfulTheme, Input, Message, MultiSelect, Password};
+
+/// Names a fake server already knows.
+const TAKEN: [&str; 3] = ["admin", "root", "ada"];
 
 fn main() -> paloma::Result<()> {
     paloma::set_theme(ColorfulTheme);
 
     // A description while nothing else applies; a refused name shows its error in the
-    // row and keeps what was typed.
+    // row and keeps what was typed. Whether the name is free is a slow check (a fake
+    // server call): it runs in the background once typing pauses for 300 ms, while
+    // paloma keeps reading keys, and a result for a name that changed meanwhile is
+    // dropped. The pending message shows while the check, or the validation on
+    // submit, runs.
     let name: String = Input::new()
         .prompt("Username")
         .description("3 to 16 letters or digits")
         .placeholder("ada")
+        .change_delay(300)
+        .pending(Message::info("Checking the name…"))
+        .on_change(|name: &str| {
+            thread::sleep(Duration::from_millis(500));
+            if name.is_empty() {
+                None
+            } else if TAKEN.contains(&name.to_lowercase().as_str()) {
+                Some(Message::warning(format!("{name} is taken")))
+            } else {
+                Some(Message::success(format!("{name} is available")))
+            }
+        })
         .validate(|name: &String| -> Result<(), &str> {
             let len = name.chars().count();
             if !(3..=16).contains(&len) {
@@ -18,7 +39,13 @@ fn main() -> paloma::Result<()> {
             } else if !name.chars().all(char::is_alphanumeric) {
                 Err("Use only letters and digits")
             } else {
-                Ok(())
+                // The server has the last word.
+                thread::sleep(Duration::from_millis(300));
+                if TAKEN.contains(&name.to_lowercase().as_str()) {
+                    Err("That name is taken")
+                } else {
+                    Ok(())
+                }
             }
         })
         .interact()?;

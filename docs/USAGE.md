@@ -135,6 +135,19 @@ A message's nested messages are drawn indented under it, one line each. Descript
 
 The theme draws each line of the row with `format_prompt_message` (a `PromptMessageView`: the prompt's kind, the message's status, text and depth, and its `MessageSource`: `Description`, `Change` or `Validation`). The default writes the prompt's `message_indent` token as spaces, then the line as `format_message` draws it, with the message tokens. Other prompt tokens: `invalid_suffix_style` (the suffix while the row shows an error; defaults to `suffix_style`), `placeholder_style` (defaults to the `subtle` role) and `text_style` (the typed text: input, password mask, search). A list prompt leaves room for the row when it pages its items.
 
+**Slow checks.** By default `on_change` runs right after each key, on the input thread, which suits fast checks. For a slow one (a server call), `.change_delay(ms)` runs it in the background once the user has paused for `ms` milliseconds: paloma keeps reading keys meanwhile, a result for a value that changed in the meantime is dropped, and the row keeps what it showed until the latest result arrives. `.pending(..)` sets what the row shows while a check runs (plain text is an info message); it also shows on submit while the validators run. A prompt that ends while a check runs returns once that check has finished. This needs a key read with a timeout, which paloma has on Unix and Windows; on any other target the check never runs (the row keeps its description), it never falls back to blocking the input. The closure gets its own copy of the value on the worker thread; for `Input` and `Password` the copy is wiped when dropped.
+
+```rust
+Input::<String>::new()
+    .prompt("Username")
+    .change_delay(300)
+    .pending("Checking the name…")
+    .on_change(|name: &str| server_says_taken(name).then(|| Message::warning(format!("{name} is taken"))))
+    .interact()?;
+```
+
+**Cursor.** The `cursor_shape` prompt token (`CursorShape::Terminal`, the default, leaves the terminal's cursor alone; `Block`, `Underline`, `Bar`) with `cursor_blink` (default true) sets the terminal cursor's shape while an `Input` or `Password` is open, and gives the terminal its own shape back when the prompt ends, however it ends. `paloma::terminal::restore()` resets it too.
+
 ## What an answered prompt leaves
 `.done(Done)` on any prompt (and `done` in `Options`) says what stays on the screen once the user answers:
 ```rust

@@ -158,8 +158,10 @@ dependencies = [
  "console",
  "ctrlc",
  "fuzzy-matcher",
+ "libc",
  "shell-words",
  "tempfile",
+ "windows-sys",
  "zeroize",
 ]
 

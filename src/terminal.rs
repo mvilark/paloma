@@ -3,11 +3,108 @@
 //! [`capabilities`] reads the stream and the environment once per call. Apps and themes
 //! use it to choose a palette or a glyph set; paloma uses it to style output for the
 //! right stream.
-use std::env;
+use std::{
+    env, io,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use console::Term;
 
-pub use crate::live::engine::restore;
+use crate::theme::CursorShape;
+
+/// Stops any running live component, erases its line, shows the cursor again, gives
+/// the cursor its terminal shape back if a prompt changed it, and leaves the raw mode
+/// a prompt may hold the terminal in.
+///
+/// paloma installs no signal handler. Call this from the app's own Ctrl+C handler
+/// before exiting, so the terminal is left as it was found. Safe to call from another
+/// thread, and when nothing is running. Only terminals are written to.
+///
+/// ```rust,no_run
+/// # fn handler() {
+/// paloma::terminal::restore();
+/// std::process::exit(130);
+/// # }
+/// ```
+pub fn restore() {
+    crate::live::engine::restore();
+    crate::keys::restore();
+    if SHAPED.swap(false, Ordering::SeqCst) {
+        for term in [Term::stderr(), Term::stdout()] {
+            if term.is_term() {
+                let _ = term.write_str(RESET_CURSOR_SHAPE);
+                let _ = term.flush();
+            }
+        }
+    }
+}
+
+/// Whether a prompt changed the cursor shape and has not reset it yet.
+static SHAPED: AtomicBool = AtomicBool::new(false);
+
+/// DECSCUSR with 0: the terminal's own cursor shape.
+const RESET_CURSOR_SHAPE: &str = "\x1b[0 q";
+
+/// The DECSCUSR parameter for `shape`: blinking block 1, steady block 2, blinking
+/// underline 3, steady underline 4, blinking bar 5, steady bar 6. `None` for
+/// [`CursorShape::Terminal`], which leaves the cursor alone.
+pub(crate) fn cursor_shape_code(shape: CursorShape, blink: bool) -> Option<u8> {
+    let blinking = match shape {
+        CursorShape::Block => 1,
+        CursorShape::Underline => 3,
+        CursorShape::Bar => 5,
+        _ => return None,
+    };
+    Some(if blink { blinking } else { blinking + 1 })
+}
+
+/// Gives the cursor `shape` on `term` (a terminal). Returns whether anything was
+/// written; [`reset_cursor_shape`] undoes it.
+pub(crate) fn set_cursor_shape(term: &Term, shape: CursorShape, blink: bool) -> io::Result<bool> {
+    let Some(code) = cursor_shape_code(shape, blink) else {
+        return Ok(false);
+    };
+    if !escapes_supported(term) {
+        return Ok(false);
+    }
+    SHAPED.store(true, Ordering::SeqCst);
+    term.write_str(&format!("\x1b[{code} q"))?;
+    Ok(true)
+}
+
+/// Gives the cursor its terminal shape back after [`set_cursor_shape`].
+pub(crate) fn reset_cursor_shape(term: &Term) -> io::Result<()> {
+    SHAPED.store(false, Ordering::SeqCst);
+    term.write_str(RESET_CURSOR_SHAPE)?;
+    term.flush()
+}
+
+/// Whether `term` understands escape sequences such as DECSCUSR. A Windows console
+/// does once virtual terminal processing is on (paloma turns it on when it can); a
+/// terminal elsewhere always does.
+#[cfg(windows)]
+fn escapes_supported(term: &Term) -> bool {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::System::Console::{
+        GetConsoleMode, SetConsoleMode, ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+    };
+
+    if term.features().is_msys_tty() {
+        return true;
+    }
+    let handle = term.as_raw_handle() as windows_sys::Win32::Foundation::HANDLE;
+    let mut mode = 0;
+    if unsafe { GetConsoleMode(handle, &mut mode) } == 0 {
+        return false;
+    }
+    mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0
+        || unsafe { SetConsoleMode(handle, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) } != 0
+}
+
+#[cfg(not(windows))]
+fn escapes_supported(_term: &Term) -> bool {
+    true
+}
 
 /// Where a component writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -98,5 +195,37 @@ pub fn capabilities(stream: Stream) -> Capabilities {
         unicode: !matches!(term_var.as_str(), "linux" | "dumb"),
         width: term.size_checked().map_or(80, |(_, w)| w as usize),
         depth,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decscusr_codes_for_each_shape_and_blink() {
+        let codes: Vec<_> = [
+            CursorShape::Terminal,
+            CursorShape::Block,
+            CursorShape::Underline,
+            CursorShape::Bar,
+        ]
+        .into_iter()
+        .map(|shape| {
+            (
+                cursor_shape_code(shape, true),
+                cursor_shape_code(shape, false),
+            )
+        })
+        .collect();
+        assert_eq!(
+            codes,
+            [
+                (None, None),
+                (Some(1), Some(2)),
+                (Some(3), Some(4)),
+                (Some(5), Some(6)),
+            ]
+        );
     }
 }

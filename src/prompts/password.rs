@@ -12,7 +12,7 @@ use crate::{
     prompts::{
         base::{base_methods, PromptBase},
         line::{Edit, LineEditor},
-        row::{Row, Validators},
+        row::{Keys, Row, Validators},
     },
     theme::{
         render::{Shown, TermThemeRenderer},
@@ -43,6 +43,16 @@ impl DerefMut for Secret {
     fn deref_mut(&mut self) -> &mut LineEditor {
         &mut self.0
     }
+}
+
+/// One entry of a password prompt: the first, or its confirmation.
+struct Entry<'p> {
+    prompt: &'p str,
+    /// The glyph echoed for each typed char, or `None` to echo nothing.
+    mask: Option<char>,
+    /// The first entry has the row and runs the validators.
+    first: bool,
+    allow_back: bool,
 }
 
 /// Renders a password input prompt.
@@ -264,10 +274,17 @@ impl<'a> Password<'a> {
             .unwrap_or('*');
         let mask = self.mask.or_else(|| masked.then_some(glyph));
         let prompt = self.prompt.clone();
+        render.set_cursor_shape(PromptKind::Password)?;
 
-        loop {
-            let Some(password) = self.read(term, &mut render, &prompt, mask, true, allow_back)?
-            else {
+        let worker = self.row.worker();
+        Keys::run(worker, |keys| loop {
+            let entry = Entry {
+                prompt: &prompt,
+                mask,
+                first: true,
+                allow_back,
+            };
+            let Some(password) = self.read(term, &mut render, keys, entry)? else {
                 render.back()?;
                 return Ok(None);
             };
@@ -275,8 +292,13 @@ impl<'a> Password<'a> {
             if let Some((ref prompt, ref err)) = self.confirmation_prompt.clone() {
                 // The first entry stays on screen above the confirmation.
                 render.commit()?;
-                let Some(pw2) = self.read(term, &mut render, prompt, mask, false, allow_back)?
-                else {
+                let entry = Entry {
+                    prompt,
+                    mask,
+                    first: false,
+                    allow_back,
+                };
+                let Some(pw2) = self.read(term, &mut render, keys, entry)? else {
                     render.back()?;
                     return Ok(None);
                 };
@@ -296,22 +318,27 @@ impl<'a> Password<'a> {
             )?;
 
             return Ok(Some((*password).clone()));
-        }
+        })
     }
 
-    /// Reads one password key by key, echoing `mask` for each character, or nothing
-    /// when `None`, until `Enter` submits an acceptable one. The `first` entry has the
-    /// row and runs the validators; a refused password stays as typed and its error
-    /// shows in the row. `None` when the user left with `Esc` (and `allow_back`).
+    /// Reads one password key by key, echoing the entry's mask for each character, or
+    /// nothing when it has none, until `Enter` submits an acceptable one. The `first`
+    /// entry has the row and runs the validators; a refused password stays as typed
+    /// and its error shows in the row. `None` when the user left with `Esc` (and
+    /// `allow_back`).
     fn read(
         &mut self,
         term: &Term,
         render: &mut TermThemeRenderer,
-        prompt: &str,
-        mask: Option<char>,
-        first: bool,
-        allow_back: bool,
+        keys: &mut Keys<str>,
+        entry: Entry,
     ) -> Result<Option<Zeroizing<String>>> {
+        let Entry {
+            prompt,
+            mask,
+            first,
+            allow_back,
+        } = entry;
         let mut editor = Secret(LineEditor::new(""));
         loop {
             let shown = match mask {
@@ -336,12 +363,19 @@ impl<'a> Password<'a> {
                 row,
             )?;
 
-            match term.read_key_raw()? {
+            let Some(key) = keys.next(term, &mut self.row)? else {
+                continue;
+            };
+            match key {
                 Key::CtrlC => return render.cancel(PromptKind::Password, Some(&self.prompt)),
                 Key::Escape if allow_back => return Ok(None),
                 Key::Enter => {
                     let password = Zeroizing::new(editor.text());
                     if password.is_empty() && !self.allow_empty_password {
+                        continue;
+                    }
+                    let validates = first && !self.validators.is_empty();
+                    if keys.defer_submit(&mut self.row, validates) {
                         continue;
                     }
                     if first {

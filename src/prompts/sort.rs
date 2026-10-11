@@ -9,7 +9,7 @@ use crate::{
     prompts::{
         base::{base_methods, PromptBase},
         item::check_index,
-        row::{Row, Validators},
+        row::{Keys, Row, Validators},
     },
     theme::{
         render::{row_lines, TermThemeRenderer},
@@ -251,11 +251,15 @@ impl<'a> Sort<'a> {
 
         term.hide_cursor()?;
 
-        loop {
+        let worker = self.row.worker();
+        Keys::run(worker, |keys| loop {
             self.draw(&mut render, &mut paging, sel, &order, checked)?;
             let before = order.clone();
 
-            match term.read_key_raw()? {
+            let Some(key) = keys.next(term, &mut self.row)? else {
+                continue;
+            };
+            match key {
                 Key::CtrlC => return render.cancel(PromptKind::Sort, self.prompt.as_deref()),
                 Key::ArrowDown | Key::Tab | Key::Char('j') => {
                     let old_sel = sel;
@@ -329,6 +333,10 @@ impl<'a> Sort<'a> {
                     }
                 }
                 Key::Enter => {
+                    let validates = !self.validators.is_empty();
+                    if keys.defer_submit(&mut self.row, validates) {
+                        continue;
+                    }
                     if let Some(err) = self.validators.check(&order) {
                         self.row.invalid(err);
                         continue;
@@ -351,7 +359,7 @@ impl<'a> Sort<'a> {
             }
 
             paging.update(sel);
-        }
+        })
     }
 }
 

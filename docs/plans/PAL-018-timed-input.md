@@ -137,3 +137,22 @@ DECSCUSR codes: Block 1 (blinking) / 2 (steady), Underline 3 / 4, Bar 5 / 6. Wri
 ## Status notes
 
 - 2026-10-11: Plan written. Requirement on PAL-010: `on_change` closures must be `Send` (`impl FnMut(&V) -> Option<Message<'static>> + Send + 'a`, stored as `Arc<Mutex<dyn FnMut(&V) -> Option<Message<'static>> + Send + 'a>>`), so this phase can run them on a worker thread without another breaking change.
+- 2026-10-11: Implemented. The Opus agent wrote the code and unit tests but was stopped before verifying and documenting; the planner reviewed its work, ran the checks and wrote the docs. Differences from the plan:
+  - **Windows raw mode is not a no-op.** `console` turns off `ENABLE_PROCESSED_INPUT` only during its own read, so between keys `Ctrl+C` would raise a console control event instead of arriving as a key. `RawMode` turns it off for the whole prompt and restores the mode it found.
+  - **macOS waits with `select`**, because `poll` does not work on a terminal there (as in `console`).
+  - **Keys and checks live in `Keys` (`src/prompts/row.rs`).** It wraps each prompt loop: plain `read_key_raw` without a background check; otherwise raw mode, a scoped worker thread and a timed read that wakes for due checks and results (every 100 ms while a check runs).
+  - **The worker coalesces jobs** (only the newest waiting value is checked) and stops taking jobs when the prompt ends. A prompt that ends while a check runs returns once that check has finished (documented on `change_delay`).
+  - **The text sent to a background check is wiped when dropped** (with the `password` feature), since it may be a password.
+  - **A submit with `pending` set draws one frame with the pending row, then replays `Enter`** to run the validators (`Keys::defer_submit`).
+  - **`terminal::restore` moved to `src/terminal.rs`.** It stops the live region, leaves raw mode and resets the cursor shape; the live engine's part is crate-private now.
+
+  Checks (planner):
+  - **Check set:** `cargo test --locked` with all, default and no features, `cargo lint`, `cargo format-check`, `cargo check --examples --all-features`, `cargo doc` with warnings denied and the MSRV check all pass. Snapshots are unchanged, and `Cargo.lock` gains no package.
+  - **Windows and macOS:** `cargo check` and `cargo clippy -D warnings` for `x86_64-pc-windows-msvc` and `x86_64-apple-darwin`, lib and examples, both clean. So the Windows code was compiled, not only reviewed; it was not run.
+  - **Timing** (pty, `examples/prompt_messages.rs`: 300 ms delay, a 500 ms check):
+    - Five keys 50 ms apart start no check.
+    - "Checking the name…" shows about 300 ms after the last key, and the result about 500 ms later.
+    - After a pause that starts a check for "ada", the next key echoes within 30 ms and "ada is taken" never shows.
+    - `^C` during a check: the prompt is erased, and the terminal is back in canonical mode after exit.
+  - **Ultraviolet `setup`:** `ESC[1 q` at the email prompt, `ESC[0 q` after it, the same at the password prompt, and a reset on `^C` (exit 130).
+  - **Regression comparison against the PAL-017 build**, screen by screen: select, multi_select, sort, fuzzy_select, confirm, password, items, Ultraviolet connect and favorites are identical. Input is identical apart from the known end-of-run cursor timing noise.

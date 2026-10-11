@@ -118,6 +118,8 @@ pub(crate) struct TermThemeRenderer<'a> {
     legend: bool,
     /// Whether the legend lists the key that goes back (`Esc`).
     back: bool,
+    /// Whether the prompt gave the cursor a shape, which the drop resets.
+    shaped: bool,
     /// Pauses a running live component (a task's spinner) while the prompt is shown.
     _pause: crate::live::engine::Pause,
 }
@@ -143,6 +145,7 @@ impl<'a> TermThemeRenderer<'a> {
             committed: Vec::new(),
             legend: false,
             back: false,
+            shaped: false,
             _pause: crate::live::engine::Pause::new(),
         }
     }
@@ -301,6 +304,19 @@ impl<'a> TermThemeRenderer<'a> {
         self.term.show_cursor()?;
         self.term.flush()?;
         Err(Error::Cancelled)
+    }
+
+    /// Gives the terminal cursor the shape of `kind`'s `cursor_shape` and
+    /// `cursor_blink` tokens, unless the shape is `Terminal`. The renderer resets it
+    /// when dropped, so every way out of the prompt (an answer, `Esc`, `Ctrl+C`, an
+    /// error) gives the cursor its terminal shape back. Call it once the term is known
+    /// to be a terminal.
+    pub fn set_cursor_shape(&mut self, kind: PromptKind) -> Result {
+        let look = self.look(kind);
+        if crate::terminal::set_cursor_shape(self.term, look.cursor_shape, look.cursor_blink)? {
+            self.shaped = true;
+        }
+        Ok(())
     }
 
     /// Sets whether frames end with the legend line, and whether it lists the key that
@@ -532,6 +548,14 @@ impl<'a> TermThemeRenderer<'a> {
     }
 }
 
+impl Drop for TermThemeRenderer<'_> {
+    fn drop(&mut self) {
+        if self.shaped {
+            let _ = crate::terminal::reset_cursor_shape(self.term);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -701,6 +725,32 @@ mod frame_tests {
                 "{done:?}: {after:?}"
             );
         }
+    }
+
+    #[test]
+    fn the_cursor_shape_is_set_and_reset_when_the_renderer_goes() {
+        use crate::theme::CursorShape;
+
+        // `Terminal` (the default) writes nothing.
+        let (term, out) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&SimpleTheme));
+        render.set_cursor_shape(PromptKind::Input).unwrap();
+        drop(render);
+        assert_eq!(out.text(), "");
+
+        let themed = SimpleTheme.restyle(|t| {
+            t.prompts(|p| p.input(|i| i.cursor_shape(CursorShape::Block).cursor_blink(true)))
+        });
+        let (term, out) = capture();
+        let mut render = TermThemeRenderer::new(&term, Some(&themed));
+        render.set_cursor_shape(PromptKind::Password).unwrap();
+        render.set_cursor_shape(PromptKind::Input).unwrap();
+        let result: Result<()> = render.cancel(PromptKind::Input, Some("Name"));
+        assert!(matches!(result, Err(Error::Cancelled)));
+        assert!(out.text().starts_with("\x1b[1 q"), "{:?}", out.text());
+        assert!(!out.text().contains("\x1b[0 q"));
+        drop(render);
+        assert!(out.text().ends_with("\x1b[0 q"), "{:?}", out.text());
     }
 
     #[test]

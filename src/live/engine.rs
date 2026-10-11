@@ -297,19 +297,9 @@ impl Drop for Pause {
     }
 }
 
-/// Stops any running live component, erases its line and shows the cursor again.
-///
-/// paloma installs no signal handler. Call this from the app's own Ctrl+C handler
-/// before exiting, so the terminal is left as it was found. Safe to call from another
-/// thread, and when nothing is running.
-///
-/// ```rust,no_run
-/// # fn handler() {
-/// paloma::terminal::restore();
-/// std::process::exit(130);
-/// # }
-/// ```
-pub fn restore() {
+/// Stops any running live component, erases its line and shows the cursor again on
+/// the terminals. The live part of [`terminal::restore`](crate::terminal::restore).
+pub(crate) fn restore() {
     let region = lock(&ACTIVE).take();
     if let Some(region) = region {
         // Not joined: this may run on a signal-handling thread.
