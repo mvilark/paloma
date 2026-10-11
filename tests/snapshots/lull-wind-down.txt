@@ -1,0 +1,12 @@
+$ LULL_NOW=2026-10-11T22:20 LULL_FILE=tests/fixtures/lull.json lull today
+--- exit 0
+--- stdout
+␛[38;5;103mcaffeine until␛[0m   ␛[38;5;146m15:00␛[0m
+␛[38;5;103mwind down␛[0m        ␛[38;5;146m22:00␛[0m
+␛[38;5;103mbed␛[0m              ␛[38;5;146m23:00␛[0m
+␛[38;5;103mwake␛[0m             ␛[38;5;146m07:00␛[0m
+--- stderr
+␛[38;5;104m✧␛[0m ␛[38;5;146mtonight␛[0m
+␛[38;5;180m▲␛[0m ␛[38;5;146mwind-down started 20 min ago␛[0m
+  ␛[38;5;60m›␛[0m ␛[38;5;60mpark your work: lull park␛[0m
+

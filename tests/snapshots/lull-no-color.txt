@@ -1,0 +1,12 @@
+$ LULL_NOW=2026-10-12T00:40 LULL_FILE=tests/fixtures/lull.json lull today
+--- exit 0
+--- stdout
+caffeine until   15:00
+wind down        22:00
+bed              23:00
+wake             07:00
+--- stderr
+✧ tonight
+▲ 1 h 40 min past bedtime
+  › it will all still be there tomorrow
+

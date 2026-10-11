@@ -1,0 +1,31 @@
+$ LULL_NOW=2026-10-12T00:40 LULL_FILE=tests/fixtures/lull.json lull today
+--- exit 0
+--- stdout
+␛[38;5;103mcaffeine until␛[0m   ␛[38;5;146m15:00␛[0m
+␛[38;5;103mwind down␛[0m        ␛[38;5;146m22:00␛[0m
+␛[38;5;103mbed␛[0m              ␛[38;5;146m23:00␛[0m
+␛[38;5;103mwake␛[0m             ␛[38;5;146m07:00␛[0m
+--- stderr
+␛[38;5;104m✧␛[0m ␛[38;5;146mtonight␛[0m
+␛[38;5;180m▲␛[0m ␛[38;5;146m1 h 40 min past bedtime␛[0m
+  ␛[38;5;60m›␛[0m ␛[38;5;60mit will all still be there tomorrow␛[0m
+
+$ LULL_NOW=2026-10-12T00:40 LULL_FILE=tests/fixtures/lull.json lull week
+--- exit 0
+--- stdout
+␛[38;5;146mnight ␛[0m   ␛[38;5;146mbed  ␛[0m   ␛[38;5;146mup   ␛[0m   ␛[38;5;146mslept     ␛[0m   ␛[38;5;146mrested␛[0m   ␛[38;5;146mhabits␛[0m
+␛[38;5;146mSun 4 ␛[0m   ␛[38;5;146m00:20␛[0m   ␛[38;5;146m07:45␛[0m   ␛[38;5;146m7 h 25 min␛[0m   ␛[38;5;146mtired ␛[0m   ␛[38;5;146m1/4   ␛[0m
+␛[38;5;146mMon 5 ␛[0m   ␛[38;5;146m23:15␛[0m   ␛[38;5;146m07:00␛[0m   ␛[38;5;146m7 h 45 min␛[0m   ␛[38;5;146mrested␛[0m   ␛[38;5;146m4/4   ␛[0m
+␛[38;5;146mTue 6 ␛[0m   ␛[38;5;146m23:40␛[0m   ␛[38;5;146m07:05␛[0m   ␛[38;5;146m7 h 25 min␛[0m   ␛[38;5;146mokay  ␛[0m   ␛[38;5;146m2/4   ␛[0m
+␛[38;5;146mWed 7 ␛[0m   ␛[38;5;146m23:05␛[0m   ␛[38;5;146m07:00␛[0m   ␛[38;5;146m7 h 55 min␛[0m   ␛[38;5;146mrested␛[0m   ␛[38;5;146m3/4   ␛[0m
+␛[38;5;146mThu 8 ␛[0m   ␛[38;5;146m00:50␛[0m   ␛[38;5;146m08:00␛[0m   ␛[38;5;146m7 h 10 min␛[0m   ␛[38;5;146mtired ␛[0m   ␛[38;5;146m0/4   ␛[0m
+␛[38;5;146mFri 9 ␛[0m   ␛[38;5;146m23:20␛[0m   ␛[38;5;146m07:05␛[0m   ␛[38;5;146m7 h 45 min␛[0m   ␛[38;5;146mokay  ␛[0m   ␛[38;5;146m2/4   ␛[0m
+␛[38;5;146mSat 10␛[0m   ␛[38;5;146m23:10␛[0m   ␛[38;5;146m07:00␛[0m   ␛[38;5;146m7 h 50 min␛[0m   ␛[38;5;146mrested␛[0m   ␛[38;5;146m4/4   ␛[0m
+␛[38;5;103maverage sleep␛[0m    ␛[38;5;146m7 h 36 min␛[0m
+␛[38;5;103mbedtime spread␛[0m   ␛[38;5;146m1 h 45 min␛[0m
+␛[38;5;103mon time␛[0m          ␛[38;5;146m4 of 7␛[0m
+␛[38;5;103mhabits kept␛[0m      ␛[38;5;146m57%␛[0m
+--- stderr
+␛[38;5;180m▲␛[0m ␛[38;5;146myour bedtime moved by 1 h 45 min this week␛[0m
+  ␛[38;5;60m›␛[0m ␛[38;5;60mthe wind-down is the anchor: lull today␛[0m
+

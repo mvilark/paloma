@@ -1,0 +1,44 @@
+$ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull.json lull today
+--- exit 0
+--- stdout
+caffeine until   15:00
+wind down        22:00
+bed              23:00
+wake             07:00
+--- stderr
+␛[38;5;214m☼␛[0m tonight
+␛[38;5;74m•␛[0m wind-down in 8 h
+
+$ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull.json lull week
+--- exit 0
+--- stdout
+night    bed     up      slept        rested   habits
+Sun 4    00:20   07:45   7 h 25 min   tired    1/4   
+Mon 5    23:15   07:00   7 h 45 min   rested   4/4   
+Tue 6    23:40   07:05   7 h 25 min   okay     2/4   
+Wed 7    23:05   07:00   7 h 55 min   rested   3/4   
+Thu 8    00:50   08:00   7 h 10 min   tired    0/4   
+Fri 9    23:20   07:05   7 h 45 min   okay     2/4   
+Sat 10   23:10   07:00   7 h 50 min   rested   4/4   
+average sleep    7 h 36 min
+bedtime spread   1 h 45 min
+on time          4 of 7
+habits kept      57%
+--- stderr
+␛[38;5;178m▲␛[0m your bedtime moved by 1 h 45 min this week
+  ␛[38;5;244m›␛[0m ␛[38;5;244mthe wind-down is the anchor: lull today␛[0m
+
+$ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull.json lull nope
+--- exit 2
+--- stdout
+--- stderr
+␛[38;5;167m✘␛[0m ␛[31mi do not know nope␛[0m
+  ␛[38;5;244m›␛[0m ␛[38;5;244mlull setup, today, park, log, week or forget␛[0m
+
+$ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull-missing.json lull today
+--- exit 1
+--- stdout
+--- stderr
+␛[38;5;167m✘␛[0m ␛[31mno sleep schedule yet␛[0m
+  ␛[38;5;244m›␛[0m ␛[38;5;244mrun: lull setup␛[0m
+
