@@ -2,6 +2,10 @@
 
 Lull is a sleep schedule tracker for people whose bedtime drifts because they hyperfocus in the evening, the third example app ([PAL-021](../plans/PAL-021-lull-sleep-tracker.md)). Its point as an example is the opposite of a showcase of options: **the least code that makes a complete app, with paloma's default behaviour everywhere**.
 
+## Copy
+
+All copy is sentence case: the first letter of the first word is capitalised, never Title Case (`How much sleep do you need?`). Text after a colon or ` · ` inside one string stays lowercase, and data stays as it is (times, durations such as `7 h 30 min`, dates, paths, city names, what the user typed). A sentence never starts with a command name, so it is rephrased (`Run: lull setup`, `Try lull setup, today, park, log, week or forget`) and the command stays lowercase.
+
 ## The allowed-API rule
 
 The app writes content (questions, items, rules, messages) and two themes, nothing else. The example may call only:

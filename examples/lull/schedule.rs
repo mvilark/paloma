@@ -48,12 +48,12 @@ pub struct Parked { pub at: NaiveDateTime, pub note: String }
 impl Habit {
     pub const ALL: [Habit; 6] = [Habit::Park, Habit::Screens, Habit::Light, Habit::Caffeine, Habit::Alcohol, Habit::Naps];
     const TEXT: [(&str, &str); 6] = [
-        ("park your work", "write where you stopped, then stop"),
-        ("screens off at wind-down", "evening screens push sleep later"),
-        ("daylight within an hour of waking", "morning light sets the body clock"),
-        ("no caffeine after the cut-off", "it lingers for hours"),
-        ("no alcohol in the 3 hours before bed", "it breaks up the second half of the night"),
-        ("naps under 20 minutes, before 15:00", "longer or later naps steal night sleep"),
+        ("Park your work", "Write where you stopped, then stop"),
+        ("Screens off at wind-down", "Evening screens push sleep later"),
+        ("Daylight within an hour of waking", "Morning light sets the body clock"),
+        ("No caffeine after the cut-off", "It lingers for hours"),
+        ("No alcohol in the 3 hours before bed", "It breaks up the second half of the night"),
+        ("Naps under 20 minutes, before 15:00", "Longer or later naps steal night sleep"),
     ];
     pub fn text(self) -> &'static str { Self::TEXT[self as usize].0 }
     pub fn why(self) -> &'static str { Self::TEXT[self as usize].1 }

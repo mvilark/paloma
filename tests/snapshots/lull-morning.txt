@@ -1,23 +1,23 @@
 $ LULL_NOW=2026-10-11T07:30 LULL_FILE=tests/fixtures/lull.json lull today
 --- exit 0
 --- stdout
-caffeine until   15:00
-wind down        22:00
-bed              23:00
-wake             07:00
+Caffeine until   15:00
+Wind down        22:00
+Bed              23:00
+Wake             07:00
 --- stderr
-␛[38;5;214m☼␛[0m tonight
-␛[38;5;74m•␛[0m wind-down in 14 h 30 min
+␛[38;5;214m☼␛[0m Tonight
+␛[38;5;74m•␛[0m Wind-down in 14 h 30 min
 
 $ LULL_NOW=2026-10-12T07:30 LULL_FILE=tests/fixtures/lull.json lull today
 --- exit 0
 --- stdout
-caffeine until   15:00
-wind down        22:00
-bed              23:00
-wake             07:00
+Caffeine until   15:00
+Wind down        22:00
+Bed              23:00
+Wake             07:00
 --- stderr
-␛[38;5;214m☼␛[0m tonight
-␛[38;5;74m•␛[0m wind-down in 14 h 30 min
-␛[38;5;244m›␛[0m ␛[38;5;244mgood morning: lull log␛[0m
+␛[38;5;214m☼␛[0m Tonight
+␛[38;5;74m•␛[0m Wind-down in 14 h 30 min
+␛[38;5;244m›␛[0m ␛[38;5;244mGood morning: lull log␛[0m
 

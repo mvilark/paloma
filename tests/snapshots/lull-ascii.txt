@@ -1,31 +1,31 @@
 $ LULL_NOW=2026-10-12T00:40 LULL_FILE=tests/fixtures/lull.json lull today
 --- exit 0
 --- stdout
-caffeine until   15:00
-wind down        22:00
-bed              23:00
-wake             07:00
+Caffeine until   15:00
+Wind down        22:00
+Bed              23:00
+Wake             07:00
 --- stderr
-# tonight
+# Tonight
 warning: 1 h 40 min past bedtime
-  hint: it will all still be there tomorrow
+  hint: It will all still be there tomorrow
 
 $ LULL_NOW=2026-10-12T00:40 LULL_FILE=tests/fixtures/lull.json lull week
 --- exit 0
 --- stdout
-night    bed     up      slept        rested   habits
-Sun 4    00:20   07:45   7 h 25 min   tired    1/4   
-Mon 5    23:15   07:00   7 h 45 min   rested   4/4   
-Tue 6    23:40   07:05   7 h 25 min   okay     2/4   
-Wed 7    23:05   07:00   7 h 55 min   rested   3/4   
-Thu 8    00:50   08:00   7 h 10 min   tired    0/4   
-Fri 9    23:20   07:05   7 h 45 min   okay     2/4   
-Sat 10   23:10   07:00   7 h 50 min   rested   4/4   
-average sleep    7 h 36 min
-bedtime spread   1 h 45 min
-on time          4 of 7
-habits kept      57%
+Night    Bed     Up      Slept        Rested   Habits
+Sun 4    00:20   07:45   7 h 25 min   Tired    1/4   
+Mon 5    23:15   07:00   7 h 45 min   Rested   4/4   
+Tue 6    23:40   07:05   7 h 25 min   Okay     2/4   
+Wed 7    23:05   07:00   7 h 55 min   Rested   3/4   
+Thu 8    00:50   08:00   7 h 10 min   Tired    0/4   
+Fri 9    23:20   07:05   7 h 45 min   Okay     2/4   
+Sat 10   23:10   07:00   7 h 50 min   Rested   4/4   
+Average sleep    7 h 36 min
+Bedtime spread   1 h 45 min
+On time          4 of 7
+Habits kept      57%
 --- stderr
-warning: your bedtime moved by 1 h 45 min this week
-  hint: the wind-down is the anchor: lull today
+warning: Your bedtime moved by 1 h 45 min this week
+  hint: The wind-down is the anchor: lull today
 

@@ -57,7 +57,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     match (env::args().nth(1).as_deref().unwrap_or(default), data) {
         ("setup", data) => commands::setup(data, &path, now),
         ("today" | "park" | "log" | "week" | "forget", None) => fail(
-            paloma::error("no sleep schedule yet").nest(Message::hint("run: lull setup")),
+            paloma::error("No sleep schedule yet").nest(Message::hint("Run: lull setup")),
             1,
         ),
         ("today", Some(data)) => commands::today(&data, now),
@@ -66,9 +66,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         ("week", Some(data)) => commands::week(&data),
         ("forget", Some(_)) => commands::forget(&path),
         (other, _) => {
-            let hint = Message::hint("lull setup, today, park, log, week or forget");
+            let hint = Message::hint("Try lull setup, today, park, log, week or forget");
             fail(
-                paloma::error(format!("i do not know {other}")).nest(hint),
+                paloma::error(format!("I do not know {other}")).nest(hint),
                 2,
             )
         }

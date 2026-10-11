@@ -12,7 +12,7 @@ use crate::{cities::CITIES, schedule::*};
 
 type R = Result<(), Box<dyn Error>>;
 
-const RESTED: [&str; 5] = ["drained", "tired", "okay", "rested", "great"];
+const RESTED: [&str; 5] = ["Drained", "Tired", "Okay", "Rested", "Great"];
 
 /// A `Select` whose highlighted item is `default`.
 fn choose(
@@ -56,19 +56,19 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
     let find = |list: &[u32], v, other| list.iter().position(|x| *x == v).unwrap_or(other);
     let mut data = Flow::new(data)
         .step("wake", |_| {
-            let (set, sun) = (Item::new("at a set time"), Item::new("with the sunrise"));
+            let (set, sun) = (Item::new("At a set time"), Item::new("With the sunrise"));
             let items = [
-                set.description("the same time every day, weekends too"),
-                sun.description("between 06:00 and 08:00, following the sun where you live"),
+                set.description("The same time every day, weekends too"),
+                sun.description("Between 06:00 and 08:00, following the sun where you live"),
             ];
             let now = sunrise.get().into();
-            choose("how do you want to wake up?", items, now).map(|i| sunrise.set(i == 1))
+            choose("How do you want to wake up?", items, now).map(|i| sunrise.set(i == 1))
         })
         .step_if(by_clock, "time", |d| {
             let times = slots(at(5, 30), 8);
             let now = times.iter().position(|t| Wake::At(*t) == d.schedule.wake);
             let items = times.iter().map(|t| clock(*t));
-            choose("wake up at", items, now.unwrap_or(3))
+            choose("Wake up at", items, now.unwrap_or(3))
                 .map(|i| d.schedule.wake = Wake::At(times[i]))
         })
         .step_if(by_sun, "place", |d| {
@@ -78,10 +78,10 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
                 ""
             };
             let i = FuzzySelect::new()
-                .prompt("where do you live?")
-                .placeholder("search cities")
+                .prompt("Where do you live?")
+                .placeholder("Search cities")
                 .items(CITIES.iter().map(|c| format!("{}, {}", c.0, c.1)))
-                .item(Item::new("somewhere else").description("enter coordinates"))
+                .item(Item::new("Somewhere else").description("Enter coordinates"))
                 .default(CITIES.iter().position(|c| c.0 == name).unwrap_or(0))
                 .interact()?;
             elsewhere.set(i == CITIES.len());
@@ -95,11 +95,11 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
             let valid = |t: &String| {
                 coordinates(t)
                     .map(drop)
-                    .ok_or("two numbers, like 41.39, 2.17")
+                    .ok_or("Two numbers, like 41.39, 2.17")
             };
             let text = Input::<String>::new()
-                .prompt("latitude, longitude")
-                .description("like 41.39, 2.17")
+                .prompt("Latitude, longitude")
+                .description("Like 41.39, 2.17")
                 .validate(valid)
                 .interact()?;
             let (lat, lon) = coordinates(&text).unwrap();
@@ -109,13 +109,13 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
         })
         .step("sleep", |d| {
             let minutes = [420, 450, 480, 510, 540];
-            let mut note = "adults need 7 to 9 hours".to_string();
+            let mut note = "Adults need 7 to 9 hours".to_string();
             if sunrise.get() {
                 let wake = wake_on(&d.schedule, from.succ_opt().unwrap(), &Local);
                 note += &format!(" · tomorrow you wake at {}", clock(wake));
             }
             let i = Select::new()
-                .prompt("how much sleep do you need?")
+                .prompt("How much sleep do you need?")
                 .description(note)
                 .items(minutes.map(hm))
                 .default(find(&minutes, d.schedule.sleep_minutes, 2))
@@ -126,10 +126,10 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
         .step("wind down", |d| {
             let minutes = [30, 45, 60, 90];
             let mut items = minutes.map(|m| Item::new(format!("{m} min")));
-            items[2] = items[2].clone().description("good for evening hyperfocus");
+            items[2] = items[2].clone().description("Good for evening hyperfocus");
             let i = Select::new()
-                .prompt("wind down for")
-                .description("a hard stop for screens and work")
+                .prompt("Wind down for")
+                .description("A hard stop for screens and work")
                 .items(items)
                 .default(find(&minutes, d.schedule.wind_down_minutes, 2))
                 .interact()?;
@@ -139,8 +139,8 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
         .step("usual", |_| {
             let times = slots(at(22, 30), 11);
             let mut items: Vec<_> = times.iter().map(|t| clock(*t)).collect();
-            (items[0], items[10]) = ("around the time above".into(), "later than 03:00".into());
-            choose("when do you fall asleep these days?", items, 0)
+            (items[0], items[10]) = ("Around the time above".into(), "Later than 03:00".into());
+            choose("When do you fall asleep these days?", items, 0)
                 .map(|i| usual.set((i > 0).then(|| times[i])))
         })
         .step("habits", |d| {
@@ -153,10 +153,10 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
             let none = |v: &[usize]| {
                 (!v.is_empty())
                     .then_some(())
-                    .ok_or("pick at least one habit")
+                    .ok_or("Pick at least one habit")
             };
             let picked = MultiSelect::new()
-                .prompt("which habits will you keep?")
+                .prompt("Which habits will you keep?")
                 .items_checked(items)
                 .validate(none)
                 .interact()?;
@@ -167,7 +167,7 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
             let hours = [6, 8, 10];
             let now = find(&hours, d.schedule.caffeine_hours.unwrap_or(8), 1);
             let items = hours.map(|h| format!("{h} hours before bed"));
-            choose("last caffeine", items, now).map(|i| d.schedule.caffeine_hours = Some(hours[i]))
+            choose("Last caffeine", items, now).map(|i| d.schedule.caffeine_hours = Some(hours[i]))
         })
         .run()?;
 
@@ -183,29 +183,29 @@ pub fn setup(data: Option<Data>, path: &Path, now: DateTime) -> R {
     let (s, plan) = (&data.schedule, plan(&data.schedule, from, &Local));
     let wake = match &s.wake {
         Wake::At(t) => clock(*t),
-        Wake::Sunrise(p) => format!("with the sunrise in {}, 06:00-08:00", p.place),
+        Wake::Sunrise(p) => format!("With the sunrise in {}, 06:00-08:00", p.place),
     };
     let habits: Vec<_> = data.habits.iter().map(|h| h.text()).collect();
     let caffeine = plan
         .caffeine
-        .map(|c| ("caffeine", format!("until {}", clock(c))));
-    paloma::section("your schedule").print()?;
+        .map(|c| ("Caffeine", format!("Until {}", clock(c))));
+    paloma::section("Your schedule").print()?;
     KeyValue::new()
         .rows([
-            ("wake", wake),
-            ("sleep", hm(s.sleep_minutes)),
-            ("wind down", format!("{} min", s.wind_down_minutes)),
+            ("Wake", wake),
+            ("Sleep", hm(s.sleep_minutes)),
+            ("Wind down", format!("{} min", s.wind_down_minutes)),
         ])
         .rows(caffeine)
-        .row("habits", habits.join(", "))
+        .row("Habits", habits.join(", "))
         .print()?;
-    paloma::success("saved")
+    paloma::success("Saved")
         .nest(Message::hint(path.display().to_string()))
         .print()?;
     if s.ease.is_some() {
         let bed = clock(plan.bed);
         paloma::info(format!(
-            "starting at {bed}, the whole night moves 15 min earlier every 3 days"
+            "Starting at {bed}, the whole night moves 15 min earlier every 3 days"
         ))
         .print()?;
     }
@@ -217,29 +217,29 @@ pub fn today(data: &Data, now: DateTime) -> R {
     let (which, tonight) = phase(s, now, &Local);
     let span = |from: DateTime, to: DateTime| hm((to - from).num_minutes());
     let sunrise = ["", " (sunrise)"][matches!(s.wake, Wake::Sunrise(_)) as usize];
-    paloma::section("tonight").print()?;
+    paloma::section("Tonight").print()?;
     KeyValue::new()
-        .rows(tonight.caffeine.map(|c| ("caffeine until", clock(c))))
+        .rows(tonight.caffeine.map(|c| ("Caffeine until", clock(c))))
         .rows([
-            ("wind down", clock(tonight.wind_down)),
-            ("bed", clock(tonight.bed)),
-            ("wake", clock(tonight.wake) + sunrise),
+            ("Wind down", clock(tonight.wind_down)),
+            ("Bed", clock(tonight.bed)),
+            ("Wake", clock(tonight.wake) + sunrise),
         ])
         .print()?;
     match which {
-        Phase::Day => paloma::info(format!("wind-down in {}", span(now, tonight.wind_down))),
+        Phase::Day => paloma::info(format!("Wind-down in {}", span(now, tonight.wind_down))),
         Phase::WindDown => {
-            let hint = ["screens off", "park your work: lull park"]
+            let hint = ["Screens off", "Park your work: lull park"]
                 [data.habits.contains(&Habit::Park) as usize];
             paloma::warning(format!(
-                "wind-down started {} ago",
+                "Wind-down started {} ago",
                 span(tonight.wind_down, now)
             ))
             .nest(Message::hint(hint))
         }
-        Phase::Night if now < tonight.bed + Duration::minutes(10) => paloma::info("time to sleep"),
+        Phase::Night if now < tonight.bed + Duration::minutes(10) => paloma::info("Time to sleep"),
         Phase::Night => paloma::warning(format!("{} past bedtime", span(tonight.bed, now)))
-            .nest(Message::hint("it will all still be there tomorrow")),
+            .nest(Message::hint("It will all still be there tomorrow")),
     }
     .print()?;
     if tonight.ease > 0 {
@@ -248,7 +248,7 @@ pub fn today(data: &Data, now: DateTime) -> R {
             .map(|i| night + Duration::days(i))
             .find(|d| ease_minutes(s, *d) < tonight.ease);
         let note = format!(
-            "easing in: {} later than your goal, 15 min earlier on {}",
+            "Easing in: {} later than your goal, 15 min earlier on {}",
             hm(tonight.ease),
             next.unwrap().format("%b %-d")
         );
@@ -257,7 +257,7 @@ pub fn today(data: &Data, now: DateTime) -> R {
     let last = night_date(now);
     let woke = now >= plan(s, last, &Local).wake && now.time() < at(12, 0);
     if woke && !data.nights.iter().any(|n| n.date == last) {
-        Message::hint("good morning: lull log").print()?;
+        Message::hint("Good morning: lull log").print()?;
     }
     Ok(())
 }
@@ -266,11 +266,11 @@ pub fn park(mut data: Data, path: &Path, now: DateTime) -> R {
     let blank = |t: &String| {
         (!t.trim().is_empty())
             .then_some(())
-            .ok_or("a few words is enough")
+            .ok_or("A few words is enough")
     };
     let note = Input::<String>::new()
-        .prompt("where did you stop?")
-        .placeholder("the next thing to do, in a few words")
+        .prompt("Where did you stop?")
+        .placeholder("The next thing to do, in a few words")
         .validate(blank)
         .interact()?;
     data.parked = Some(Parked {
@@ -278,8 +278,8 @@ pub fn park(mut data: Data, path: &Path, now: DateTime) -> R {
         note: note.trim().into(),
     });
     save(path, &data)?;
-    paloma::success("parked")
-        .nest(Message::hint("it will be here in the morning"))
+    paloma::success("Parked")
+        .nest(Message::hint("It will be here in the morning"))
         .print()?;
     Ok(())
 }
@@ -288,7 +288,7 @@ pub fn log(mut data: Data, path: &Path, now: DateTime) -> R {
     let date = night_date(now);
     let planned = plan(&data.schedule, date, &Local);
     let parse = |t: &str| NaiveTime::parse_from_str(t, "%H:%M");
-    let valid = |t: &String| parse(t).map(drop).map_err(|_| "a time like 23:30");
+    let valid = |t: &String| parse(t).map(drop).map_err(|_| "A time like 23:30");
     let ask = |prompt: &str, default: NaiveTime| -> paloma::Result<NaiveTime> {
         let text = Input::<String>::new()
             .prompt(prompt)
@@ -306,17 +306,17 @@ pub fn log(mut data: Data, path: &Path, now: DateTime) -> R {
         habits: vec![],
     };
     let night = Flow::new(start)
-        .step("bed", |n| ask("went to bed at", n.bed).map(|t| n.bed = t))
-        .step("up", |n| ask("got up at", n.up).map(|t| n.up = t))
+        .step("bed", |n| ask("Went to bed at", n.bed).map(|t| n.bed = t))
+        .step("up", |n| ask("Got up at", n.up).map(|t| n.up = t))
         .step("rested", |n| {
-            choose("how rested do you feel?", RESTED, 2).map(|i| n.rested = i as u8 + 1)
+            choose("How rested do you feel?", RESTED, 2).map(|i| n.rested = i as u8 + 1)
         })
         .step_if(
             |_| !chosen.is_empty(),
             "habits",
             |n| {
                 let kept = MultiSelect::new()
-                    .prompt("which habits did you keep?")
+                    .prompt("Which habits did you keep?")
                     .items(chosen.iter().map(|h| h.text()));
                 kept.interact()
                     .map(|v| n.habits = v.into_iter().map(|i| chosen[i]).collect())
@@ -331,13 +331,13 @@ pub fn log(mut data: Data, path: &Path, now: DateTime) -> R {
     let parked = data.parked.take();
     save(path, &data)?;
     if let Some(p) = parked {
-        paloma::info("you parked:")
+        paloma::info("You parked:")
             .nest(Message::info(p.note))
             .print()?;
     }
-    paloma::success(format!("logged {}", hm(slept))).print()?;
+    paloma::success(format!("Logged {}", hm(slept))).print()?;
     if late > 30 {
-        let hint = Message::hint("start the wind-down on time tonight");
+        let hint = Message::hint("Start the wind-down on time tonight");
         paloma::warning(format!("{} later than planned", hm(late)))
             .nest(hint)
             .print()?;
@@ -348,8 +348,8 @@ pub fn log(mut data: Data, path: &Path, now: DateTime) -> R {
 pub fn week(data: &Data) -> R {
     let last = &data.nights[data.nights.len().saturating_sub(7)..];
     if last.is_empty() {
-        paloma::info("no nights logged yet")
-            .nest(Message::hint("lull log, in the morning"))
+        paloma::info("No nights logged yet")
+            .nest(Message::hint("Run lull log in the morning"))
             .print()?;
         return Ok(());
     }
@@ -365,7 +365,7 @@ pub fn week(data: &Data) -> R {
             habits,
         ]
     });
-    Table::new(["night", "bed", "up", "slept", "rested", "habits"])
+    Table::new(["Night", "Bed", "Up", "Slept", "Rested", "Habits"])
         .rows(rows)
         .print()?;
     let spread = spread(&last.iter().map(|n| n.bed).collect::<Vec<_>>());
@@ -375,16 +375,16 @@ pub fn week(data: &Data) -> R {
     let kept = last.iter().map(|n| n.habits.len()).sum::<usize>() as f64;
     KeyValue::new()
         .row(
-            "average sleep",
+            "Average sleep",
             hm(last.iter().map(slept).sum::<i64>() / last.len() as i64),
         )
-        .row("bedtime spread", hm(spread))
+        .row("Bedtime spread", hm(spread))
         .row(
-            "on time",
+            "On time",
             format!("{} of {}", last.iter().filter(near).count(), last.len()),
         )
         .row(
-            "habits kept",
+            "Habits kept",
             format!(
                 "{}%",
                 (100.0 * kept / (last.len() * data.habits.len()) as f64).round()
@@ -392,10 +392,10 @@ pub fn week(data: &Data) -> R {
         )
         .print()?;
     if spread <= 60 {
-        paloma::success("a steady week").print()?;
+        paloma::success("A steady week").print()?;
     } else {
-        let hint = Message::hint("the wind-down is the anchor: lull today");
-        paloma::warning(format!("your bedtime moved by {} this week", hm(spread)))
+        let hint = Message::hint("The wind-down is the anchor: lull today");
+        paloma::warning(format!("Your bedtime moved by {} this week", hm(spread)))
             .nest(hint)
             .print()?;
     }
@@ -404,14 +404,14 @@ pub fn week(data: &Data) -> R {
 
 pub fn forget(path: &Path) -> R {
     if Confirm::new()
-        .prompt(format!("delete {}?", path.display()))
+        .prompt(format!("Delete {}?", path.display()))
         .default(false)
         .interact()?
     {
         fs::remove_file(path)?;
-        paloma::success("forgotten").print()?;
+        paloma::success("Forgotten").print()?;
     } else {
-        paloma::info("kept").print()?;
+        paloma::info("Kept").print()?;
     }
     Ok(())
 }

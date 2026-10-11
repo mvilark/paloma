@@ -32,7 +32,7 @@ What follows from it:
 
 ## The app
 
-Name: **Lull**. Binary name in copy and hints: `lull`. Copy is lowercase, calm and short; it never scolds.
+Name: **Lull**. Binary name in copy and hints: `lull`. Copy is calm and short, in sentence case (the first letter of the first word capitalised, never Title Case); it never scolds.
 
 ### Commands
 
@@ -46,9 +46,9 @@ Name: **Lull**. Binary name in copy and hints: `lull`. Copy is lowercase, calm a
 | `lull week` | The last 7 logged nights and how steady they were. |
 | `lull forget` | Deletes the file after a `Confirm` (default no). |
 
-Anything else: error `i do not know <arg>` with nested hint `lull setup, today, park, log, week or forget`, exit 2. There are no flags. Exit codes: 0, 1 (a message says why), 2 (unknown command); `Ctrl+C` exits 130 by paloma's default.
+Anything else: error `I do not know <arg>` with nested hint `Try lull setup, today, park, log, week or forget`, exit 2. There are no flags. Exit codes: 0, 1 (a message says why), 2 (unknown command); `Ctrl+C` exits 130 by paloma's default.
 
-The "no schedule" error, used by `today`, `park`, `log` and `week` when the file does not exist: `paloma::error("no sleep schedule yet")` with nested `Message::hint("run: lull setup")`, exit 1. An unreadable file: `paloma::error(format!("{path} could not be read: {err}"))`, exit 1 (never overwrite it).
+The "no schedule" error, used by `today`, `park`, `log` and `week` when the file does not exist: `paloma::error("No sleep schedule yet")` with nested `Message::hint("Run: lull setup")`, exit 1. An unreadable file: `paloma::error(format!("{path} could not be read: {err}"))`, exit 1 (never overwrite it).
 
 ### Environment
 
@@ -76,12 +76,12 @@ Chosen in setup (`MultiSelect`, at least one), logged each morning. Stored by ke
 
 | Key | Item text | Description (shown beside the item) | Checked by default |
 | --- | --- | --- | --- |
-| `park` | park your work | write where you stopped, then stop | yes |
-| `screens` | screens off at wind-down | evening screens push sleep later | yes |
-| `light` | daylight within an hour of waking | morning light sets the body clock | yes |
-| `caffeine` | no caffeine after the cut-off | it lingers for hours | yes |
-| `alcohol` | no alcohol in the 3 hours before bed | it breaks up the second half of the night | no |
-| `naps` | naps under 20 minutes, before 15:00 | longer or later naps steal night sleep | no |
+| `park` | Park your work | Write where you stopped, then stop | yes |
+| `screens` | Screens off at wind-down | Evening screens push sleep later | yes |
+| `light` | Daylight within an hour of waking | Morning light sets the body clock | yes |
+| `caffeine` | No caffeine after the cut-off | It lingers for hours | yes |
+| `alcohol` | No alcohol in the 3 hours before bed | It breaks up the second half of the night | no |
+| `naps` | Naps under 20 minutes, before 15:00 | Longer or later naps steal night sleep | no |
 
 ### Data file
 
@@ -425,3 +425,4 @@ See below. Then `docs/design/lull.md`, `USAGE.md`, `DEVELOPMENT.md`, `ROADMAP.md
   - **Night theme gap fixed.** Both themes now drop `ColorfulTheme`'s fixed prompt and block styles first (`base` in `theme.rs`: `t.prompts(|_| PromptTokens::default()).blocks(|_| BlockTokens::default())`), so questions, marks, answers and titles take the palette and the night theme is never bold. This is still only theme code. The lull snapshots were regenerated: only styles changed, no text.
   - **Sunrise rounded to 5 minutes.** A sunrise at 07:59 made the whole night read `00:29`, `16:29`. `wake_on` now rounds the sunrise to the nearest 5 minutes before clamping. The unit test pins Barcelona on 2026-10-01 (05:48 UTC, +2 h) to 07:50.
   - **Checked by the planner:** a pty run of `setup` at 22:40 (night theme, before any schedule) with Barcelona under `TZ=Europe/Madrid` and usual `00:30`. The sleep step shows `tomorrow you wake at 07:59` (before rounding), the summary and easing info print, and the file matches the data shape. `today` then uses the day theme, because the eased wind-down is at 23:29 (before rounding).
+- 2026-10-11: At the client's request ("change the text format to be always capital first letter of the first word of all labels, sentences, titles, etc") all of Lull's copy is now sentence case: prompt questions, items and their descriptions, placeholders, validation messages, section titles, key/value keys, table headers, message texts and hints, the rested words (`Drained` ... `Great`) and the habit texts. Values that are data stay as they were (times, `hm` durations, dates, paths, city names, typed text, JSON keys). Sentences never start with a command name: `Run: lull setup`, `Run lull log in the morning`, `Try lull setup, today, park, log, week or forget`, `Good morning: lull log`, `Park your work: lull park`, `The wind-down is the anchor: lull today`; `i do not know` is `I do not know`. The lull snapshots were regenerated (capitalisation, plus the one rephrased hint). The quoted copy in the tables above was updated; prose elsewhere in this plan may still show the original lowercase, and the code is the source of truth.
