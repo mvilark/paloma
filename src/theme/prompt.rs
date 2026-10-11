@@ -323,10 +323,6 @@ pub enum Answer<'a> {
     Hidden(usize),
     /// No answer: drawn as the `empty_value` token, nothing by default.
     Skipped,
-    /// The user cancelled the prompt with `Ctrl+C`: drawn as the `cancelled_value`
-    /// token in `cancelled_style`. The prompt draws this line only when the token is
-    /// set.
-    Cancelled,
 }
 
 /// The line an answered prompt leaves; see

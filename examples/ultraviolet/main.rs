@@ -121,11 +121,14 @@ fn main() {
             .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
             .password(|p| p.mask(true).result_len(8))
             // Spinners follow the example's own motion rule.
-            .live(|l| l.motion(motion)),
+            .live(|l| l.motion(motion))
+            // `Ctrl+C` at a prompt returns `Error::Cancelled` instead of exiting at
+            // once, so the app prints its own cancelled line first (below).
+            .general(|g| g.cancel_exits(false)),
     );
 
     // Ctrl+C while a spinner runs (no prompt is reading keys then; a prompt reads it as
-    // a key and returns `Error::Cancelled`).
+    // a key and returns `Error::Cancelled`, see `cancel_exits` above).
     let _ = ctrlc::set_handler(|| {
         paloma::terminal::restore();
         cancelled();
@@ -157,8 +160,12 @@ fn main() {
     };
     let code = match result {
         Ok(code) => code,
-        // `^C` at a prompt: it has erased itself and drawn the theme's cancelled line.
-        Err(paloma::Error::Cancelled) => 130,
+        // `^C` at a prompt (or `Esc` at a flow's first step): the prompt has erased
+        // itself; the cancelled line goes on its own line, as for a spinner.
+        Err(paloma::Error::Cancelled) => {
+            cancelled();
+            130
+        }
         Err(err) => {
             let _ = paloma::error(err.to_string()).print();
             1

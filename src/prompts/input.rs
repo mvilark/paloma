@@ -415,9 +415,7 @@ where
                 continue;
             };
             let changed = match key {
-                Key::CtrlC => {
-                    return render.cancel(PromptKind::Input, Some(self.completion_prompt()))
-                }
+                Key::CtrlC => return render.cancel(),
                 Key::Escape if allow_back => {
                     render.back()?;
                     return Ok(None);

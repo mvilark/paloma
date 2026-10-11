@@ -264,7 +264,7 @@ impl<'a> Sort<'a> {
                 continue;
             };
             match key {
-                Key::CtrlC => return render.cancel(PromptKind::Sort, self.prompt.as_deref()),
+                Key::CtrlC => return render.cancel(),
                 Key::ArrowDown | Key::Tab | Key::Char('j') => {
                     let old_sel = sel;
 

@@ -267,7 +267,7 @@ impl<'a> Confirm<'a> {
                 continue;
             };
             let new = match key {
-                Key::CtrlC => return render.cancel(PromptKind::Confirm, Some(&self.prompt)),
+                Key::CtrlC => return render.cancel(),
                 Key::Char('y') | Key::Char('Y') => true,
                 Key::Char('n') | Key::Char('N') => false,
                 Key::Enter => match value.or(self.default) {
@@ -329,7 +329,7 @@ impl<'a> Confirm<'a> {
                 continue;
             };
             match key {
-                Key::CtrlC => return render.cancel(PromptKind::Confirm, Some(&self.prompt)),
+                Key::CtrlC => return render.cancel(),
                 Key::ArrowLeft | Key::ArrowRight | Key::Tab => yes_focused = !yes_focused,
                 Key::Char('y') | Key::Char('Y') if wait_for_newline => yes_focused = true,
                 Key::Char('n') | Key::Char('N') if wait_for_newline => yes_focused = false,

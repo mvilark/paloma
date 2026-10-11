@@ -222,8 +222,7 @@ pub trait Theme {
         self.format_message(f, ctx, &message)
     }
 
-    /// Formats the line a prompt leaves once answered (with [`Done::Collapse`](crate::Done::Collapse))
-    /// or cancelled (the `cancelled_value` token).
+    /// Formats the line a prompt leaves once answered (with [`Done::Collapse`](crate::Done::Collapse)).
     /// The default is [`defaults::format_answered`].
     fn format_answered(
         &self,

@@ -15,8 +15,13 @@ struct SignUp {
 
 fn main() -> paloma::Result {
     paloma::set_theme(ColorfulTheme);
+    // `Ctrl+C`, or `Esc` on the first step, exits with code 130 (the default); this
+    // message is printed on its own line first.
+    paloma::set_options(
+        paloma::Options::new().general(|g| g.cancel_message(Message::warning("Sign-up cancelled"))),
+    );
 
-    let result = Flow::new(SignUp {
+    let state = Flow::new(SignUp {
         port: 443,
         ..SignUp::default()
     })
@@ -73,22 +78,12 @@ fn main() -> paloma::Result {
             Ok(())
         },
     )
-    .run();
+    .run()?;
 
-    match result {
-        Ok(state) => {
-            let server = if state.custom_server {
-                format!("port {}", state.port)
-            } else {
-                "the default server".to_string()
-            };
-            paloma::success(format!("Signed up as {} on {server}", state.email)).print()
-        }
-        // `^C`, or `Esc` on the first step.
-        Err(paloma::Error::Cancelled) => {
-            paloma::warning("Sign-up cancelled").print()?;
-            std::process::exit(130);
-        }
-        Err(err) => Err(err),
-    }
+    let server = if state.custom_server {
+        format!("port {}", state.port)
+    } else {
+        "the default server".to_string()
+    };
+    paloma::success(format!("Signed up as {} on {server}", state.email)).print()
 }

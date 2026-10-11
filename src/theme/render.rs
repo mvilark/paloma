@@ -4,6 +4,8 @@ use console::{measure_text_width, Term, TermTarget};
 
 #[cfg(feature = "fuzzy-select")]
 use crate::theme::FuzzySelectPromptView;
+#[cfg(test)]
+use crate::Error;
 use crate::{
     options::Done,
     output::message::Message,
@@ -13,7 +15,7 @@ use crate::{
         ItemView, LegendView, MessageSource, PromptKind, PromptLook, PromptMessageView, PromptView,
         Theme, Tokens,
     },
-    Error, Result,
+    Result,
 };
 
 /// The theme a renderer uses: the prompt's own, or the app-wide one.
@@ -317,17 +319,15 @@ impl<'a> TermThemeRenderer<'a> {
         Ok(())
     }
 
-    /// Ends a prompt the user cancelled with `Ctrl+C`: the prompt is erased, the
-    /// cancelled line is drawn when the theme has a `cancelled_value` (and the prompt a
-    /// question), the cursor is shown, and the result is [`Error::Cancelled`].
-    pub fn cancel<T>(&mut self, kind: PromptKind, prompt: Option<&str>) -> Result<T> {
+    /// Ends a prompt the user cancelled with `Ctrl+C`: the prompt is erased and the
+    /// cursor shown, then the app's cancel message is printed on its own line (if it
+    /// has one) and paloma exits with code 130, or returns [`Error::Cancelled`](crate::Error::Cancelled)
+    /// (`Options::general(|g| g.cancel_exits(false))`).
+    pub fn cancel<T>(&mut self) -> Result<T> {
         self.erase()?;
-        if let (Some(prompt), Some(_)) = (prompt, self.look(kind).cancelled_value) {
-            self.answered(kind, prompt, Answer::Cancelled)?;
-        }
         self.term.show_cursor()?;
         self.term.flush()?;
-        Err(Error::Cancelled)
+        crate::error::cancelled()
     }
 
     /// Gives the terminal cursor the shape of `kind`'s `cursor_shape` and
@@ -773,7 +773,7 @@ mod frame_tests {
         let mut render = TermThemeRenderer::new(&term, Some(&themed));
         render.set_cursor_shape(PromptKind::Password).unwrap();
         render.set_cursor_shape(PromptKind::Input).unwrap();
-        let result: Result<()> = render.cancel(PromptKind::Input, Some("Name"));
+        let result: Result<()> = render.cancel();
         assert!(matches!(result, Err(Error::Cancelled)));
         assert!(out.text().starts_with("\x1b[1 q"), "{:?}", out.text());
         assert!(!out.text().contains("\x1b[0 q"));
@@ -782,24 +782,11 @@ mod frame_tests {
     }
 
     #[test]
-    fn cancel_draws_the_cancelled_line_only_when_the_theme_has_a_value() {
+    fn cancel_erases_the_prompt_and_leaves_no_line() {
         let (term, out) = capture();
         let mut render = TermThemeRenderer::new(&term, Some(&SimpleTheme));
-        let result: Result<()> = render.cancel(PromptKind::Select, Some("Pick"));
+        let result: Result<()> = render.cancel();
         assert!(matches!(result, Err(Error::Cancelled)));
         assert!(!out.text().contains("Pick"));
-
-        let themed =
-            SimpleTheme.restyle(|t| t.prompts(|p| p.base(|b| b.cancelled_value("cancelled"))));
-        let (term, out) = capture();
-        let mut render = TermThemeRenderer::new(&term, Some(&themed));
-        let result: Result<()> = render.cancel(PromptKind::Select, Some("Pick"));
-        assert!(matches!(result, Err(Error::Cancelled)));
-        assert!(out.text().contains("Pick: cancelled\n"), "{:?}", out.text());
-        // A list prompt without a question leaves no line.
-        let (term, out) = capture();
-        let mut render = TermThemeRenderer::new(&term, Some(&themed));
-        let _: Result<()> = render.cancel(PromptKind::Select, None);
-        assert!(!out.text().contains("cancelled"));
     }
 }

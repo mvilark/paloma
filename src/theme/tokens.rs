@@ -793,10 +793,6 @@ settings! {
         hidden_value: &'static str,
         /// What a skipped answer or an empty list shows. Default: none (nothing).
         empty_value: &'static str,
-        /// What follows the question of a prompt the user cancelled with `Ctrl+C`, on
-        /// the line the cancelled prompt leaves. Default: none, and then the prompt
-        /// leaves no line at all.
-        cancelled_value: &'static str,
         /// The keys a prompt's legend line lists, as `(key, action)` pairs. Default per
         /// prompt: `input` and `password` `[("enter", "submit")]`, `select` and
         /// `fuzzy_select` `[("↑↓", "move"), ("enter", "choose")]`, `multi_select`
@@ -857,8 +853,6 @@ settings! {
         empty_style: Style,
         /// The `, ` between the items of a list answer. Default: unstyled.
         list_separator_style: Style,
-        /// `cancelled_value`. Default: `subtle`.
-        cancelled_style: Style,
         /// The focus glyph. Default: `accent`.
         focus_style: Style,
         /// The active item's text. Default: `accent`.
@@ -987,8 +981,6 @@ pub struct PromptLook {
     pub hidden_value: Option<&'static str>,
     /// See [`PromptStyle::empty_value`].
     pub empty_value: Option<&'static str>,
-    /// See [`PromptStyle::cancelled_value`].
-    pub cancelled_value: Option<&'static str>,
     /// See [`PromptStyle::legend`].
     pub legend: &'static [(&'static str, &'static str)],
     /// See [`PromptStyle::legend_back`].
@@ -1037,8 +1029,6 @@ pub struct PromptLook {
     pub empty_style: Style,
     /// See [`PromptStyle::list_separator_style`].
     pub list_separator_style: Style,
-    /// See [`PromptStyle::cancelled_style`].
-    pub cancelled_style: Style,
     /// See [`PromptStyle::focus_style`].
     pub focus_style: Style,
     /// See [`PromptStyle::active_style`].
@@ -1135,7 +1125,6 @@ impl PromptTokens {
             default_brackets: s.default_brackets.unwrap_or(("(", ")")),
             hidden_value: s.hidden_value,
             empty_value: s.empty_value,
-            cancelled_value: s.cancelled_value,
             legend: s.legend.unwrap_or_else(|| default_legend(kind)),
             legend_back: s.legend_back.unwrap_or(("esc", "back")),
             legend_separator: s.legend_separator.unwrap_or("  "),
@@ -1164,7 +1153,6 @@ impl PromptTokens {
             value_style: s.value_style.unwrap_or_else(|| role(Role::text)),
             empty_style: s.empty_style.unwrap_or_else(|| role(Role::subtle)),
             list_separator_style: s.list_separator_style.unwrap_or_default(),
-            cancelled_style: s.cancelled_style.unwrap_or_else(|| role(Role::subtle)),
             focus_style: s.focus_style.unwrap_or_else(|| role(Role::accent)),
             active_style: s.active_style.unwrap_or_else(|| role(Role::accent)),
             item_style: s.item_style.unwrap_or_else(|| role(Role::text)),

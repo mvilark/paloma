@@ -310,8 +310,6 @@ impl Theme for UltravioletTheme {
                     .step_style(p.style(Tok::Subtle))
                     .step_gap(2)
                     .empty_value("none")
-                    .cancelled_value("cancelled")
-                    .cancelled_style(p.style(Tok::Subtle).italic())
                     .legend_key_style(p.style(Tok::Muted))
                     .legend_style(p.style(Tok::Subtle).italic())
                     .disabled_style(p.style(Tok::Muted).strikethrough())
