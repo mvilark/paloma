@@ -59,6 +59,7 @@ pub(crate) fn emit(
     draw(&mut out, theme, &ctx).map_err(std::io::Error::other)?;
     term.write_line(&out)?;
     term.flush()?;
+    crate::flow::record_on(term, &out);
     Ok(())
 }
 

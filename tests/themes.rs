@@ -13,8 +13,9 @@ use std::{
 use paloma::{
     terminal::Stream,
     theme::{
-        Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, InputPromptView, ItemView,
-        LegendView, MessageSource, PromptKind, PromptMessageView, PromptView,
+        Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, FlowSummaryView,
+        InputPromptView, ItemView, LegendView, MessageSource, PromptKind, PromptMessageView,
+        PromptView,
     },
     theme::{ColorfulTheme, Context, MessageView, SimpleTheme, Status, Theme},
     theme::{KeyValueView, PanelView, SectionView, TableView, TaskState, TaskStepView, TaskView},
@@ -51,15 +52,19 @@ fn sheet(theme: &dyn Theme) -> String {
         theme.format_prompt(
             f,
             ctx,
-            &PromptView::new(PromptKind::Select, "Name", None, false),
+            &PromptView::new(PromptKind::Select, "Name", None, false, None),
         )
     });
     s.line("prompt()", |f| {
         theme.format_prompt(
             f,
             ctx,
-            &PromptView::new(PromptKind::Select, "", None, false),
+            &PromptView::new(PromptKind::Select, "", None, false, None),
         )
+    });
+    s.line("prompt(Name, step 2/5)", |f| {
+        let view = PromptView::new(PromptKind::Select, "Name", None, false, Some((2, 5)));
+        theme.format_prompt(f, ctx, &view)
     });
     s.line("error(Bad)", |f| {
         theme.format_message(f, ctx, &MessageView::new(Status::Error, "Bad", 0))
@@ -70,21 +75,37 @@ fn sheet(theme: &dyn Theme) -> String {
             theme.format_confirm_prompt(
                 f,
                 ctx,
-                &ConfirmPromptView::new("Go?", default, false, false),
+                &ConfirmPromptView::new("Go?", default, false, false, None),
             )
         });
     }
     s.line("confirm_prompt(Go?, None, invalid)", |f| {
-        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("Go?", None, false, true))
+        theme.format_confirm_prompt(
+            f,
+            ctx,
+            &ConfirmPromptView::new("Go?", None, false, true, None),
+        )
+    });
+    s.line("confirm_prompt(Go?, None, step 1/3)", |f| {
+        let view = ConfirmPromptView::new("Go?", None, false, false, Some((1, 3)));
+        theme.format_confirm_prompt(f, ctx, &view)
     });
     s.line("confirm_prompt(, None)", |f| {
-        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("", None, false, false))
+        theme.format_confirm_prompt(
+            f,
+            ctx,
+            &ConfirmPromptView::new("", None, false, false, None),
+        )
     });
     s.line("confirm_prompt_no_hint(Go?)", |f| {
-        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("Go?", None, true, false))
+        theme.format_confirm_prompt(
+            f,
+            ctx,
+            &ConfirmPromptView::new("Go?", None, true, false, None),
+        )
     });
     s.line("confirm_prompt_no_hint()", |f| {
-        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("", None, true, false))
+        theme.format_confirm_prompt(f, ctx, &ConfirmPromptView::new("", None, true, false, None))
     });
     for yes_focused in [true, false] {
         s.line(&format!("confirm_buttons({yes_focused})"), |f| {
@@ -118,12 +139,16 @@ fn sheet(theme: &dyn Theme) -> String {
 
     for (prompt, default) in [("Name", None), ("Name", Some("Ada")), ("", Some("Ada"))] {
         s.line(&format!("input_prompt({prompt}, {default:?})"), |f| {
-            let view = InputPromptView::new(PromptKind::Input, prompt, default, false);
+            let view = InputPromptView::new(PromptKind::Input, prompt, default, false, None);
             theme.format_input_prompt(f, ctx, &view)
         });
     }
     s.line("input_prompt(Name, None, invalid)", |f| {
-        let view = InputPromptView::new(PromptKind::Input, "Name", None, true);
+        let view = InputPromptView::new(PromptKind::Input, "Name", None, true, None);
+        theme.format_input_prompt(f, ctx, &view)
+    });
+    s.line("input_prompt(Name, None, step 2/5)", |f| {
+        let view = InputPromptView::new(PromptKind::Input, "Name", None, false, Some((2, 5)));
         theme.format_input_prompt(f, ctx, &view)
     });
     s.line("input_prompt_selection(Name, Ada)", |f| {
@@ -134,15 +159,15 @@ fn sheet(theme: &dyn Theme) -> String {
         theme.format_prompt(
             f,
             ctx,
-            &PromptView::new(PromptKind::Select, "Pick", None, false),
+            &PromptView::new(PromptKind::Select, "Pick", None, false, None),
         )
     });
     s.line("select_prompt(Pick, invalid)", |f| {
-        let view = PromptView::new(PromptKind::Select, "Pick", None, true);
+        let view = PromptView::new(PromptKind::Select, "Pick", None, true, None);
         theme.format_prompt(f, ctx, &view)
     });
     s.line("select_prompt(Pick, page 1/2)", |f| {
-        let view = PromptView::new(PromptKind::Select, "Pick", Some((1, 2)), false);
+        let view = PromptView::new(PromptKind::Select, "Pick", Some((1, 2)), false, None);
         theme.format_prompt(f, ctx, &view)
     });
     s.line("select_prompt_selection(Pick, b)", |f| {
@@ -190,7 +215,7 @@ fn sheet(theme: &dyn Theme) -> String {
     });
 
     s.line("multi_select_prompt(Pick)", |f| {
-        let view = PromptView::new(PromptKind::MultiSelect, "Pick", None, false);
+        let view = PromptView::new(PromptKind::MultiSelect, "Pick", None, false, None);
         theme.format_prompt(f, ctx, &view)
     });
     for sels in [&[][..], &["a", "b"][..]] {
@@ -210,7 +235,7 @@ fn sheet(theme: &dyn Theme) -> String {
         theme.format_prompt(
             f,
             ctx,
-            &PromptView::new(PromptKind::Sort, "Rank", None, false),
+            &PromptView::new(PromptKind::Sort, "Rank", None, false, None),
         )
     });
     s.line("sort_prompt_selection(Rank, [a, b])", |f| {
@@ -222,6 +247,10 @@ fn sheet(theme: &dyn Theme) -> String {
         });
     }
 
+    s.line("flow_summary(Setup, 5)", |f| {
+        theme.format_flow_summary(f, ctx, &FlowSummaryView::new("Setup", 5))
+    });
+
     s.0
 }
 
@@ -231,7 +260,7 @@ fn password_sheet(theme: &dyn Theme) -> String {
     let tokens = theme.tokens();
     let ctx = &Context::new(&tokens, Stream::Stderr);
     s.line("password_prompt(Password)", |f| {
-        let view = InputPromptView::new(PromptKind::Password, "Password", None, false);
+        let view = InputPromptView::new(PromptKind::Password, "Password", None, false, None);
         theme.format_input_prompt(f, ctx, &view)
     });
     s.line("password_mask_glyph()", |f| {
@@ -284,7 +313,7 @@ fn fuzzy_sheet(theme: &dyn Theme) -> String {
     }
     for pos in [0, 2, 3] {
         s.line(&format!("fuzzy_select_prompt(Search, ban, {pos})"), |f| {
-            let view = FuzzySelectPromptView::new("Search", "ban", pos, None, false);
+            let view = FuzzySelectPromptView::new("Search", "ban", pos, None, false, None);
             theme.format_fuzzy_select_prompt(f, ctx, &view)
         });
     }
@@ -292,11 +321,11 @@ fn fuzzy_sheet(theme: &dyn Theme) -> String {
         theme.format_fuzzy_select_prompt(
             f,
             ctx,
-            &FuzzySelectPromptView::new("", "ban", 3, None, false),
+            &FuzzySelectPromptView::new("", "ban", 3, None, false, None),
         )
     });
     s.line("fuzzy_select_prompt(Search, , 0, placeholder)", |f| {
-        let view = FuzzySelectPromptView::new("Search", "", 0, Some("placeholder"), false);
+        let view = FuzzySelectPromptView::new("Search", "", 0, Some("placeholder"), false, None);
         theme.format_fuzzy_select_prompt(f, ctx, &view)
     });
     s.0

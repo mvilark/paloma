@@ -1,12 +1,5 @@
 //! Ultraviolet palette, glyphs and the `Theme` implementation.
-use std::{
-    borrow::Cow,
-    fmt,
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        OnceLock,
-    },
-};
+use std::{borrow::Cow, fmt, sync::OnceLock};
 
 use console::{Color, Style};
 use paloma::theme::{
@@ -221,18 +214,6 @@ pub fn app_theme() -> UltravioletTheme {
     UltravioletTheme::new(cfg().clone())
 }
 
-/// Current flow step as `n << 8 | total`, or 0 outside a flow. Prompt views carry no
-/// flow step yet (PAL-015), so the example hands the step to the theme out of band.
-static STEP: AtomicU32 = AtomicU32::new(0);
-
-pub fn set_step(n: u32, total: u32) {
-    STEP.store(n << 8 | total, Ordering::Relaxed);
-}
-
-pub fn clear_step() {
-    STEP.store(0, Ordering::Relaxed);
-}
-
 /// The Ultraviolet design system as paloma tokens, plus the hooks whose layout the
 /// tokens cannot express: the step counter after the label, the input on its own line,
 /// and the confirm choices and buttons.
@@ -245,13 +226,15 @@ impl UltravioletTheme {
         UltravioletTheme { cfg }
     }
 
-    /// `◆ Label  01/05`: the open prompt's mark and question, then the flow step.
+    /// `◆ Label  01/05`: the open prompt's mark and question, then the flow step the
+    /// view carries (`step_style`, `step_gap` spaces after the label).
     fn label(
         &self,
         f: &mut dyn fmt::Write,
         ctx: &Context,
         look: &PromptLook,
         prompt: &str,
+        step: Option<(usize, usize)>,
     ) -> fmt::Result {
         write!(
             f,
@@ -259,13 +242,13 @@ impl UltravioletTheme {
             ctx.paint(&look.mark_style, look.mark),
             ctx.paint(&look.label_style, prompt)
         )?;
-        // `01/05` step counter: `fg-subtle`, regular weight, after the label.
-        match STEP.load(Ordering::Relaxed) {
-            0 => Ok(()),
-            s => write!(
+        match step {
+            None => Ok(()),
+            Some((n, total)) => write!(
                 f,
-                "  {}",
-                ctx.paint(&look.hint_style, format!("{:02}/{:02}", s >> 8, s & 0xff))
+                "{}{}",
+                " ".repeat(look.step_gap),
+                ctx.paint(&look.step_style, format!("{n:02}/{total:02}"))
             ),
         }
     }
@@ -323,6 +306,9 @@ impl Theme for UltravioletTheme {
                     .empty_style(p.style(Tok::Subtle).italic())
                     .list_separator_style(p.style(Tok::Fg))
                     .paging_style(p.style(Tok::Subtle))
+                    // The `01/05` flow step counter: `fg-subtle`, two spaces after the label.
+                    .step_style(p.style(Tok::Subtle))
+                    .step_gap(2)
                     .empty_value("none")
                     .cancelled_value("cancelled")
                     .cancelled_style(p.style(Tok::Subtle).italic())
@@ -415,7 +401,7 @@ impl Theme for UltravioletTheme {
         view: &PromptView,
     ) -> fmt::Result {
         let look = look(ctx, view.kind);
-        self.label(f, ctx, &look, view.prompt)?;
+        self.label(f, ctx, &look, view.prompt, view.step)?;
         if let Some((page, pages)) = view.paging {
             write!(
                 f,
@@ -435,7 +421,7 @@ impl Theme for UltravioletTheme {
         view: &InputPromptView,
     ) -> fmt::Result {
         let look = look(ctx, view.kind);
-        self.label(f, ctx, &look, view.prompt)?;
+        self.label(f, ctx, &look, view.prompt, view.step)?;
         if let Some(default) = view.default {
             write!(
                 f,
@@ -459,7 +445,7 @@ impl Theme for UltravioletTheme {
         view: &ConfirmPromptView,
     ) -> fmt::Result {
         let look = look(ctx, PromptKind::Confirm);
-        self.label(f, ctx, &look, view.prompt)?;
+        self.label(f, ctx, &look, view.prompt, view.step)?;
         if view.buttons {
             return Ok(());
         }
@@ -505,7 +491,7 @@ impl Theme for UltravioletTheme {
         view: &FuzzySelectPromptView,
     ) -> fmt::Result {
         let look = look(ctx, PromptKind::FuzzySelect);
-        self.label(f, ctx, &look, view.prompt)?;
+        self.label(f, ctx, &look, view.prompt, view.step)?;
         let (head, tail) = view.search.split_at(view.cursor);
         write!(
             f,
@@ -596,9 +582,24 @@ mod tests {
         let tokens = theme.tokens();
         let ctx = Context::new(&tokens, Stream::Stderr);
         let mut out = String::new();
-        let view = PromptView::new(PromptKind::Select, "Name", None, false);
+        let view = PromptView::new(PromptKind::Select, "Name", None, false, None);
         theme.format_prompt(&mut out, &ctx, &view).unwrap();
         assert_eq!(out, "* Name");
+    }
+
+    #[test]
+    fn the_flow_step_follows_the_label() {
+        let theme = plain(config(false));
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let mut out = String::new();
+        let view = PromptView::new(PromptKind::Select, "Protocol", None, false, Some((3, 5)));
+        theme.format_prompt(&mut out, &ctx, &view).unwrap();
+        assert_eq!(out, "◆ Protocol  03/05");
+        let mut out = String::new();
+        let view = InputPromptView::new(PromptKind::Input, "Email", None, false, Some((1, 5)));
+        theme.format_input_prompt(&mut out, &ctx, &view).unwrap();
+        assert_eq!(out, "◆ Email  01/05\n  › ");
     }
 
     #[test]
@@ -616,7 +617,7 @@ mod tests {
         );
 
         let mut line = String::new();
-        let view = InputPromptView::new(PromptKind::Input, "Email", None, true);
+        let view = InputPromptView::new(PromptKind::Input, "Email", None, true, None);
         theme.format_input_prompt(&mut line, &ctx, &view).unwrap();
         assert_eq!(line, "◆ Email\n  › ");
 

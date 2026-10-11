@@ -133,7 +133,8 @@ impl<'a> Confirm<'a> {
     /// The dialog is rendered on stderr.
     ///
     /// Result contains `bool` if user answered "yes" or "no" or `default` (configured in [`default`](Self::default) if pushes enter.
-    /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q'.
+    /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q',
+    /// except inside a [`Flow`](crate::Flow), where `Esc` or `q` returns [`Error::Back`] (the step goes back).
     /// `Ctrl+C` returns [`Error::Cancelled`].
     #[inline]
     pub fn interact(self) -> Result<bool> {
@@ -171,9 +172,8 @@ impl<'a> Confirm<'a> {
     /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
     #[inline]
     pub fn interact_on(self, term: &Term) -> Result<bool> {
-        Ok(self
-            ._interact_on(term, false)?
-            .ok_or_else(|| io::Error::other("Quit not allowed in this case"))?)
+        let back = crate::flow::esc_back();
+        crate::flow::required(self._interact_on(term, back), back)
     }
 
     /// Like [`interact_opt`](Self::interact_opt) but allows a specific terminal to be set.
@@ -207,6 +207,10 @@ impl<'a> Confirm<'a> {
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_legend(self.legend_enabled(&options), allow_back);
+        // A flow going back to this prompt's step puts its message in the row.
+        if let Some(message) = crate::flow::take_pending() {
+            self.row.invalid(message);
+        }
 
         let wait_for_newline = !self
             .on_shortcut

@@ -22,9 +22,9 @@ use console::Style;
 
 use crate::theme::{
     Answer, AnsweredView, BlockKind, ConfirmButtonsView, ConfirmPromptView, Context,
-    FuzzySelectPromptView, GlyphName, InputPromptView, ItemView, KeyValueView, LegendView,
-    LiveKind, MessageView, PanelView, PromptKind, PromptLook, PromptMessageView, PromptView, Role,
-    SectionView, TableView, TaskState, TaskStepView, TaskView,
+    FlowSummaryView, FuzzySelectPromptView, GlyphName, InputPromptView, ItemView, KeyValueView,
+    LegendView, LiveKind, MessageView, PanelView, PromptKind, PromptLook, PromptMessageView,
+    PromptView, Role, SectionView, TableView, TaskState, TaskStepView, TaskView,
 };
 
 /// One message line: the indent for its depth, then the glyph, the word (followed by
@@ -286,6 +286,19 @@ impl<'f, 'c> Parts<'f, 'c> {
         Ok(())
     }
 
+    /// The flow step counter (`02/05`) in `step_style`, after `step_gap` spaces, when
+    /// the prompt is shown in a flow with its counter on.
+    fn step(&mut self, look: &PromptLook, step: Option<(usize, usize)>) -> fmt::Result {
+        match step {
+            Some((n, total)) => self.attached(
+                &look.step_style,
+                &format!("{n:02}/{total:02}"),
+                look.step_gap,
+            ),
+            None => Ok(()),
+        }
+    }
+
     /// Writes `value` after a space when something precedes it, even when the value is
     /// empty.
     fn value(&mut self, value: impl fmt::Display) -> fmt::Result {
@@ -317,6 +330,7 @@ pub fn format_prompt(f: &mut dyn fmt::Write, ctx: &Context, view: &PromptView) -
     let look = prompt_look(ctx, view.kind);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
+    line.step(&look, view.step)?;
     line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if let Some((page, pages)) = view.paging {
         let counter = format!("[Page {page}/{pages}]");
@@ -336,6 +350,7 @@ pub fn format_input_prompt(
     let look = prompt_look(ctx, view.kind);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
+    line.step(&look, view.step)?;
     if let Some(default) = view.default {
         let (open, close) = look.default_brackets;
         line.part(&look.hint_style, &format!("{open}{default}{close}"))?;
@@ -358,6 +373,7 @@ pub fn format_confirm_prompt(
     let look = prompt_look(ctx, PromptKind::Confirm);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
+    line.step(&look, view.step)?;
     if !view.buttons {
         let choices = match view.default {
             None => look.choices,
@@ -417,6 +433,7 @@ pub fn format_fuzzy_select_prompt(
     let look = prompt_look(ctx, PromptKind::FuzzySelect);
     let mut line = Parts::new(f, ctx);
     line.question(&look, view.prompt)?;
+    line.step(&look, view.step)?;
     line.attached(suffix_style(&look, view.invalid), look.suffix, look.gap)?;
     if line.wrote {
         write!(f, " ")?;
@@ -563,6 +580,26 @@ pub fn format_prompt_message(
         ctx,
         &MessageView::new(view.status, view.text, view.depth),
     )
+}
+
+/// The summary line a finished flow leaves with `Done::Collapse`, drawn like an
+/// answered line with the `input` prompt look (which falls back to `base`): the
+/// answered mark, the title in `answered_label_style`, the separator, then
+/// `{steps} {flow_steps_word}` in `value_style`.
+pub fn format_flow_summary(
+    f: &mut dyn fmt::Write,
+    ctx: &Context,
+    view: &FlowSummaryView,
+) -> fmt::Result {
+    let look = prompt_look(ctx, PromptKind::Input);
+    let mut line = Parts::new(f, ctx);
+    if !view.title.is_empty() {
+        line.part(&look.answered_mark_style, look.answered_mark)?;
+        line.part(&look.answered_label_style, view.title)?;
+    }
+    line.attached(&look.separator_style, look.separator, look.gap)?;
+    let steps = format!("{} {}", view.steps, look.flow_steps_word);
+    line.value(ctx.paint(&look.value_style, steps))
 }
 
 /// The line an answered prompt leaves: answered mark, question, separator, then the
@@ -744,7 +781,7 @@ mod tests {
             plain_with(
                 |p| p.fuzzy_select(|s| s.cursor("")),
                 |f, ctx| {
-                    let view = FuzzySelectPromptView::new("Find", "ab", cursor, None, false);
+                    let view = FuzzySelectPromptView::new("Find", "ab", cursor, None, false, None);
                     format_fuzzy_select_prompt(f, ctx, &view)
                 },
             )
@@ -760,7 +797,8 @@ mod tests {
             plain_with(
                 |p| p.fuzzy_select(|s| s.cursor(cursor)),
                 |f, ctx| {
-                    let view = FuzzySelectPromptView::new("Find", "", 0, Some("fruit"), false);
+                    let view =
+                        FuzzySelectPromptView::new("Find", "", 0, Some("fruit"), false, None);
                     format_fuzzy_select_prompt(f, ctx, &view)
                 },
             )

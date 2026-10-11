@@ -187,6 +187,7 @@ impl Region {
             self.term.clear_line()?;
         }
         self.term.write_line(&out)?;
+        crate::flow::record_on(&self.term, &out);
         if self.motion && self.paused.load(Ordering::SeqCst) == 0 {
             self.draw(&frame)?;
         }
@@ -221,9 +222,11 @@ impl Region {
         }
         if let Some((status, text)) = result {
             let view = TaskView::new(text, TaskState::Finished(status), elapsed, frame.counter);
-            done = done
-                .and_then(|_| self.line(&view))
-                .and_then(|line| self.term.write_line(&line));
+            done = done.and_then(|_| self.line(&view)).and_then(|line| {
+                self.term.write_line(&line)?;
+                crate::flow::record_on(&self.term, &line);
+                Ok(())
+            });
         }
         if self.motion {
             let _ = self.term.show_cursor();
@@ -288,6 +291,13 @@ impl Pause {
         Pause(region)
     }
 }
+
+/// Tests that assert on a running region's output take this lock exclusively; every
+/// prompt renderer created in a test holds it shared. A renderer pauses the app-wide
+/// region, so without it a prompt test running in parallel would pause a task test's
+/// spinner.
+#[cfg(test)]
+pub(crate) static TEST_REGION: std::sync::RwLock<()> = std::sync::RwLock::new(());
 
 impl Drop for Pause {
     fn drop(&mut self) {

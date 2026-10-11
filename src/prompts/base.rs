@@ -50,7 +50,8 @@ macro_rules! base_methods {
         /// ([`Done::Erase`](crate::Done::Erase)). A prompt left with `Esc` always
         /// leaves nothing.
         ///
-        /// Left unset, the app option applies ([`Options`](crate::Options)).
+        /// Left unset, the `step_done` of the [`Flow`](crate::Flow) the prompt runs in
+        /// applies, then the app option ([`Options`](crate::Options)).
         pub fn done(mut self, val: crate::Done) -> Self {
             self.base.done = Some(val);
             self
@@ -98,10 +99,14 @@ macro_rules! base_methods {
             self
         }
 
-        /// What the prompt leaves once answered: its own value, the group's, the
-        /// `prompts` family's, then `Collapse`.
+        /// What the prompt leaves once answered: its own value, the `step_done` of the
+        /// flow it runs in, the group's, the `prompts` family's, then `Collapse`.
         fn done_mode(&self, options: &crate::options::Options) -> crate::Done {
-            options.done(self.base.done, options.$group.done)
+            options.done(
+                self.base.done,
+                crate::flow::step_done(),
+                options.$group.done,
+            )
         }
 
         /// Whether the prompt shows its legend.

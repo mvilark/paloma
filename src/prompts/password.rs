@@ -215,7 +215,8 @@ impl<'a> Password<'a> {
     ///
     /// If the user confirms the result is `Ok()`, `Err()` otherwise.
     /// The dialog is rendered on stderr. `Esc` is ignored (see
-    /// [`interact_opt`](Self::interact_opt)); `Ctrl+C` returns
+    /// [`interact_opt`](Self::interact_opt)), except inside a [`Flow`](crate::Flow),
+    /// where it returns [`Error::Back`] (the step goes back); `Ctrl+C` returns
     /// [`Error::Cancelled`].
     pub fn interact(self) -> Result<String> {
         self.interact_on(&Term::stderr())
@@ -229,9 +230,8 @@ impl<'a> Password<'a> {
 
     /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
     pub fn interact_on(self, term: &Term) -> Result<String> {
-        Ok(self
-            ._interact_on(term, false)?
-            .ok_or_else(|| io::Error::other("Quit not allowed in this case"))?)
+        let back = crate::flow::esc_back();
+        crate::flow::required(self._interact_on(term, back), back)
     }
 
     /// Like [`interact_opt`](Self::interact_opt) but allows a specific terminal to be
@@ -264,6 +264,10 @@ impl<'a> Password<'a> {
 
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_legend(self.legend_enabled(&options), allow_back);
+        // A flow going back to this prompt's step puts its message in the row.
+        if let Some(message) = crate::flow::take_pending() {
+            self.row.invalid(message);
+        }
 
         let masked = self.mask_input.or(options.password.mask).unwrap_or(false);
         let glyph = render

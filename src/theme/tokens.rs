@@ -809,12 +809,17 @@ settings! {
         legend_back: (&'static str, &'static str),
         /// Between the entries of the legend. Default two spaces.
         legend_separator: &'static str,
+        /// The word after the number of steps on the summary line a finished
+        /// [`Flow`](crate::Flow) leaves. Default `steps`.
+        flow_steps_word: &'static str,
         /// Columns between the question and its suffix or separator. Default 1.
         gap: usize,
         /// Columns before each item of a list. Default 0.
         item_indent: usize,
         /// Columns between an item and its description. Default 2.
         item_description_gap: usize,
+        /// Columns between the question and the flow step counter (`01/05`). Default 2.
+        step_gap: usize,
         /// Columns before each line of the message row under a prompt (nested
         /// messages are indented further by the message layout). Default 0.
         message_indent: usize,
@@ -878,6 +883,8 @@ settings! {
         placeholder_style: Style,
         /// The paging counter (`[Page 1/3]`). Default: unstyled.
         paging_style: Style,
+        /// The flow step counter (`01/05`). Default: `subtle`.
+        step_style: Style,
         /// The keys of the legend. Default: `muted`.
         legend_key_style: Style,
         /// The actions and separators of the legend. Default: `subtle`.
@@ -988,12 +995,16 @@ pub struct PromptLook {
     pub legend_back: (&'static str, &'static str),
     /// See [`PromptStyle::legend_separator`].
     pub legend_separator: &'static str,
+    /// See [`PromptStyle::flow_steps_word`].
+    pub flow_steps_word: &'static str,
     /// See [`PromptStyle::gap`].
     pub gap: usize,
     /// See [`PromptStyle::item_indent`].
     pub item_indent: usize,
     /// See [`PromptStyle::item_description_gap`].
     pub item_description_gap: usize,
+    /// See [`PromptStyle::step_gap`].
+    pub step_gap: usize,
     /// See [`PromptStyle::message_indent`].
     pub message_indent: usize,
     /// See [`PromptStyle::show_default`].
@@ -1052,6 +1063,8 @@ pub struct PromptLook {
     pub placeholder_style: Style,
     /// See [`PromptStyle::paging_style`].
     pub paging_style: Style,
+    /// See [`PromptStyle::step_style`].
+    pub step_style: Style,
     /// See [`PromptStyle::legend_key_style`].
     pub legend_key_style: Style,
     /// See [`PromptStyle::legend_style`].
@@ -1126,9 +1139,11 @@ impl PromptTokens {
             legend: s.legend.unwrap_or_else(|| default_legend(kind)),
             legend_back: s.legend_back.unwrap_or(("esc", "back")),
             legend_separator: s.legend_separator.unwrap_or("  "),
+            flow_steps_word: s.flow_steps_word.unwrap_or("steps"),
             gap: s.gap.unwrap_or(1),
             item_indent: s.item_indent.unwrap_or(0),
             item_description_gap: s.item_description_gap.unwrap_or(2),
+            step_gap: s.step_gap.unwrap_or(2),
             message_indent: s.message_indent.unwrap_or(0),
             show_default: s.show_default.unwrap_or(true),
             cursor_shape: s.cursor_shape.unwrap_or_default(),
@@ -1166,6 +1181,7 @@ impl PromptTokens {
             text_style: s.text_style.unwrap_or_else(|| role(Role::text)),
             placeholder_style: s.placeholder_style.unwrap_or_else(|| role(Role::subtle)),
             paging_style: s.paging_style.unwrap_or_default(),
+            step_style: s.step_style.unwrap_or_else(|| role(Role::subtle)),
             legend_key_style: s.legend_key_style.unwrap_or_else(|| role(Role::muted)),
             legend_style: s.legend_style.unwrap_or_else(|| role(Role::subtle)),
             button_style: s.button_style.unwrap_or_else(|| role(Role::text)),
