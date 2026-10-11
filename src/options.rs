@@ -1,29 +1,35 @@
 //! App-wide behavior options set by [`set_options`].
 //!
-//! Themes decide how prompts look; options decide how they work. Settings are
-//! grouped by prompt, and a few shared ones live in [`general`](Options::general):
+//! Themes decide how things look; options decide how they work. Settings are grouped
+//! by component family (`prompts`, `messages`), with one group per member underneath
+//! (`confirm`, `select`, …, `error`, `warning`, …):
 //!
 //! ```rust,no_run
-//! use paloma::Options;
+//! use paloma::{terminal::Stream, Options};
 //!
 //! paloma::set_options(
 //!     Options::new()
-//!         .general(|g| g.report(true))
+//!         .prompts(|p| p.report(true))
 //!         .confirm(|c| c.choices_as_buttons(true).on_shortcut(false))
 //!         .password(|p| p.mask(true).result_len(8))
-//!         .select(|s| s.report(false)),
+//!         .select(|s| s.report(false))
+//!         .messages(|m| m.stream(Stream::Stderr))
+//!         .success(|s| s.stream(Stream::Stdout)),
 //! );
 //! ```
 //!
-//! A setting is resolved in this order: the prompt's own builder method, the
-//! prompt's group here, [`general`](Options::general), the built-in default.
+//! A setting is resolved in this order: the component's own builder method, its member
+//! group (`select`, `error`), its family group (`prompts`, `messages`), then the
+//! built-in default.
 use std::sync::RwLock;
+
+use crate::{output::message::Status, settings::settings, terminal::Stream};
 
 static APP_OPTIONS: RwLock<Option<Options>> = RwLock::new(None);
 
-/// Sets the behavior options for every prompt in the app.
+/// Sets the behavior options for every component in the app.
 ///
-/// Calling this again replaces the options; prompts read them when they are shown.
+/// Calling this again replaces the options; components read them when they are shown.
 pub fn set_options(options: Options) {
     let mut guard = APP_OPTIONS.write().unwrap_or_else(|e| e.into_inner());
     *guard = Some(options);
@@ -35,94 +41,60 @@ pub(crate) fn current() -> Options {
     guard.clone().unwrap_or_default()
 }
 
-/// Settings that apply to every prompt unless the prompt's group or the prompt itself
-/// sets them.
-#[derive(Clone, Default, Debug)]
-pub struct GeneralOptions {
-    pub(crate) report: Option<bool>,
-}
-
-impl GeneralOptions {
-    /// Whether a prompt prints its one-line result after it is answered.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
+settings! {
+    /// Settings for the whole app.
+    pub struct GeneralOptions {
+        /// Whether a prompt prints its one-line result after it is answered.
+        #[deprecated(note = "use `Options::prompts(|p| p.report(..))`")]
+        report: bool,
     }
 }
 
-/// Settings for prompts that only have the shared ones: `Input`, `Select`,
-/// `MultiSelect`, `Sort` and `FuzzySelect`.
-#[derive(Clone, Default, Debug)]
-pub struct PromptOptions {
-    pub(crate) report: Option<bool>,
-}
-
-impl PromptOptions {
-    /// Whether this prompt prints its one-line result after it is answered.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
+settings! {
+    /// Settings shared by prompts: the `prompts` family group, and the group of
+    /// `Input`, `Select`, `MultiSelect`, `Sort` and `FuzzySelect`.
+    pub struct PromptOptions {
+        /// Whether a prompt prints its one-line result after it is answered.
+        report: bool,
     }
 }
 
-/// Settings for [`Confirm`](crate::Confirm).
-#[derive(Clone, Default, Debug)]
-pub struct ConfirmOptions {
-    pub(crate) report: Option<bool>,
-    pub(crate) choices_as_buttons: Option<bool>,
-    pub(crate) on_shortcut: Option<bool>,
-}
-
-impl ConfirmOptions {
-    /// Whether the prompt prints its one-line result after it is answered.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
-    }
-
-    /// `Yes` / `No` buttons (`true`) or the classic `(y/n)` text (`false`, the
-    /// default). See [`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons).
-    pub fn choices_as_buttons(mut self, val: bool) -> Self {
-        self.choices_as_buttons = Some(val);
-        self
-    }
-
-    /// Whether `y` / `n` answer at once (`true`, the default) or only select the
-    /// choice so the user hits `Enter` to submit (`false`). Works with and without buttons.
-    pub fn on_shortcut(mut self, val: bool) -> Self {
-        self.on_shortcut = Some(val);
-        self
+settings! {
+    /// Settings for [`Confirm`](crate::Confirm).
+    pub struct ConfirmOptions {
+        /// Whether the prompt prints its one-line result after it is answered.
+        report: bool,
+        /// `Yes` / `No` buttons (`true`) or the classic `(y/n)` text (`false`, the
+        /// default). See [`Confirm::choices_as_buttons`](crate::Confirm::choices_as_buttons).
+        choices_as_buttons: bool,
+        /// Whether `y` / `n` answer at once (`true`, the default) or only select the
+        /// choice so the user hits `Enter` to submit (`false`). Works with and without
+        /// buttons.
+        on_shortcut: bool,
     }
 }
 
-/// Settings for [`Password`](crate::Password).
-#[derive(Clone, Default, Debug)]
-pub struct PasswordOptions {
-    pub(crate) report: Option<bool>,
-    pub(crate) mask: Option<bool>,
-    pub(crate) result_len: Option<usize>,
+settings! {
+    /// Settings for [`Password`](crate::Password).
+    pub struct PasswordOptions {
+        /// Whether the prompt prints its one-line result after it is answered.
+        report: bool,
+        /// Whether typed characters are echoed as mask characters (`true`) or not at
+        /// all (`false`, the default). The theme picks the character with
+        /// [`password_mask_glyph`](crate::theme::Theme::password_mask_glyph).
+        mask: bool,
+        /// How many mask characters the one-line result shows, whatever the password's
+        /// length. The default is 8.
+        result_len: usize,
+    }
 }
 
-impl PasswordOptions {
-    /// Whether the prompt prints its one-line result after it is answered.
-    pub fn report(mut self, val: bool) -> Self {
-        self.report = Some(val);
-        self
-    }
-
-    /// Whether typed characters are echoed as mask characters (`true`) or not at all
-    /// (`false`, the default). The theme picks the character with
-    /// [`password_mask_glyph`](crate::theme::Theme::password_mask_glyph).
-    pub fn mask(mut self, val: bool) -> Self {
-        self.mask = Some(val);
-        self
-    }
-
-    /// How many mask characters the one-line result shows, whatever the password's
-    /// length. The default is 8.
-    pub fn result_len(mut self, len: usize) -> Self {
-        self.result_len = Some(len);
-        self
+settings! {
+    /// Settings for [`Message`](crate::Message): the `messages` family group and the
+    /// group of each status.
+    pub struct MessageOptions {
+        /// Where messages are printed. The default is stderr.
+        stream: Stream,
     }
 }
 
@@ -130,6 +102,7 @@ impl PasswordOptions {
 #[derive(Clone, Default, Debug)]
 pub struct Options {
     pub(crate) general: GeneralOptions,
+    pub(crate) prompts: PromptOptions,
     pub(crate) confirm: ConfirmOptions,
     pub(crate) password: PasswordOptions,
     pub(crate) input: PromptOptions,
@@ -137,65 +110,88 @@ pub struct Options {
     pub(crate) multi_select: PromptOptions,
     pub(crate) sort: PromptOptions,
     pub(crate) fuzzy_select: PromptOptions,
+    pub(crate) messages: MessageOptions,
+    pub(crate) description: MessageOptions,
+    pub(crate) hint: MessageOptions,
+    pub(crate) info: MessageOptions,
+    pub(crate) success: MessageOptions,
+    pub(crate) warning: MessageOptions,
+    pub(crate) error: MessageOptions,
+}
+
+macro_rules! groups {
+    ($($(#[$meta:meta])* $group:ident: $ty:ty),* $(,)?) => {
+        impl Options {
+            $(
+                $(#[$meta])*
+                pub fn $group(mut self, f: impl FnOnce($ty) -> $ty) -> Self {
+                    self.$group = f(self.$group);
+                    self
+                }
+            )*
+        }
+    };
+}
+
+groups! {
+    /// Settings for the whole app.
+    general: GeneralOptions,
+    /// Settings shared by every prompt.
+    prompts: PromptOptions,
+    /// Settings for [`Confirm`](crate::Confirm).
+    confirm: ConfirmOptions,
+    /// Settings for [`Password`](crate::Password).
+    password: PasswordOptions,
+    /// Settings for [`Input`](crate::Input).
+    input: PromptOptions,
+    /// Settings for [`Select`](crate::Select).
+    select: PromptOptions,
+    /// Settings for [`MultiSelect`](crate::MultiSelect).
+    multi_select: PromptOptions,
+    /// Settings for [`Sort`](crate::Sort).
+    sort: PromptOptions,
+    /// Settings for `FuzzySelect` (feature `fuzzy-select`).
+    fuzzy_select: PromptOptions,
+    /// Settings shared by every [`Message`](crate::Message).
+    messages: MessageOptions,
+    /// Settings for description messages.
+    description: MessageOptions,
+    /// Settings for hint messages.
+    hint: MessageOptions,
+    /// Settings for info messages.
+    info: MessageOptions,
+    /// Settings for success messages.
+    success: MessageOptions,
+    /// Settings for warnings.
+    warning: MessageOptions,
+    /// Settings for error messages.
+    error: MessageOptions,
 }
 
 impl Options {
-    /// Creates options with nothing set, so every prompt uses its built-in defaults.
+    /// Creates options with nothing set, so every component uses its built-in defaults.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Settings shared by all prompts.
-    pub fn general(mut self, f: impl FnOnce(GeneralOptions) -> GeneralOptions) -> Self {
-        self.general = f(self.general);
-        self
-    }
-
-    /// Settings for [`Confirm`](crate::Confirm).
-    pub fn confirm(mut self, f: impl FnOnce(ConfirmOptions) -> ConfirmOptions) -> Self {
-        self.confirm = f(self.confirm);
-        self
-    }
-
-    /// Settings for [`Password`](crate::Password).
-    pub fn password(mut self, f: impl FnOnce(PasswordOptions) -> PasswordOptions) -> Self {
-        self.password = f(self.password);
-        self
-    }
-
-    /// Settings for [`Input`](crate::Input).
-    pub fn input(mut self, f: impl FnOnce(PromptOptions) -> PromptOptions) -> Self {
-        self.input = f(self.input);
-        self
-    }
-
-    /// Settings for [`Select`](crate::Select).
-    pub fn select(mut self, f: impl FnOnce(PromptOptions) -> PromptOptions) -> Self {
-        self.select = f(self.select);
-        self
-    }
-
-    /// Settings for [`MultiSelect`](crate::MultiSelect).
-    pub fn multi_select(mut self, f: impl FnOnce(PromptOptions) -> PromptOptions) -> Self {
-        self.multi_select = f(self.multi_select);
-        self
-    }
-
-    /// Settings for [`Sort`](crate::Sort).
-    pub fn sort(mut self, f: impl FnOnce(PromptOptions) -> PromptOptions) -> Self {
-        self.sort = f(self.sort);
-        self
-    }
-
-    /// Settings for [`FuzzySelect`](crate::FuzzySelect).
-    pub fn fuzzy_select(mut self, f: impl FnOnce(PromptOptions) -> PromptOptions) -> Self {
-        self.fuzzy_select = f(self.fuzzy_select);
-        self
-    }
-
-    /// Resolves `report`: the prompt's own value, then its group, then `general`.
+    /// Resolves `report`: the prompt's own value, its group, `prompts`, then the
+    /// deprecated `general` value.
     pub(crate) fn report(&self, own: Option<bool>, group: Option<bool>) -> Option<bool> {
-        own.or(group).or(self.general.report)
+        own.or(group)
+            .or(self.prompts.report)
+            .or(self.general.report)
+    }
+
+    /// The group of one message status.
+    pub(crate) fn status(&self, status: Status) -> &MessageOptions {
+        match status {
+            Status::Description => &self.description,
+            Status::Hint => &self.hint,
+            Status::Info => &self.info,
+            Status::Success => &self.success,
+            Status::Warning => &self.warning,
+            Status::Error => &self.error,
+        }
     }
 }
 
@@ -204,13 +200,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn report_resolves_prompt_then_group_then_general() {
+    fn report_resolves_prompt_then_group_then_family_then_general() {
         let o = Options::new()
-            .general(|g| g.report(false))
+            .prompts(|p| p.report(false))
             .select(|s| s.report(true));
         assert_eq!(o.report(None, o.select.report), Some(true));
         assert_eq!(o.report(None, o.input.report), Some(false));
         assert_eq!(o.report(Some(true), o.input.report), Some(true));
         assert_eq!(Options::new().report(None, None), None);
+
+        #[allow(deprecated)]
+        let o = Options::new().general(|g| g.report(false));
+        assert_eq!(o.report(None, None), Some(false));
+    }
+
+    #[test]
+    fn message_stream_resolves_status_then_family() {
+        let o = Options::new()
+            .messages(|m| m.stream(Stream::Stdout))
+            .error(|e| e.stream(Stream::Stderr));
+        let stream = |s: Status| o.status(s).stream.or(o.messages.stream);
+        assert_eq!(stream(Status::Error), Some(Stream::Stderr));
+        assert_eq!(stream(Status::Info), Some(Stream::Stdout));
     }
 }

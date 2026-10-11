@@ -1,5 +1,10 @@
-//! Customizes the rendering of the elements.
-use std::fmt;
+//! How everything paloma draws looks: the [`Theme`] trait, design [`Tokens`] and the
+//! built-in themes.
+//!
+//! Three layers, from cheapest to most powerful: change the [`Tokens`] (with
+//! [`Theme::restyle`]), change one component's tokens (for example
+//! [`MessageTokens`]), or override a `format_*` hook.
+use std::{borrow::Cow, fmt};
 
 #[cfg(feature = "fuzzy-select")]
 use console::style;
@@ -8,24 +13,65 @@ use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 
 pub(crate) mod app;
 mod colorful;
+mod context;
+pub mod defaults;
 pub(crate) mod render;
+mod restyle;
 mod simple;
+mod tokens;
 
+pub use crate::output::message::{MessageView, Status};
 pub use colorful::ColorfulTheme;
+pub use context::Context;
+pub use restyle::Restyled;
 pub use simple::SimpleTheme;
+pub use tokens::{Glyphs, Layout, MessageLook, MessageStyle, MessageTokens, Palette, Role, Tokens};
 
 /// Implements a theme for paloma.
 pub trait Theme {
+    /// The tokens this theme draws with. Defaults to [`Tokens::plain`].
+    fn tokens(&self) -> Cow<'_, Tokens> {
+        Cow::Owned(Tokens::plain())
+    }
+
+    /// The same theme drawn with other tokens: `f` gets this theme's tokens and returns
+    /// the new ones. Works on any theme without implementing the trait.
+    ///
+    /// ```rust
+    /// use paloma::theme::{ColorfulTheme, Theme};
+    ///
+    /// paloma::set_theme(ColorfulTheme::default().restyle(|t| t.glyphs(|g| g.warning("▲"))));
+    /// ```
+    fn restyle(self, f: impl FnOnce(Tokens) -> Tokens) -> Restyled<Self>
+    where
+        Self: Sized,
+    {
+        Restyled::new(self, f)
+    }
+
+    /// Formats one message line (see [`Message`](crate::Message)). The default is
+    /// [`defaults::format_message`].
+    fn format_message(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &MessageView,
+    ) -> fmt::Result {
+        defaults::format_message(f, ctx, view)
+    }
+
     /// Formats a prompt.
     #[inline]
     fn format_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
         write!(f, "{}:", prompt)
     }
 
-    /// Formats an error.
-    #[inline]
+    /// Formats an input error (validation, parsing, password mismatch). The default
+    /// draws an error [`Message`](crate::Message) line with this theme's tokens.
     fn format_error(&self, f: &mut dyn fmt::Write, err: &str) -> fmt::Result {
-        write!(f, "error: {}", err)
+        let tokens = self.tokens();
+        let ctx = Context::new(&tokens, crate::terminal::Stream::Stderr);
+        self.format_message(f, &ctx, &MessageView::new(Status::Error, err, 0))
     }
 
     /// Formats a confirm prompt.

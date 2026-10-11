@@ -82,6 +82,12 @@ impl Default for ColorfulTheme {
 }
 
 impl Theme for ColorfulTheme {
+    /// Colours and Unicode glyphs matching this theme's defaults
+    /// ([`Tokens::colorful`](crate::theme::Tokens::colorful)).
+    fn tokens(&self) -> std::borrow::Cow<'_, crate::theme::Tokens> {
+        std::borrow::Cow::Owned(crate::theme::Tokens::colorful())
+    }
+
     /// Formats a prompt.
     fn format_prompt(&self, f: &mut dyn fmt::Write, prompt: &str) -> fmt::Result {
         if !prompt.is_empty() {

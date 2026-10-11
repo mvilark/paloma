@@ -7,7 +7,10 @@ mod common;
 
 use std::fmt::{self, Write};
 
-use paloma::theme::{ColorfulTheme, SimpleTheme, Theme};
+use paloma::{
+    terminal::Stream,
+    theme::{ColorfulTheme, Context, MessageView, SimpleTheme, Status, Theme},
+};
 
 /// One line per hook call: `name(args) => output`.
 struct Sheet(String);
@@ -154,6 +157,27 @@ fn fuzzy_sheet(theme: &dyn Theme) -> String {
     s.0
 }
 
+fn message_sheet(theme: &dyn Theme) -> String {
+    let mut s = Sheet(String::new());
+    let tokens = theme.tokens();
+    let ctx = Context::new(&tokens, Stream::Stderr);
+    for status in [
+        Status::Description,
+        Status::Hint,
+        Status::Info,
+        Status::Success,
+        Status::Warning,
+        Status::Error,
+    ] {
+        for depth in [0, 1] {
+            s.line(&format!("message({status:?}, Text, {depth})"), |f| {
+                theme.format_message(f, &ctx, &MessageView::new(status, "Text", depth))
+            });
+        }
+    }
+    s.0
+}
+
 // One test function: colour support is global to the test binary.
 #[test]
 fn built_in_themes_render_unchanged() {
@@ -162,6 +186,12 @@ fn built_in_themes_render_unchanged() {
     let colorful = ColorfulTheme::default();
     common::assert_snapshot("theme-simple", &sheet(&SimpleTheme));
     common::assert_snapshot("theme-colorful", &sheet(&colorful));
+    common::assert_snapshot("theme-simple-messages", &message_sheet(&SimpleTheme));
+    common::assert_snapshot("theme-colorful-messages", &message_sheet(&colorful));
+    // A restyled theme keeps every hook of the theme it wraps.
+    let restyled = ColorfulTheme::default().restyle(|t| t);
+    assert_eq!(sheet(&restyled), sheet(&colorful));
+    assert_eq!(message_sheet(&restyled), message_sheet(&colorful));
     #[cfg(feature = "password")]
     {
         common::assert_snapshot("theme-simple-password", &password_sheet(&SimpleTheme));

@@ -43,6 +43,7 @@ pub use error::{Error, Result};
 #[cfg(feature = "history")]
 pub use history::{BasicHistory, History};
 pub use options::{set_options, Options};
+pub use output::message::{description, error, hint, info, success, warning, Message, Status};
 pub use theme::app::set_theme;
 pub use validate::{InputValidator, PasswordValidator};
 
@@ -62,7 +63,10 @@ mod error;
 #[cfg(feature = "history")]
 mod history;
 pub mod options;
+mod output;
 mod paging;
 mod prompts;
+mod settings;
+pub mod terminal;
 pub mod theme;
 mod validate;
