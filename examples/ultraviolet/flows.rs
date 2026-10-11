@@ -77,7 +77,10 @@ pub fn setup(args: &Args) -> Result<i32> {
         startup: true,
     })
     .step("email", |s| {
-        let preset = (args.email.clone()).or_else(|| args.yes.then(|| "ada@example.com".into()));
+        let preset = args
+            .email
+            .clone()
+            .or_else(|| args.yes.then(|| "ada@example.com".into()));
         s.email = Input::new()
             .prompt("Account email")
             .prefill(s.email.clone())
@@ -168,6 +171,12 @@ pub fn setup(args: &Args) -> Result<i32> {
     Ok(0)
 }
 
+/// What the connect flow asks for.
+struct Connect {
+    server: usize,
+    go: bool,
+}
+
 pub fn connect(args: &Args) -> Result<i32> {
     let places: Vec<String> = SERVERS
         .iter()
@@ -185,31 +194,40 @@ pub fn connect(args: &Args) -> Result<i32> {
         },
         None => args.yes.then_some(0),
     };
-    let Some(idx) = FuzzySelect::new()
-        .prompt("Server")
-        .items(&places)
-        .default(0)
-        .preset(preset)
-        .interact_opt()?
-    else {
-        return Ok(1);
-    };
-    let (id, place, load, ping) = SERVERS[idx];
-
-    // The kill switch and disconnect confirms are skipped under `--yes` (no preset: a
-    // preset would print an answered line, and the transcripts have none).
+    // A flow too: Esc on the kill-switch question goes back to the server list, with
+    // the server picked before still highlighted. Under `--yes` the question is
+    // skipped (a preset would print an answered line, and the transcripts have none).
     let kill_switch = false;
-    if !kill_switch {
-        let go = args.yes
-            || Confirm::new()
+    let Connect { server, go } = Flow::new(Connect {
+        server: 0,
+        go: true,
+    })
+    .step("server", |s| {
+        s.server = FuzzySelect::new()
+            .prompt("Server")
+            .items(&places)
+            .default(s.server)
+            .preset(preset)
+            .interact()?;
+        Ok(())
+    })
+    .step_if(
+        |_| !kill_switch && !args.yes,
+        "kill switch",
+        |s| {
+            s.go = Confirm::new()
                 .prompt("Kill switch is off. Connect anyway?")
                 .default(false)
                 .interact()?;
-        if !go {
-            paloma::warning("Not connected").print()?;
-            return Ok(0);
-        }
+            Ok(())
+        },
+    )
+    .run()?;
+    if !go {
+        paloma::warning("Not connected").print()?;
+        return Ok(0);
     }
+    let (id, place, load, ping) = SERVERS[server];
 
     paloma::section("Connect").print()?;
     let t = task(

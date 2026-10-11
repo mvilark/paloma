@@ -273,3 +273,4 @@ Theme:
   - `Esc` on the confirm skips the sign-in step and lands on the password;
   - `keep_last(2)` leaves two answers on screen;
   - the flow ends with `✔ Sign up · 5 steps`.
+- 2026-10-11 (client request): Ultraviolet `connect` is a flow too: the server step, then the kill-switch question as a `step_if` that is skipped under `--yes`. `Esc` on the question goes back to the server list with the earlier pick highlighted, and the counter shows `01/02` / `02/02`. `Esc` on the server list now cancels the flow (exit 130) instead of returning 1. The transcripts are unchanged.
