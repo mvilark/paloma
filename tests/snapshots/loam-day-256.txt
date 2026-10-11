@@ -1,0 +1,265 @@
+$ loam --yes
+--- exit 0
+--- stdout
+␛[38;5;240mname␛[0m      ␛[38;5;236mthe back plot␛[0m
+␛[38;5;240mzone␛[0m      ␛[38;5;236mtemperate␛[0m
+␛[38;5;240mbeds␛[0m      ␛[38;5;236m4␛[0m
+␛[38;5;240msun␛[0m       ␛[38;5;236mfull sun␛[0m
+␛[38;5;240msharing␛[0m   ␛[38;5;236mkept behind a password␛[0m
+--- stderr
+
+␛[38;5;64m❦␛[0m ␛[38;5;22m␛[38;5;22ml␛[0m␛[38;5;22mo␛[0m␛[38;5;22ma␛[0m␛[38;5;22mm␛[0m␛[0m
+␛[38;5;102m␛[3ma garden journal for slow afternoons␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mname your garden␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mthe back plot␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mpick your climate zone␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mtemperate␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mhow many beds?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m4␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mdoes it get full sun?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236myes␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpH 6.4␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mnitrogen low␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mdrainage good␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mthe soil is ready␛[0m  ␛[38;5;187m0.0s␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240ma garden password, for sharing␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m⁎⁎⁎⁎⁎⁎⁎⁎␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mnew garden␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m6 steps␛[0m
+
+␛[38;5;64m❦␛[0m ␛[38;5;22myour garden␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mthe back plot is ready␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mnext: loam plant␛[0m
+
+$ loam init --yes
+--- exit 0
+--- stdout
+␛[38;5;240mname␛[0m      ␛[38;5;236mthe back plot␛[0m
+␛[38;5;240mzone␛[0m      ␛[38;5;236mtemperate␛[0m
+␛[38;5;240mbeds␛[0m      ␛[38;5;236m4␛[0m
+␛[38;5;240msun␛[0m       ␛[38;5;236mfull sun␛[0m
+␛[38;5;240msharing␛[0m   ␛[38;5;236mkept behind a password␛[0m
+--- stderr
+␛[38;5;102m❀␛[0m ␛[38;5;240mname your garden␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mthe back plot␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mpick your climate zone␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mtemperate␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mhow many beds?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m4␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mdoes it get full sun?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236myes␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpH 6.4␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mnitrogen low␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mdrainage good␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mthe soil is ready␛[0m  ␛[38;5;187m0.0s␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240ma garden password, for sharing␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m⁎⁎⁎⁎⁎⁎⁎⁎␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mnew garden␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m6 steps␛[0m
+
+␛[38;5;64m❦␛[0m ␛[38;5;22myour garden␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mthe back plot is ready␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mnext: loam plant␛[0m
+
+$ loam init --yes --name the orchard --zone cool
+--- exit 0
+--- stdout
+␛[38;5;240mname␛[0m      ␛[38;5;236mthe orchard␛[0m
+␛[38;5;240mzone␛[0m      ␛[38;5;236mcool␛[0m
+␛[38;5;240mbeds␛[0m      ␛[38;5;236m4␛[0m
+␛[38;5;240msun␛[0m       ␛[38;5;236mfull sun␛[0m
+␛[38;5;240msharing␛[0m   ␛[38;5;236mkept behind a password␛[0m
+--- stderr
+␛[38;5;102m❀␛[0m ␛[38;5;240mname your garden␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mthe orchard␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mpick your climate zone␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mcool␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mhow many beds?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m4␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mdoes it get full sun?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236myes␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpH 6.4␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mnitrogen low␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mdrainage good␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mthe soil is ready␛[0m  ␛[38;5;187m0.0s␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240ma garden password, for sharing␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m⁎⁎⁎⁎⁎⁎⁎⁎␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mnew garden␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236m6 steps␛[0m
+
+␛[38;5;64m❦␛[0m ␛[38;5;22myour garden␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mthe orchard is ready␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mnext: loam plant␛[0m
+
+$ loam init --yes --name the allotment
+--- exit 1
+--- stdout
+--- stderr
+␛[38;5;136m☂␛[0m ␛[38;5;236mthe allotment is taken␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mthe neighbours use it already␛[0m
+
+$ loam init --yes --zone polar
+--- exit 1
+--- stdout
+--- stderr
+␛[38;5;136m☂␛[0m ␛[38;5;236mpolar is not open yet␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mloam init --zone temperate␛[0m
+
+$ loam init --yes --zone nowhere
+--- exit 1
+--- stdout
+--- stderr
+␛[38;5;131m✗␛[0m ␛[38;5;236mthere is no zone called nowhere␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mtry temperate, cool, mediterranean, tropical or arid␛[0m
+
+$ loam plant --yes
+--- exit 0
+--- stdout
+--- stderr
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 1-10␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 11-20␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 21-30␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 31-40␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mfetched 40 seeds␛[0m  ␛[38;5;187m0.0s␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mwhich seed?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mbasil␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240manything beside the basil?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mmarigold␛[0m␛[38;5;102m, ␛[0m␛[38;5;236mnasturtium␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240msow them in bed 2?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236myes␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102msowed basil␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102msowed marigold␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102msowed nasturtium␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236msowed 3 seeds␛[0m  ␛[38;5;187m0.0s␛[0m
+
+␛[38;5;187m·␛[0m␛[38;5;187m┈␛[0m ␛[38;5;64msown␛[0m ␛[38;5;187m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;187m·␛[0m
+␛[38;5;187m┊␛[0m ␛[38;5;65m✓␛[0m ␛[38;5;236mbasil in bed 2␛[0m                    ␛[38;5;102msprouts in 7-10 days␛[0m ␛[38;5;187m┊␛[0m
+␛[38;5;187m┊␛[0m ␛[38;5;65m✓␛[0m ␛[38;5;236mmarigold in bed 2␛[0m                  ␛[38;5;102msprouts in 5-8 days␛[0m ␛[38;5;187m┊␛[0m
+␛[38;5;187m┊␛[0m ␛[38;5;65m✓␛[0m ␛[38;5;236mnasturtium in bed 2␛[0m               ␛[38;5;102msprouts in 7-12 days␛[0m ␛[38;5;187m┊␛[0m
+␛[38;5;187m·␛[0m␛[38;5;187m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;187m·␛[0m
+
+$ loam water --yes
+--- exit 0
+--- stdout
+␛[38;5;240m␛[3mbed            ␛[0m   ␛[38;5;240m␛[3mplants           ␛[0m   ␛[38;5;240m␛[3mlast watered␛[0m   ␛[38;5;240m␛[3mmoisture␛[0m
+␛[38;5;236m1 south bed    ␛[0m   ␛[38;5;236mtomatoes, basil  ␛[0m   ␛[38;5;236myesterday   ␛[0m   ␛[38;5;236m62%     ␛[0m
+␛[38;5;236m2 herb spiral  ␛[0m   ␛[38;5;236mthyme, sage, mint␛[0m   ␛[38;5;236m3 days ago  ␛[0m   ␛[38;5;236m31%     ␛[0m
+␛[38;5;236m3 seedling tray␛[0m   ␛[38;5;236mlettuce, leek    ␛[0m   ␛[38;5;236mtoday       ␛[0m   ␛[38;5;236m74%     ␛[0m
+␛[38;5;236m4 salad rows   ␛[0m   ␛[38;5;236mradish, rocket   ␛[0m   ␛[38;5;236m2 days ago  ␛[0m   ␛[38;5;236m48%     ␛[0m
+␛[38;5;236m5 bean teepee  ␛[0m   ␛[38;5;236mrunner beans     ␛[0m   ␛[38;5;236m9 days ago  ␛[0m   ␛[38;5;236m18%     ␛[0m
+␛[38;5;236m6 cold frame   ␛[0m   ␛[38;5;236mspinach, chard   ␛[0m   ␛[38;5;236myesterday   ␛[0m   ␛[38;5;236m55%     ␛[0m
+--- stderr
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mwatered 2 herb spiral (5 litres)␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mwatered 5 bean teepee (10 litres)␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mwatered 2 beds, 15 litres␛[0m  ␛[38;5;187m0.0s␛[0m
+␛[38;5;66m◦␛[0m ␛[38;5;236mthe rain barrel is half full␛[0m
+
+$ loam harvest --yes
+--- exit 0
+--- stdout
+␛[38;5;240mtomatoes␛[0m       ␛[38;5;236m1.2 kg␛[0m
+␛[38;5;240mzucchini␛[0m       ␛[38;5;236m2.4 kg␛[0m
+␛[38;5;240mrunner beans␛[0m   ␛[38;5;236m0.6 kg␛[0m
+␛[38;5;240mlettuce␛[0m        ␛[38;5;236m0.4 kg␛[0m
+␛[38;5;240mbasil␛[0m          ␛[38;5;236m0.1 kg␛[0m
+␛[38;5;240min all␛[0m         ␛[38;5;236m4.7 kg␛[0m
+--- stderr
+␛[38;5;102m❀␛[0m ␛[38;5;240mwhat to pick first␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mtomatoes␛[0m␛[38;5;102m, ␛[0m␛[38;5;236mzucchini␛[0m␛[38;5;102m, ␛[0m␛[38;5;236mrunner beans␛[0m␛[38;5;102m, ␛[0m␛[38;5;236mlettuce␛[0m␛[38;5;102m, ␛[0m␛[38;5;236mbasil␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpicked tomatoes␛[0m
+␛[38;5;102m❀␛[0m ␛[38;5;240mthe zucchini is huge. pick it anyway?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236myes␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpicked zucchini␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpicked runner beans␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpicked lettuce␛[0m
+  ␛[38;5;187m⤷␛[0m ␛[38;5;102mpicked basil␛[0m
+␛[38;5;136m☂␛[0m ␛[38;5;236mpicked 5 crops, the zucchini was overripe␛[0m  ␛[38;5;187m0.0s␛[0m
+
+$ loam journal --yes
+--- exit 0
+--- stdout
+--- stderr
+␛[38;5;102m❀␛[0m ␛[38;5;240mwrite a note␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mwatered the herb spiral and checked the seedlings␛[0m
+␛[38;5;65m✓␛[0m ␛[38;5;236mnoted␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mloam forgets it when it closes␛[0m
+
+$ loam journal --yes --long
+--- exit 0
+--- stdout
+--- stderr
+␛[38;5;66m◦␛[0m ␛[38;5;236mno editor opens in an unattended run␛[0m
+
+$ loam status
+--- exit 0
+--- stdout
+␛[38;5;240mgarden␛[0m         ␛[38;5;236mthe back plot␛[0m
+␛[38;5;240mzone␛[0m           ␛[38;5;236mtemperate␛[0m
+␛[38;5;240mbeds␛[0m           ␛[38;5;236m6 beds, 14 plants␛[0m
+␛[38;5;240mlast watered␛[0m   ␛[38;5;236myesterday␛[0m
+␛[38;5;240mnext harvest␛[0m   ␛[38;5;236mtomatoes, in 5 days␛[0m
+--- stderr
+␛[38;5;136m☂␛[0m ␛[38;5;236mfrost tonight␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mcover the seedlings in bed 3␛[0m
+␛[38;5;131m✗␛[0m ␛[38;5;236mthe bean teepee has not been watered in 9 days␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mrun: loam water␛[0m
+
+$ loam status --json
+--- exit 0
+--- stdout
+{"garden":"the back plot","zone":"temperate","beds":6,"plants":14,"frost_tonight":true,"needs_attention":["5 bean teepee"]}
+--- stderr
+
+$ loam almanac
+--- exit 0
+--- stdout
+␛[38;5;240mmade with␛[0m   ␛[38;5;236mpaloma 0.12.0␛[0m
+␛[38;5;240msource␛[0m      ␛[38;5;236mhttps://github.com/mvilark/paloma␛[0m
+--- stderr
+
+␛[38;5;64m❦␛[0m ␛[38;5;22m␛[38;5;22ml␛[0m␛[38;5;22mo␛[0m␛[38;5;22ma␛[0m␛[38;5;22mm␛[0m␛[0m
+␛[38;5;102m␛[3ma garden journal for slow afternoons␛[0m
+
+␛[38;5;187m·␛[0m␛[38;5;187m┈␛[0m ␛[38;5;64mthis week␛[0m ␛[38;5;187m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;187m·␛[0m
+␛[38;5;187m┊␛[0m ␛[38;5;136m☂␛[0m ␛[38;5;236mfrost tonight␛[0m                                ␛[38;5;102mlow of -1␛[0m ␛[38;5;187m┊␛[0m
+␛[38;5;187m┊␛[0m ␛[38;5;66m◦␛[0m ␛[38;5;236mrain on the way␛[0m                               ␛[38;5;102mthursday␛[0m ␛[38;5;187m┊␛[0m
+␛[38;5;187m┊␛[0m ␛[38;5;66m◦␛[0m ␛[38;5;236mfirst frost of autumn␛[0m                          ␛[38;5;102m12 days␛[0m ␛[38;5;187m┊␛[0m
+␛[38;5;187m┊␛[0m ␛[38;5;65m✓␛[0m ␛[38;5;236ma good week for sowing roots␛[0m                           ␛[38;5;187m┊␛[0m
+␛[38;5;187m·␛[0m␛[38;5;187m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;187m·␛[0m
+
+$ loam seeds
+--- exit 0
+--- stdout
+␛[38;5;240m␛[3mseed       ␛[0m   ␛[38;5;240m␛[3msow in␛[0m   ␛[38;5;240m␛[3msprouts in␛[0m
+␛[38;5;236mbasil      ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-10 days ␛[0m
+␛[38;5;236mtomato     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m6-10 days ␛[0m
+␛[38;5;236mzucchini   ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m5-8 days  ␛[0m
+␛[38;5;236mpumpkin    ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m6-10 days ␛[0m
+␛[38;5;236mcucumber   ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m5-9 days  ␛[0m
+␛[38;5;236mrunner bean␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236mpea        ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236mcarrot     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-21 days␛[0m
+␛[38;5;236mbeetroot   ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236mradish     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m3-7 days  ␛[0m
+␛[38;5;236mlettuce    ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m4-10 days ␛[0m
+␛[38;5;236mspinach    ␛[0m   ␛[38;5;236mautumn␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236mkale       ␛[0m   ␛[38;5;236msummer␛[0m   ␛[38;5;236m5-8 days  ␛[0m
+␛[38;5;236mchard      ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236mleek       ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-14 days␛[0m
+␛[38;5;236monion      ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-12 days ␛[0m
+␛[38;5;236mgarlic     ␛[0m   ␛[38;5;236mautumn␛[0m   ␛[38;5;236m14-21 days␛[0m
+␛[38;5;236mparsley    ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m14-28 days␛[0m
+␛[38;5;236mcoriander  ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236mdill       ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-14 days␛[0m
+␛[38;5;236mchives     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-14 days␛[0m
+␛[38;5;236mmint       ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-15 days␛[0m
+␛[38;5;236mthyme      ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m14-28 days␛[0m
+␛[38;5;236msage       ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-21 days␛[0m
+␛[38;5;236mrosemary   ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m14-28 days␛[0m
+␛[38;5;236mfennel     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236mborage     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m5-10 days ␛[0m
+␛[38;5;236mmarigold   ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m5-8 days  ␛[0m
+␛[38;5;236mnasturtium ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-12 days ␛[0m
+␛[38;5;236mcalendula  ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-14 days ␛[0m
+␛[38;5;236msunflower  ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-10 days ␛[0m
+␛[38;5;236msweet pea  ␛[0m   ␛[38;5;236mautumn␛[0m   ␛[38;5;236m10-21 days␛[0m
+␛[38;5;236mcosmos     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-10 days ␛[0m
+␛[38;5;236mstrawberry ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m14-28 days␛[0m
+␛[38;5;236mpepper     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-21 days␛[0m
+␛[38;5;236maubergine  ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m10-14 days␛[0m
+␛[38;5;236msweetcorn  ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m7-10 days ␛[0m
+␛[38;5;236mturnip     ␛[0m   ␛[38;5;236msummer␛[0m   ␛[38;5;236m4-7 days  ␛[0m
+␛[38;5;236mparsnip    ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m14-28 days␛[0m
+␛[38;5;236mcelery     ␛[0m   ␛[38;5;236mspring␛[0m   ␛[38;5;236m14-21 days␛[0m
+--- stderr
+
+$ loam nope
+--- exit 2
+--- stdout
+--- stderr
+␛[38;5;131m✗␛[0m ␛[38;5;236mi do not know nope␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mloam almanac␛[0m
+
+$ loam status --nope
+--- exit 2
+--- stdout
+--- stderr
+␛[38;5;131m✗␛[0m ␛[38;5;236mi do not know --nope␛[0m
+  ␛[38;5;102m␛[3mtip␛[0m  ␛[38;5;102m␛[3mloam almanac␛[0m
+

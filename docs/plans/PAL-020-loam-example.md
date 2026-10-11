@@ -224,3 +224,70 @@ Tokens beyond the palette and glyphs:
 ## Status notes
 
 - 2026-10-11: Plan written; executor Sonnet 5.5, medium effort (client).
+- 2026-10-11: Implemented on branch `claude/dazzling-galileo-dqa12c`, uncommitted (Sonnet 5.5, medium). New: `examples/loam/` (`main.rs`, `theme.rs`, `commands.rs`, `data.rs`; no `ui.rs`), `[[example]] loam` in `Cargo.toml` (`test = true`), `tests/loam.rs` with `tests/snapshots/loam-*.txt`, `docs/design/loam.md`; changed: `docs/USAGE.md`, `DEVELOPMENT.md`, `ROADMAP.md` (PAL-020 moved to Done). The commands are `init` (a `Flow`: name with the delayed check, zone, beds, sun, conditional shade, soil test, password), `plant`, `water`, `harvest`, `journal` (`--long` opens the editor), `status` (`--json`), `almanac` and `seeds`; with no command it prints the wordmark and runs `init`. `LoamTheme` implements only `tokens()` (`grep "fn format_" examples/loam/theme.rs` finds nothing). Outside `theme.rs`, `grep` finds no `\x1b`, `console::Style`, `style(`, `measure_text_width`, `.bold()` or colour names (only the words "rain" and "rain barrel" in copy).
+- 2026-10-11, **paloma change**: one new token, `button_indent` (`PromptStyle`, `PromptLook`, default 0), written by `defaults::format_confirm_buttons` before the buttons. Reason: the confirm buttons sat at column 0 while every other row under a prompt (message row, legend, items) is indented 2 in Loam, and no token could move them (Ultraviolet overrides the hook for this). Default 0 keeps the built-in themes and Ultraviolet byte-identical (snapshots unchanged; Ultraviolet overrides `format_confirm_buttons`, so it never reads the token). Tests: the cascade in `tokens.rs` (`buttons_are_not_indented_unless_asked`) and the layout in `defaults.rs` (`buttons_start_after_the_button_indent`); `docs/USAGE.md` names it. No other token was missing.
+- 2026-10-11, deviations, each with its reason:
+  - **The copy is plain ASCII** (`...` for `…`, `-` for `–` and `·`, so the cancel line reads `put your trowel down - nothing was changed` and the polar zone is an item `polar` with the description `coming soon`). Reason: `--ascii` and `TERM=linux` must print ASCII from end to end, and the only way to keep one copy is to keep it ASCII; the theme's glyphs are what change between the two sets (the `loam-ascii.txt` transcript has no non-ASCII character).
+  - **The step counter keeps `03/07`.** The plan asked for `3 of 7` only if a `step_format` token exists; it does not, so `step_style` is `subtle` and the counter keeps paloma's form. A format token would be needed for `3 of 7`.
+  - **Six transcript setups, not five.** The five of the plan plus `loam-plain.txt` (`--plain`, `SimpleTheme`, `NO_COLOR`), which is the plan's "`--plain` runs every `--yes` command" criterion as a golden test. The command list also covers the refused presets (`--name` taken, `--zone polar`, `--zone nowhere`), the first run with no command, an unknown command and an unknown flag.
+  - **`restyle` is not used.** `--plain` is `SimpleTheme` itself (the point is that the app has no look of its own), and the day palette is chosen when `LoamTheme` builds its tokens, so nothing needed to wrap a theme.
+  - **The wordmark is a `section`** whose title is the `text::gradient` string (so it gets the section's blank line and `❦`), followed by a `description` message for the tagline. The gradient's end points come from `theme::wordmark(night)` (moss to honey), because colours may only appear in `theme.rs`.
+  - **Hand-picked 256-colour indices** where the nearest index of two roles coincided (night `accent` and `muted` both map to 144, night and day `subtle` both to 101): night accent 107, strong 193, success 150, info 152; day accent 64, strong 22, subtle 102, error 131, warning 136. They are in the table of `docs/design/loam.md`.
+  - **`--name` is validated by the app** (presets are not validated by paloma), and the name validator also refuses a taken name, while `on_change` (the fake 600 ms check, a warning when taken and a success row when free) only informs.
+  - **`journal --long --yes` opens no editor** (it prints an info message): an unattended run has nobody to write, and the golden transcript must never launch `$EDITOR`.
+  - **Seams take `args`** as well as the units (`sow(args, seeds)`, `water_beds(args, beds)`, `fetch_catalogue(args)`), because the faked waiting depends on motion. Each carries a `// PAL-011:`-style doc comment naming the progress call that replaces it (`water_beds` is the plan's `water(beds)`; `water` is the command's name).
+  - **A `ctrlc` handler** (a dev-dependency already used by Ultraviolet) covers `Ctrl+C` while a spinner runs, where no prompt reads keys: it calls `terminal::restore()`, prints the same cancel message and exits 130. At a prompt paloma does it all (the `cancel_message` option).
+  - **Extras:** `Sort` in `harvest` has `legend(true)`; `FuzzySelect` has no paging counter in paloma (it windows its list), so the `[Page 1/2]` counter shows on `water`'s `MultiSelect` on a short terminal; the final `Confirm` of `plant` uses `interact_opt`, so `Esc` there prints "nothing was sown"; `status` shows a "checking the sky..." task that ends with `clear()`.
+- 2026-10-11, unused features, with reasons: `restyle` (above); `step_done` (the "which beds?" prompt uses its own `Done::Erase`, which the plan allows); `Options::flows`, `Flow::counter`, `esc_back` and `theme` (the defaults are what the app wants); `Select::max_length`, `FuzzySelect::vim_mode` / `prefill` / `max_length`, `Confirm::on_shortcut(false)`, `Password::allow_empty_password` / `mask_char` / `result_len` (paloma's defaults suit the app); `Input::answered_prompt` and `allow_empty`; `Link::text`, `Gradient::style` / `fallback`; `flow::printed` (the app prints only through paloma); per-component `stream` overrides; the `*_on` terminals; the `Task::theme` override. No progress bar: only the seams.
+- 2026-10-11, checks, all on the final tree:
+  - `cargo test --locked --all-features`: 120 library unit tests, `flows` 1, `loam` 6, `outcomes` 1, `themes` 1, `ultraviolet` 5, the Loam example's 8 unit tests, the Ultraviolet example's 8, 41 doctests (1 ignored as before). Default features: 114 unit tests, `flows` 1, `outcomes` 1, `themes` 1 (the `loam` and `ultraviolet` tests are feature-gated), 38 doctests. `--no-default-features`: 110 unit tests, the integration tests, 33 doctests. All pass.
+  - `cargo lint`, `cargo clippy --locked --all-targets --no-default-features -- -D warnings`, `cargo format-check`, `cargo check --examples --all-features`, `RUSTDOCFLAGS=-Dwarnings cargo doc --locked --all-features --no-deps --document-private-items` and `cargo +1.85.0 check --locked --lib --all-features`: clean.
+  - Snapshots: `git status` shows only new files in `tests/snapshots/` (`loam-*.txt`); the `theme-*.txt` and `ultraviolet-*.txt` files are untouched and their tests pass without `UPDATE_SNAPSHOTS`. `Cargo.lock` is unchanged.
+  - Pty runs (Python `pty` + `pyte`, 100×30, `TERM=xterm-256color`, `COLORTERM=truecolor`, a helper of my own in the scratchpad that also reads the exit status; screens read after every key):
+    - `init`: the name `south bed` shows `◦ asking the neighbours...` about 0.4 s after the last key and then `☂ south bed is taken` with a nested `tip  the neighbours use it already` (Enter keeps the text and the warning); a free name shows `✓ nobody else uses that name`. 10 beds, then the soil test (`⤷ pH 6.4`, spinner `◜ testing the soil...`) ends with `back_to`: the zone line stays and the screen reads `✿ how many beds?  03/06 (10) ~` with `☂ the soil can feed 8 beds this year` and `tip  try fewer beds, or add compost first` under it. `no` at the sun question adds the shade step (`05/07`); the weak password shows `☂ not strong enough yet` with `tip  at least 8 characters` and `tip  one digit`; a mismatching confirmation starts over with `✗ those two do not match`; `Esc` at the password skips the soil test and lands on the shade select, `Esc` again on the sun confirm (counter `04/07`, `no` remembered); the final screen was:
+      ```
+      ❀ new garden — 7 steps
+
+      ❦ your garden
+      name      the back plot
+      zone      temperate
+      beds      6
+      sun       about 6 hours
+      sharing   kept behind a password
+      ✓ the back plot is ready
+        tip  next: loam plant
+      ```
+    - `plant`: the catalogue task, then `✿ which seed? ~ ▏search seeds...`; `ro` filters to rosemary, carrot, beetroot, marigold; Down, Enter picks carrot; the companions show `◉ marigold`, `◉ nasturtium`, `◌ ...` with `pumpkin  out of season` skipped by Down (struck through), `a` toggles the enabled ones only, Enter with none checked shows `✗ choose at least one companion` above the legend `↑↓ move  space check  a all  enter submit`. `y` at `✿ sow them in bed 2? (y/n) ~ yes` runs the sowing task and prints the panel; `Esc` there prints `◦ nothing was sown`. Final screen of the sow run:
+      ```
+      ❀ sow them in bed 2? — yes
+        ⤷ sowed tomato
+        ⤷ sowed marigold
+        ⤷ sowed nasturtium
+      ✓ sowed 3 seeds  1.4s
+
+      ·┈ sown ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈·
+      ┊ ✓ tomato in bed 2                   sprouts in 6-10 days ┊
+      ┊ ✓ marigold in bed 2                  sprouts in 5-8 days ┊
+      ┊ ✓ nasturtium in bed 2               sprouts in 7-12 days ┊
+      ·┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈·
+      ```
+    - `water` on a 9-row terminal: `✿ which beds? ~ [Page 1/2]` with the dry beds 2 and 5 checked, the description and the legend under the items.
+    - `harvest`: sort with Space and arrows, Enter; the task `◞ picking...` pauses for `✿ the zucchini is huge. pick it anyway?` with the buttons `‹yes›   no` (indented 2 by `button_indent`) and the spinner returns after the answer. With `yes`, the final screen was:
+      ```
+      ❀ the zucchini is huge. pick it anyway? — yes
+        ⤷ picked zucchini
+        ⤷ picked lettuce
+        ⤷ picked basil
+      ☂ picked 5 crops, the zucchini was overripe  2.4s
+      tomatoes       1.2 kg
+      runner beans   0.6 kg
+      zucchini       2.4 kg
+      lettuce        0.4 kg
+      basil          0.1 kg
+      in all         4.7 kg
+      ```
+      (with `no`: `⤷ left the zucchini on the vine`).
+    - `journal`: Up twice shows `first runner bean flowers on the teepee`, Down twice returns to the placeholder; `water the bas` + Tab gives `water the basil`, ` and the thy` + Tab gives `water the basil and the thyme`; Enter leaves `✿ write a note ~ water the basil and the thyme`, `✓ noted` and `tip  loam forgets it when it closes`. The terminal cursor codes written were `ESC[5 q` (blinking bar) and `ESC[0 q` (reset). `journal --long` with `EDITOR="sh -c 'echo planted the peas >> \"$0\"'"` prints `✓ note written` and the text; with `EDITOR=true` it prints `☂ nothing was saved` with a tip.
+    - `^C`: in `init` at the zone prompt (after the name answer) the screen is `❀ name your garden — the back plot` then `tip  put your trowel down - nothing was changed` on its own line, exit status 130, cursor visible; at the name prompt after typing `ab` only the tip line is left, exit 130; during the soil test spinner and during `plant`'s catalogue spinner (the `ctrlc` handler) the spinner line is gone, the tip is on its own line and the exit status is 130.
+    - `status` (the spinner is cleared, then the key/value block, `☂ frost tonight` with its tip and `✗ the bean teepee has not been watered in 9 days` with `tip  run: loam water`), `almanac` (wordmark `❦ loam`, tagline, the dotted `this week` panel, the key/value block with the link) and `init`, `status` with `--plain`, `--day --ascii` and `TERM=linux` (the ASCII set, `<no>` as the focused button) read as expected.
+- 2026-10-11, unsure: `☂` and `⤷` measure one column in `console` (a unit test checks all glyphs), but some fonts draw `☂` wider or as an emoji; the plan chose it, so it stays, and the ASCII set is the fallback. Colours were checked by cell colour in `pyte` (for example the prompt mark `#9dbf7a`, question `#ede3d1`, counter and suffix `#8c7e6a`) and in the golden transcripts, not by eye on a real terminal.

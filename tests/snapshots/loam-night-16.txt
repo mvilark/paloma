@@ -1,0 +1,265 @@
+$ loam --yes
+--- exit 0
+--- stdout
+name      the back plot
+zone      temperate
+beds      4
+sun       full sun
+sharing   kept behind a password
+--- stderr
+
+␛[32m❦␛[0m ␛[38;5;10m␛[38;5;10ml␛[0m␛[38;5;10mo␛[0m␛[38;5;10ma␛[0m␛[38;5;10mm␛[0m␛[0m
+␛[2m␛[3ma garden journal for slow afternoons␛[0m
+␛[2m❀␛[0m name your garden ␛[38;5;8m—␛[0m the back plot
+␛[2m❀␛[0m pick your climate zone ␛[38;5;8m—␛[0m temperate
+␛[2m❀␛[0m how many beds? ␛[38;5;8m—␛[0m 4
+␛[2m❀␛[0m does it get full sun? ␛[38;5;8m—␛[0m yes
+  ␛[38;5;8m⤷␛[0m ␛[2mpH 6.4␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mnitrogen low␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mdrainage good␛[0m
+␛[32m✓␛[0m the soil is ready  ␛[38;5;8m0.0s␛[0m
+␛[2m❀␛[0m a garden password, for sharing ␛[38;5;8m—␛[0m ⁎⁎⁎⁎⁎⁎⁎⁎
+␛[2m❀␛[0m new garden ␛[38;5;8m—␛[0m 6 steps
+
+␛[32m❦␛[0m ␛[38;5;10myour garden␛[0m
+␛[32m✓␛[0m the back plot is ready
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mnext: loam plant␛[0m
+
+$ loam init --yes
+--- exit 0
+--- stdout
+name      the back plot
+zone      temperate
+beds      4
+sun       full sun
+sharing   kept behind a password
+--- stderr
+␛[2m❀␛[0m name your garden ␛[38;5;8m—␛[0m the back plot
+␛[2m❀␛[0m pick your climate zone ␛[38;5;8m—␛[0m temperate
+␛[2m❀␛[0m how many beds? ␛[38;5;8m—␛[0m 4
+␛[2m❀␛[0m does it get full sun? ␛[38;5;8m—␛[0m yes
+  ␛[38;5;8m⤷␛[0m ␛[2mpH 6.4␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mnitrogen low␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mdrainage good␛[0m
+␛[32m✓␛[0m the soil is ready  ␛[38;5;8m0.0s␛[0m
+␛[2m❀␛[0m a garden password, for sharing ␛[38;5;8m—␛[0m ⁎⁎⁎⁎⁎⁎⁎⁎
+␛[2m❀␛[0m new garden ␛[38;5;8m—␛[0m 6 steps
+
+␛[32m❦␛[0m ␛[38;5;10myour garden␛[0m
+␛[32m✓␛[0m the back plot is ready
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mnext: loam plant␛[0m
+
+$ loam init --yes --name the orchard --zone cool
+--- exit 0
+--- stdout
+name      the orchard
+zone      cool
+beds      4
+sun       full sun
+sharing   kept behind a password
+--- stderr
+␛[2m❀␛[0m name your garden ␛[38;5;8m—␛[0m the orchard
+␛[2m❀␛[0m pick your climate zone ␛[38;5;8m—␛[0m cool
+␛[2m❀␛[0m how many beds? ␛[38;5;8m—␛[0m 4
+␛[2m❀␛[0m does it get full sun? ␛[38;5;8m—␛[0m yes
+  ␛[38;5;8m⤷␛[0m ␛[2mpH 6.4␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mnitrogen low␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mdrainage good␛[0m
+␛[32m✓␛[0m the soil is ready  ␛[38;5;8m0.0s␛[0m
+␛[2m❀␛[0m a garden password, for sharing ␛[38;5;8m—␛[0m ⁎⁎⁎⁎⁎⁎⁎⁎
+␛[2m❀␛[0m new garden ␛[38;5;8m—␛[0m 6 steps
+
+␛[32m❦␛[0m ␛[38;5;10myour garden␛[0m
+␛[32m✓␛[0m the orchard is ready
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mnext: loam plant␛[0m
+
+$ loam init --yes --name the allotment
+--- exit 1
+--- stdout
+--- stderr
+␛[33m☂␛[0m the allotment is taken
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mthe neighbours use it already␛[0m
+
+$ loam init --yes --zone polar
+--- exit 1
+--- stdout
+--- stderr
+␛[33m☂␛[0m polar is not open yet
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mloam init --zone temperate␛[0m
+
+$ loam init --yes --zone nowhere
+--- exit 1
+--- stdout
+--- stderr
+␛[31m✗␛[0m there is no zone called nowhere
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mtry temperate, cool, mediterranean, tropical or arid␛[0m
+
+$ loam plant --yes
+--- exit 0
+--- stdout
+--- stderr
+  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 1-10␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 11-20␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 21-30␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 31-40␛[0m
+␛[32m✓␛[0m fetched 40 seeds  ␛[38;5;8m0.0s␛[0m
+␛[2m❀␛[0m which seed? ␛[38;5;8m—␛[0m basil
+␛[2m❀␛[0m anything beside the basil? ␛[38;5;8m—␛[0m marigold␛[2m, ␛[0mnasturtium
+␛[2m❀␛[0m sow them in bed 2? ␛[38;5;8m—␛[0m yes
+  ␛[38;5;8m⤷␛[0m ␛[2msowed basil␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2msowed marigold␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2msowed nasturtium␛[0m
+␛[32m✓␛[0m sowed 3 seeds  ␛[38;5;8m0.0s␛[0m
+
+␛[38;5;8m·␛[0m␛[38;5;8m┈␛[0m ␛[32msown␛[0m ␛[38;5;8m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;8m·␛[0m
+␛[38;5;8m┊␛[0m ␛[32m✓␛[0m basil in bed 2                    ␛[2msprouts in 7-10 days␛[0m ␛[38;5;8m┊␛[0m
+␛[38;5;8m┊␛[0m ␛[32m✓␛[0m marigold in bed 2                  ␛[2msprouts in 5-8 days␛[0m ␛[38;5;8m┊␛[0m
+␛[38;5;8m┊␛[0m ␛[32m✓␛[0m nasturtium in bed 2               ␛[2msprouts in 7-12 days␛[0m ␛[38;5;8m┊␛[0m
+␛[38;5;8m·␛[0m␛[38;5;8m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;8m·␛[0m
+
+$ loam water --yes
+--- exit 0
+--- stdout
+␛[3mbed            ␛[0m   ␛[3mplants           ␛[0m   ␛[3mlast watered␛[0m   ␛[3mmoisture␛[0m
+1 south bed       tomatoes, basil     yesterday      62%     
+2 herb spiral     thyme, sage, mint   3 days ago     31%     
+3 seedling tray   lettuce, leek       today          74%     
+4 salad rows      radish, rocket      2 days ago     48%     
+5 bean teepee     runner beans        9 days ago     18%     
+6 cold frame      spinach, chard      yesterday      55%     
+--- stderr
+  ␛[38;5;8m⤷␛[0m ␛[2mwatered 2 herb spiral (5 litres)␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mwatered 5 bean teepee (10 litres)␛[0m
+␛[32m✓␛[0m watered 2 beds, 15 litres  ␛[38;5;8m0.0s␛[0m
+␛[36m◦␛[0m the rain barrel is half full
+
+$ loam harvest --yes
+--- exit 0
+--- stdout
+tomatoes       1.2 kg
+zucchini       2.4 kg
+runner beans   0.6 kg
+lettuce        0.4 kg
+basil          0.1 kg
+in all         4.7 kg
+--- stderr
+␛[2m❀␛[0m what to pick first ␛[38;5;8m—␛[0m tomatoes␛[2m, ␛[0mzucchini␛[2m, ␛[0mrunner beans␛[2m, ␛[0mlettuce␛[2m, ␛[0mbasil
+  ␛[38;5;8m⤷␛[0m ␛[2mpicked tomatoes␛[0m
+␛[2m❀␛[0m the zucchini is huge. pick it anyway? ␛[38;5;8m—␛[0m yes
+  ␛[38;5;8m⤷␛[0m ␛[2mpicked zucchini␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mpicked runner beans␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mpicked lettuce␛[0m
+  ␛[38;5;8m⤷␛[0m ␛[2mpicked basil␛[0m
+␛[33m☂␛[0m picked 5 crops, the zucchini was overripe  ␛[38;5;8m0.0s␛[0m
+
+$ loam journal --yes
+--- exit 0
+--- stdout
+--- stderr
+␛[2m❀␛[0m write a note ␛[38;5;8m—␛[0m watered the herb spiral and checked the seedlings
+␛[32m✓␛[0m noted
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mloam forgets it when it closes␛[0m
+
+$ loam journal --yes --long
+--- exit 0
+--- stdout
+--- stderr
+␛[36m◦␛[0m no editor opens in an unattended run
+
+$ loam status
+--- exit 0
+--- stdout
+garden         the back plot
+zone           temperate
+beds           6 beds, 14 plants
+last watered   yesterday
+next harvest   tomatoes, in 5 days
+--- stderr
+␛[33m☂␛[0m frost tonight
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mcover the seedlings in bed 3␛[0m
+␛[31m✗␛[0m the bean teepee has not been watered in 9 days
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mrun: loam water␛[0m
+
+$ loam status --json
+--- exit 0
+--- stdout
+{"garden":"the back plot","zone":"temperate","beds":6,"plants":14,"frost_tonight":true,"needs_attention":["5 bean teepee"]}
+--- stderr
+
+$ loam almanac
+--- exit 0
+--- stdout
+made with   paloma 0.12.0
+source      https://github.com/mvilark/paloma
+--- stderr
+
+␛[32m❦␛[0m ␛[38;5;10m␛[38;5;10ml␛[0m␛[38;5;10mo␛[0m␛[38;5;10ma␛[0m␛[38;5;10mm␛[0m␛[0m
+␛[2m␛[3ma garden journal for slow afternoons␛[0m
+
+␛[38;5;8m·␛[0m␛[38;5;8m┈␛[0m ␛[32mthis week␛[0m ␛[38;5;8m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;8m·␛[0m
+␛[38;5;8m┊␛[0m ␛[33m☂␛[0m frost tonight                                ␛[2mlow of -1␛[0m ␛[38;5;8m┊␛[0m
+␛[38;5;8m┊␛[0m ␛[36m◦␛[0m rain on the way                               ␛[2mthursday␛[0m ␛[38;5;8m┊␛[0m
+␛[38;5;8m┊␛[0m ␛[36m◦␛[0m first frost of autumn                          ␛[2m12 days␛[0m ␛[38;5;8m┊␛[0m
+␛[38;5;8m┊␛[0m ␛[32m✓␛[0m a good week for sowing roots                           ␛[38;5;8m┊␛[0m
+␛[38;5;8m·␛[0m␛[38;5;8m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;8m·␛[0m
+
+$ loam seeds
+--- exit 0
+--- stdout
+␛[3mseed       ␛[0m   ␛[3msow in␛[0m   ␛[3msprouts in␛[0m
+basil         spring   7-10 days 
+tomato        spring   6-10 days 
+zucchini      spring   5-8 days  
+pumpkin       spring   6-10 days 
+cucumber      spring   5-9 days  
+runner bean   spring   7-14 days 
+pea           spring   7-14 days 
+carrot        spring   10-21 days
+beetroot      spring   7-14 days 
+radish        spring   3-7 days  
+lettuce       spring   4-10 days 
+spinach       autumn   7-14 days 
+kale          summer   5-8 days  
+chard         spring   7-14 days 
+leek          spring   10-14 days
+onion         spring   7-12 days 
+garlic        autumn   14-21 days
+parsley       spring   14-28 days
+coriander     spring   7-14 days 
+dill          spring   10-14 days
+chives        spring   10-14 days
+mint          spring   10-15 days
+thyme         spring   14-28 days
+sage          spring   10-21 days
+rosemary      spring   14-28 days
+fennel        spring   7-14 days 
+borage        spring   5-10 days 
+marigold      spring   5-8 days  
+nasturtium    spring   7-12 days 
+calendula     spring   7-14 days 
+sunflower     spring   7-10 days 
+sweet pea     autumn   10-21 days
+cosmos        spring   7-10 days 
+strawberry    spring   14-28 days
+pepper        spring   10-21 days
+aubergine     spring   10-14 days
+sweetcorn     spring   7-10 days 
+turnip        summer   4-7 days  
+parsnip       spring   14-28 days
+celery        spring   14-21 days
+--- stderr
+
+$ loam nope
+--- exit 2
+--- stdout
+--- stderr
+␛[31m✗␛[0m i do not know nope
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mloam almanac␛[0m
+
+$ loam status --nope
+--- exit 2
+--- stdout
+--- stderr
+␛[31m✗␛[0m i do not know --nope
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mloam almanac␛[0m
+

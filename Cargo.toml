@@ -46,6 +46,13 @@ required-features = ["fuzzy-select", "password"]
 test = true
 
 [[example]]
+name = "loam"
+path = "examples/loam/main.rs"
+required-features = ["fuzzy-select", "password", "history", "completion", "editor"]
+# Run its unit tests with `cargo test`, not only with `--example loam`.
+test = true
+
+[[example]]
 name = "password"
 required-features = ["password"]
 

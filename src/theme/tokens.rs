@@ -812,6 +812,9 @@ settings! {
         gap: usize,
         /// Columns before each item of a list. Default 0.
         item_indent: usize,
+        /// Columns before the buttons of a confirm (the line under its question).
+        /// Default 0.
+        button_indent: usize,
         /// Columns between an item and its description. Default 2.
         item_description_gap: usize,
         /// Columns between the question and the flow step counter (`01/05`). Default 2.
@@ -993,6 +996,8 @@ pub struct PromptLook {
     pub gap: usize,
     /// See [`PromptStyle::item_indent`].
     pub item_indent: usize,
+    /// See [`PromptStyle::button_indent`].
+    pub button_indent: usize,
     /// See [`PromptStyle::item_description_gap`].
     pub item_description_gap: usize,
     /// See [`PromptStyle::step_gap`].
@@ -1131,6 +1136,7 @@ impl PromptTokens {
             flow_steps_word: s.flow_steps_word.unwrap_or("steps"),
             gap: s.gap.unwrap_or(1),
             item_indent: s.item_indent.unwrap_or(0),
+            button_indent: s.button_indent.unwrap_or(0),
             item_description_gap: s.item_description_gap.unwrap_or(2),
             step_gap: s.step_gap.unwrap_or(2),
             message_indent: s.message_indent.unwrap_or(0),
@@ -1430,6 +1436,21 @@ mod tests {
         );
         let input = tokens.get_prompts().resolve(PromptKind::Input, &tokens);
         assert_eq!(input.invalid_suffix_style, Style::new().bold());
+    }
+
+    #[test]
+    fn buttons_are_not_indented_unless_asked() {
+        for tokens in [Tokens::plain(), Tokens::colorful()] {
+            let look = tokens.get_prompts().resolve(PromptKind::Confirm, &tokens);
+            assert_eq!(look.button_indent, 0);
+        }
+        let tokens = Tokens::default().prompts(|p| {
+            p.base(|b| b.button_indent(2))
+                .confirm(|c| c.button_indent(4))
+        });
+        let look = |kind| tokens.get_prompts().resolve(kind, &tokens);
+        assert_eq!(look(PromptKind::Confirm).button_indent, 4);
+        assert_eq!(look(PromptKind::Input).button_indent, 2);
     }
 
     #[test]

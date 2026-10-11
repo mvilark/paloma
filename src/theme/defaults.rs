@@ -392,8 +392,9 @@ pub fn format_confirm_prompt(
     Ok(())
 }
 
-/// The button row: the yes and the no button two spaces apart, the focused one in
-/// `button_brackets` and `focused_button_style`, the other padded to the same width.
+/// The button row: `button_indent` spaces, then the yes and the no button two spaces
+/// apart, the focused one in `button_brackets` and `focused_button_style`, the other
+/// padded to the same width.
 pub fn format_confirm_buttons(
     f: &mut dyn fmt::Write,
     ctx: &Context,
@@ -414,7 +415,8 @@ pub fn format_confirm_buttons(
     };
     write!(
         f,
-        "{}  {}",
+        "{}{}  {}",
+        " ".repeat(look.button_indent),
         button(look.yes_button, view.yes_focused),
         button(look.no_button, !view.yes_focused)
     )
@@ -768,6 +770,15 @@ mod tests {
             |f, ctx| format_confirm_buttons(f, ctx, &ConfirmButtonsView::new(false)),
         );
         assert_eq!(out, "  Yes   <<No>");
+    }
+
+    #[test]
+    fn buttons_start_after_the_button_indent() {
+        let out = plain_with(
+            |p| p.base(|b| b.button_indent(2)),
+            |f, ctx| format_confirm_buttons(f, ctx, &ConfirmButtonsView::new(true)),
+        );
+        assert_eq!(out, "  [Yes]   No ");
     }
 
     #[test]
