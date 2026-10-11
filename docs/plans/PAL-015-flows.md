@@ -4,7 +4,7 @@ Roadmap item: [PAL-015 in ROADMAP.md](../../ROADMAP.md). Umbrella plan: [PAL-004
 
 ## Executor
 
-**Opus 5.5, high effort.**
+**Opus 5.5, medium effort** (the client's choice, 2026-10-11; first assessed as high).
 
 | Criterion | Assessment |
 | --- | --- |
@@ -13,7 +13,7 @@ Roadmap item: [PAL-015 in ROADMAP.md](../../ROADMAP.md). Umbrella plan: [PAL-004
 | Size | Medium to large: one new module, a recording hook in five output paths, a field on four views, the Ultraviolet setup. |
 | Verification | Pty runs with `Esc`, `back_to` and `keep_last`, screen by screen; Ultraviolet transcripts unchanged. |
 
-A cheaper model would likely get the row bookkeeping wrong in ways only a pty run shows. The planner reviews the diff and reruns every check before pushing.
+The design is closed here, so medium effort suffices for implementation; the row bookkeeping is covered by the pty checks below. The planner reviews the diff and reruns every check before pushing.
 
 ## Context and decisions
 
@@ -240,4 +240,4 @@ Theme:
 
 ## Status notes
 
-- 2026-10-11: Plan written; executor Opus 5.5, high effort. Work stops after this phase's PR until the client resumes.
+- 2026-10-11: Plan written; executor Opus 5.5, medium effort. Work stops after this phase's PR until the client resumes.

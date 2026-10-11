@@ -21,7 +21,7 @@ Rough ideas that are not yet scoped.
 Scoped and agreed, not started.
 
 - **PAL-004 · CLI UI framework.** Umbrella plan: build the rest of paloma's CLI UI framework (flows, messages, output blocks, spinners, progress bars) next to the existing prompts, with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
-- **PAL-015 · Flows.** `Flow` runs named steps (prompts plus any app code) over the app's state: step counter in the views, `Esc` back (`Error::Back`), `flow::back_to` with a message, a ledger of what steps print (erase on back, `keep_last`, `done`), `^C` cancels the flow. Executor: Opus 5.5, high. Plan: [docs/plans/PAL-015-flows.md](docs/plans/PAL-015-flows.md).
+- **PAL-015 · Flows.** `Flow` runs named steps (prompts plus any app code) over the app's state: step counter in the views, `Esc` back (`Error::Back`), `flow::back_to` with a message, a ledger of what steps print (erase on back, `keep_last`, `done`), `^C` cancels the flow. Executor: Opus 5.5, medium. Plan: [docs/plans/PAL-015-flows.md](docs/plans/PAL-015-flows.md).
 - **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars).
 
 ## In progress
