@@ -294,6 +294,10 @@ mod tests {
     // One test function: the live region is a global slot shared by the whole binary.
     #[test]
     fn tasks_print_steps_and_results_and_keep_one_slot() {
+        // No prompt renderer may pause the app-wide region while this test runs.
+        let _exclusive = engine::TEST_REGION
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
         // Without motion (not a terminal): nothing at start, then lines once each.
         let (term, buf) = pair();
         let task = Task::new("Working")

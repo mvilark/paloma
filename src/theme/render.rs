@@ -35,7 +35,7 @@ impl<'a> std::ops::Deref for ThemeHandle<'a> {
 
 /// How many screen rows `text` takes once written as whole lines on a terminal `width`
 /// columns wide, counting the rows of lines that wrap.
-fn rows(text: &str, width: usize) -> usize {
+pub(crate) fn rows(text: &str, width: usize) -> usize {
     text.split('\n').map(|line| line_rows(line, width)).sum()
 }
 
@@ -120,12 +120,26 @@ pub(crate) struct TermThemeRenderer<'a> {
     back: bool,
     /// Whether the prompt gave the cursor a shape, which the drop resets.
     shaped: bool,
+    /// The flow's step counter, when the prompt is shown in a flow that has one.
+    step: Option<(usize, usize)>,
+    /// Whether a frame was drawn (the prompt asked something).
+    asked: bool,
     /// Pauses a running live component (a task's spinner) while the prompt is shown.
     _pause: crate::live::engine::Pause,
+    /// Keeps task tests that assert on a running region from overlapping this
+    /// renderer's pause (tests only).
+    #[cfg(test)]
+    _test_region: std::sync::RwLockReadGuard<'static, ()>,
 }
 
 impl<'a> TermThemeRenderer<'a> {
     pub fn new(term: &'a Term, theme: Option<&'a dyn Theme>) -> TermThemeRenderer<'a> {
+        // Taken before the pause below: a renderer must not pause the region while it
+        // waits for a task test to finish.
+        #[cfg(test)]
+        let test_region = crate::live::engine::TEST_REGION
+            .read()
+            .unwrap_or_else(|e| e.into_inner());
         let theme = match theme {
             Some(theme) => ThemeHandle::Prompt(theme),
             None => ThemeHandle::App(super::app::current()),
@@ -146,7 +160,11 @@ impl<'a> TermThemeRenderer<'a> {
             legend: false,
             back: false,
             shaped: false,
+            step: crate::flow::counter(),
+            asked: false,
             _pause: crate::live::engine::Pause::new(),
+            #[cfg(test)]
+            _test_region: test_region,
         }
     }
 
@@ -164,6 +182,10 @@ impl<'a> TermThemeRenderer<'a> {
     /// and puts the terminal cursor at `cursor`, a line index in `text` and a column
     /// in display columns, or leaves it after the last line when `None`.
     fn frame(&mut self, text: &str, cursor: Option<(usize, usize)>) -> Result {
+        if !self.asked {
+            self.asked = true;
+            crate::flow::mark_asked();
+        }
         let width = self.term.size().1 as usize;
         if self.rows > 0 {
             self.term.move_cursor_up(self.cursor_row)?;
@@ -246,8 +268,10 @@ impl<'a> TermThemeRenderer<'a> {
         }
         self.erase()?;
         if !parts.is_empty() {
-            self.term.write_str(&parts.join("\n"))?;
+            let text = parts.join("\n");
+            self.term.write_str(&text)?;
             self.term.write_str("\r\n")?;
+            crate::flow::record_on(self.term, &text);
         }
         Ok(())
     }
@@ -406,7 +430,7 @@ impl<'a> TermThemeRenderer<'a> {
             let mut lines = Vec::new();
             if let Some(prompt) = prompt {
                 let mut line = String::new();
-                let view = PromptView::new(kind, prompt, paging, invalid);
+                let view = PromptView::new(kind, prompt, paging, invalid, self.step);
                 self.theme.format_prompt(&mut line, &ctx, &view)?;
                 lines.push(line);
             }
@@ -438,7 +462,7 @@ impl<'a> TermThemeRenderer<'a> {
             let ctx = self.ctx();
             let look = self.look(kind);
             let mut head = String::new();
-            let view = InputPromptView::new(kind, prompt, default, invalid);
+            let view = InputPromptView::new(kind, prompt, default, invalid, self.step);
             self.theme.format_input_prompt(&mut head, &ctx, &view)?;
             let line = head.matches('\n').count();
             let start = measure_text_width(head.rsplit('\n').next().unwrap_or(""));
@@ -488,7 +512,8 @@ impl<'a> TermThemeRenderer<'a> {
         let (body, text) = (|| -> std::result::Result<(String, String), fmt::Error> {
             let ctx = self.ctx();
             let mut line = String::new();
-            let view = ConfirmPromptView::new(prompt, default, buttons.is_some(), invalid);
+            let view =
+                ConfirmPromptView::new(prompt, default, buttons.is_some(), invalid, self.step);
             self.theme.format_confirm_prompt(&mut line, &ctx, &view)?;
             if let Some(yes_focused) = buttons {
                 line.push('\n');
@@ -520,7 +545,8 @@ impl<'a> TermThemeRenderer<'a> {
             let ctx = self.ctx();
             let mut line = String::new();
             let placeholder = placeholder.filter(|_| search.is_empty());
-            let view = FuzzySelectPromptView::new(prompt, search, cursor, placeholder, invalid);
+            let view =
+                FuzzySelectPromptView::new(prompt, search, cursor, placeholder, invalid, self.step);
             self.theme
                 .format_fuzzy_select_prompt(&mut line, &ctx, &view)?;
             let mut lines = vec![line];
@@ -544,7 +570,9 @@ impl<'a> TermThemeRenderer<'a> {
         self.theme
             .format_answered(&mut line, &self.ctx(), &view)
             .map_err(io::Error::other)?;
-        Ok(self.term.write_line(&line)?)
+        self.term.write_line(&line)?;
+        crate::flow::record_on(self.term, &line);
+        Ok(())
     }
 }
 

@@ -147,7 +147,8 @@ impl<'a> Sort<'a> {
     /// The user can order the items with the 'Space' bar and the arrows. On 'Enter' ordered list of the incides of items will be returned.
     /// The dialog is rendered on stderr.
     /// Result contains `Vec<index>` if user hit 'Enter'.
-    /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q'.
+    /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q',
+    /// except inside a [`Flow`](crate::Flow), where `Esc` or `q` returns [`Error::Back`](crate::Error::Back) (the step goes back).
     /// `Ctrl+C` returns [`Error::Cancelled`](crate::Error::Cancelled).
     #[inline]
     pub fn interact(self) -> Result<Vec<usize>> {
@@ -193,9 +194,8 @@ impl<'a> Sort<'a> {
     /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
     #[inline]
     pub fn interact_on(self, term: &Term) -> Result<Vec<usize>> {
-        Ok(self
-            ._interact_on(term, false)?
-            .ok_or_else(|| io::Error::other("Quit not allowed in this case"))?)
+        let back = crate::flow::esc_back();
+        crate::flow::required(self._interact_on(term, back), back)
     }
 
     /// Like [`interact_opt`](Self::interact_opt) but allows a specific terminal to be set.
@@ -244,6 +244,10 @@ impl<'a> Sort<'a> {
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_legend(self.legend_enabled(&options), allow_back);
+        // A flow going back to this prompt's step puts its message in the row.
+        if let Some(message) = crate::flow::take_pending() {
+            self.row.invalid(message);
+        }
         let mut sel = 0;
 
         let mut order: Vec<_> = (0..self.items.len()).collect();

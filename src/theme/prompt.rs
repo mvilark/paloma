@@ -34,6 +34,9 @@ pub struct PromptView<'a> {
     pub paging: Option<(usize, usize)>,
     /// The message row shows a validation error.
     pub invalid: bool,
+    /// The flow step `(number, total)` for the step counter (`01/05`), when the
+    /// prompt is shown in a [`Flow`](crate::Flow) with its counter on.
+    pub step: Option<(usize, usize)>,
 }
 
 impl<'a> PromptView<'a> {
@@ -43,12 +46,14 @@ impl<'a> PromptView<'a> {
         prompt: &'a str,
         paging: Option<(usize, usize)>,
         invalid: bool,
+        step: Option<(usize, usize)>,
     ) -> Self {
         PromptView {
             kind,
             prompt,
             paging,
             invalid,
+            step,
         }
     }
 }
@@ -66,16 +71,26 @@ pub struct InputPromptView<'a> {
     pub default: Option<&'a str>,
     /// The message row shows a validation error.
     pub invalid: bool,
+    /// The flow step `(number, total)` for the step counter (`01/05`), when the
+    /// prompt is shown in a [`Flow`](crate::Flow) with its counter on.
+    pub step: Option<(usize, usize)>,
 }
 
 impl<'a> InputPromptView<'a> {
     /// A view of the input line.
-    pub fn new(kind: PromptKind, prompt: &'a str, default: Option<&'a str>, invalid: bool) -> Self {
+    pub fn new(
+        kind: PromptKind,
+        prompt: &'a str,
+        default: Option<&'a str>,
+        invalid: bool,
+        step: Option<(usize, usize)>,
+    ) -> Self {
         InputPromptView {
             kind,
             prompt,
             default,
             invalid,
+            step,
         }
     }
 }
@@ -95,16 +110,26 @@ pub struct ConfirmPromptView<'a> {
     pub buttons: bool,
     /// The message row shows a validation error.
     pub invalid: bool,
+    /// The flow step `(number, total)` for the step counter (`01/05`), when the
+    /// prompt is shown in a [`Flow`](crate::Flow) with its counter on.
+    pub step: Option<(usize, usize)>,
 }
 
 impl<'a> ConfirmPromptView<'a> {
     /// A view of the confirm line.
-    pub fn new(prompt: &'a str, default: Option<bool>, buttons: bool, invalid: bool) -> Self {
+    pub fn new(
+        prompt: &'a str,
+        default: Option<bool>,
+        buttons: bool,
+        invalid: bool,
+        step: Option<(usize, usize)>,
+    ) -> Self {
         ConfirmPromptView {
             prompt,
             default,
             buttons,
             invalid,
+            step,
         }
     }
 }
@@ -142,6 +167,9 @@ pub struct FuzzySelectPromptView<'a> {
     pub placeholder: Option<&'a str>,
     /// The message row shows a validation error.
     pub invalid: bool,
+    /// The flow step `(number, total)` for the step counter (`01/05`), when the
+    /// prompt is shown in a [`Flow`](crate::Flow) with its counter on.
+    pub step: Option<(usize, usize)>,
 }
 
 impl<'a> FuzzySelectPromptView<'a> {
@@ -152,6 +180,7 @@ impl<'a> FuzzySelectPromptView<'a> {
         cursor: usize,
         placeholder: Option<&'a str>,
         invalid: bool,
+        step: Option<(usize, usize)>,
     ) -> Self {
         FuzzySelectPromptView {
             prompt,
@@ -159,6 +188,7 @@ impl<'a> FuzzySelectPromptView<'a> {
             cursor,
             placeholder,
             invalid,
+            step,
         }
     }
 }
@@ -320,5 +350,24 @@ impl<'a> AnsweredView<'a> {
             prompt,
             answer,
         }
+    }
+}
+
+/// The line a finished [`Flow`](crate::Flow) leaves with
+/// [`Done::Collapse`](crate::Done::Collapse); see
+/// [`Theme::format_flow_summary`](crate::theme::Theme::format_flow_summary).
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub struct FlowSummaryView<'a> {
+    /// The flow's title ([`Flow::title`](crate::Flow::title)).
+    pub title: &'a str,
+    /// How many steps ran.
+    pub steps: usize,
+}
+
+impl<'a> FlowSummaryView<'a> {
+    /// A view of the summary line.
+    pub fn new(title: &'a str, steps: usize) -> Self {
+        FlowSummaryView { title, steps }
     }
 }

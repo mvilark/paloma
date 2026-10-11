@@ -176,7 +176,8 @@ impl<'a> MultiSelect<'a> {
     /// The user can select the items with the 'Space' bar and on 'Enter' the indices of selected items will be returned.
     /// The dialog is rendered on stderr.
     /// Result contains `Vec<index>` if user hit 'Enter'.
-    /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q'.
+    /// This unlike [`interact_opt`](Self::interact_opt) does not allow to quit with 'Esc' or 'q',
+    /// except inside a [`Flow`](crate::Flow), where `Esc` or `q` returns [`Error::Back`](crate::Error::Back) (the step goes back).
     /// `Ctrl+C` returns [`Error::Cancelled`](crate::Error::Cancelled).
     #[inline]
     pub fn interact(self) -> Result<Vec<usize>> {
@@ -222,9 +223,8 @@ impl<'a> MultiSelect<'a> {
     /// Like [`interact`](Self::interact) but allows a specific terminal to be set.
     #[inline]
     pub fn interact_on(self, term: &Term) -> Result<Vec<usize>> {
-        Ok(self
-            ._interact_on(term, false)?
-            .ok_or_else(|| io::Error::other("Quit not allowed in this case"))?)
+        let back = crate::flow::esc_back();
+        crate::flow::required(self._interact_on(term, back), back)
     }
 
     /// Like [`interact_opt`](Self::interact_opt) but allows a specific terminal to be set.
@@ -276,6 +276,10 @@ impl<'a> MultiSelect<'a> {
         let mut paging = Paging::new(term, self.items.len(), self.max_length);
         let mut render = TermThemeRenderer::new(term, self.base.theme);
         render.set_legend(self.legend_enabled(&options), allow_back);
+        // A flow going back to this prompt's step puts its message in the row.
+        if let Some(message) = crate::flow::take_pending() {
+            self.row.invalid(message);
+        }
         // The highlighted item: the first enabled one (`!0` when every item is disabled).
         let mut sel = next_enabled(&self.items, 0, true).unwrap_or(!0);
 

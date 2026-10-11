@@ -29,9 +29,9 @@ pub use crate::output::{
 pub use colorful::ColorfulTheme;
 pub use context::Context;
 pub use prompt::{
-    Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, FuzzySelectPromptView,
-    InputPromptView, ItemView, LegendView, MessageSource, PromptKind, PromptMessageView,
-    PromptView,
+    Answer, AnsweredView, ConfirmButtonsView, ConfirmPromptView, FlowSummaryView,
+    FuzzySelectPromptView, InputPromptView, ItemView, LegendView, MessageSource, PromptKind,
+    PromptMessageView, PromptView,
 };
 pub use restyle::Restyled;
 pub use simple::SimpleTheme;
@@ -232,5 +232,17 @@ pub trait Theme {
         view: &AnsweredView,
     ) -> fmt::Result {
         defaults::format_answered(f, ctx, view)
+    }
+
+    /// Formats the line a finished [`Flow`](crate::Flow) leaves with
+    /// [`Done::Collapse`](crate::Done::Collapse): its title and how many steps ran. The
+    /// default is [`defaults::format_flow_summary`].
+    fn format_flow_summary(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &FlowSummaryView,
+    ) -> fmt::Result {
+        defaults::format_flow_summary(f, ctx, view)
     }
 }

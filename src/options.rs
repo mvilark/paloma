@@ -117,6 +117,22 @@ settings! {
 }
 
 settings! {
+    /// Settings for [`Flow`](crate::Flow). A flow's own setter wins over these.
+    pub struct FlowOptions {
+        /// Whether prompts in a flow show the step counter (`01/05`). Default: on.
+        counter: bool,
+        /// Whether `Esc` in a prompt goes back a step (and cancels the flow on the
+        /// first one). Default: on.
+        esc_back: bool,
+        /// What each answered prompt in a flow leaves, unless the prompt sets its own
+        /// `done`. Default: unset (the prompt's `Options` group, then `prompts`).
+        step_done: Done,
+        /// What the whole flow leaves when it finishes. Default: [`Done::Keep`].
+        done: Done,
+    }
+}
+
+settings! {
     /// Settings for [`Message`](crate::Message): the `messages` family group and the
     /// group of each status.
     pub struct MessageOptions {
@@ -176,6 +192,7 @@ pub struct Options {
     pub(crate) panel: BlockOptions,
     pub(crate) live: LiveOptions,
     pub(crate) task: LiveOptions,
+    pub(crate) flows: FlowOptions,
 }
 
 macro_rules! groups {
@@ -239,6 +256,8 @@ groups! {
     live: LiveOptions,
     /// Settings for [`Task`](crate::Task).
     task: LiveOptions,
+    /// Settings for every [`Flow`](crate::Flow).
+    flows: FlowOptions,
 }
 
 impl Options {
@@ -247,10 +266,13 @@ impl Options {
         Self::default()
     }
 
-    /// Resolves `done`: the prompt's own value, its group, `prompts`, then the
-    /// default ([`Done::Collapse`]).
-    pub(crate) fn done(&self, own: Option<Done>, group: Option<Done>) -> Done {
-        own.or(group).or(self.prompts.done).unwrap_or_default()
+    /// Resolves `done`: the prompt's own value, the `step_done` of the flow it runs in
+    /// (`flow`), its group, `prompts`, then the default ([`Done::Collapse`]).
+    pub(crate) fn done(&self, own: Option<Done>, flow: Option<Done>, group: Option<Done>) -> Done {
+        own.or(flow)
+            .or(group)
+            .or(self.prompts.done)
+            .unwrap_or_default()
     }
 
     /// Resolves `legend`: the prompt's own value, its group, `prompts`, then off.
@@ -302,18 +324,33 @@ mod tests {
         let o = Options::new()
             .prompts(|p| p.done(Done::Erase))
             .select(|s| s.done(Done::Keep));
-        assert_eq!(o.done(None, o.select.done), Done::Keep);
-        assert_eq!(o.done(None, o.input.done), Done::Erase);
-        assert_eq!(o.done(Some(Done::Collapse), o.input.done), Done::Collapse);
-        assert_eq!(Options::new().done(None, None), Done::Collapse);
+        assert_eq!(o.done(None, None, o.select.done), Done::Keep);
+        assert_eq!(o.done(None, None, o.input.done), Done::Erase);
+        assert_eq!(
+            o.done(Some(Done::Collapse), None, o.input.done),
+            Done::Collapse
+        );
+        assert_eq!(Options::new().done(None, None, None), Done::Collapse);
         assert_eq!(Done::default(), Done::Collapse);
         // The member groups that are not `PromptOptions` resolve the same way.
         let o = Options::new()
             .prompts(|p| p.done(Done::Keep))
             .confirm(|c| c.done(Done::Erase))
             .password(|p| p.done(Done::Collapse));
-        assert_eq!(o.done(None, o.confirm.done), Done::Erase);
-        assert_eq!(o.done(None, o.password.done), Done::Collapse);
+        assert_eq!(o.done(None, None, o.confirm.done), Done::Erase);
+        assert_eq!(o.done(None, None, o.password.done), Done::Collapse);
+    }
+
+    #[test]
+    fn a_flow_step_done_comes_after_the_prompt_and_before_its_group() {
+        let o = Options::new()
+            .prompts(|p| p.done(Done::Keep))
+            .select(|s| s.done(Done::Collapse));
+        let flow = Some(Done::Erase);
+        assert_eq!(o.done(None, flow, o.select.done), Done::Erase);
+        assert_eq!(o.done(None, flow, o.input.done), Done::Erase);
+        assert_eq!(o.done(Some(Done::Keep), flow, o.select.done), Done::Keep);
+        assert_eq!(o.done(None, None, o.select.done), Done::Collapse);
     }
 
     #[test]

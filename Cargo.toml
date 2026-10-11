@@ -50,6 +50,10 @@ name = "password"
 required-features = ["password"]
 
 [[example]]
+name = "flow"
+required-features = ["password"]
+
+[[example]]
 name = "prompt_messages"
 required-features = ["password"]
 
