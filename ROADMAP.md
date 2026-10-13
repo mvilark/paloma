@@ -21,7 +21,7 @@ Rough ideas that are not yet scoped.
 Scoped and agreed, not started.
 
 - **PAL-004 · CLI UI framework.** Umbrella plan: build the rest of paloma's CLI UI framework (flows, messages, output blocks, spinners, progress bars) next to the existing prompts, with tokens, families that share a base, and one settings cascade. Plan: [docs/plans/PAL-004-ui-framework.md](docs/plans/PAL-004-ui-framework.md). Its phases are the items below. Direction decisions agreed on 2026-10-10.
-- **PAL-011 · Progress bars.** `Progress` on the live base. Plan: [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars).
+- **PAL-011 · Progress bars.** `Progress` on the live region beside `Task` (set / inc, easing that never goes backwards, a head glint, keep or finish), the `format_progress` hook and progress tokens; Ultraviolet's hand-drawn bar goes and with it `ui.rs`; Loam's three seams become bars. Executor: Sonnet 5.5, high. Plan: [docs/plans/PAL-011-progress-bars.md](docs/plans/PAL-011-progress-bars.md) (from [PAL-004, Phase 7](docs/plans/PAL-004-ui-framework.md#pal-011--phase-7-progress-bars)).
 
 ## In progress
 
