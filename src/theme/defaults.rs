@@ -23,8 +23,9 @@ use console::Style;
 use crate::theme::{
     Answer, AnsweredView, BlockKind, ConfirmButtonsView, ConfirmPromptView, Context,
     FlowSummaryView, FuzzySelectPromptView, GlyphName, InputPromptView, ItemView, KeyValueView,
-    LegendView, LiveKind, MessageView, PanelView, PromptKind, PromptLook, PromptMessageView,
-    PromptView, Role, SectionView, TableView, TaskState, TaskStepView, TaskView,
+    LegendView, LiveKind, MessageView, PanelView, ProgressState, ProgressView, PromptKind,
+    PromptLook, PromptMessageView, PromptView, Role, SectionView, TableView, TaskState,
+    TaskStepView, TaskView,
 };
 
 /// One message line: the indent for its depth, then the glyph, the word (followed by
@@ -221,6 +222,89 @@ pub fn format_task(f: &mut dyn fmt::Write, ctx: &Context, view: &TaskView) -> fm
         write!(f, "  {}", ctx.paint(&look.elapsed_style, secs))?;
     }
     Ok(())
+}
+
+/// A progress line.
+///
+/// Running or kept: `bar_indent` spaces, the bar of `bar_width` cells (`value / total` of
+/// them filled with the `bar_fill` glyph, the rest the `bar_track` glyph; `=` and `-`
+/// when those are empty), a space, the
+/// label and, if `show_percent`, two spaces and the percentage. While running, the last
+/// `head_width` filled cells are the head glint. If `show_elapsed`, two spaces and the
+/// elapsed time follow, as a task draws it. A kept bar with a `total` of 0 is full and
+/// reads 100%.
+///
+/// Each part is painted as one span (the fill without the head, the head, the track, the
+/// label, the percentage), and an empty part is not painted at all.
+///
+/// Finished: the result line of [`format_task`], the text drawn like a message of that
+/// status, then the elapsed time if `show_elapsed`.
+pub fn format_progress(f: &mut dyn fmt::Write, ctx: &Context, view: &ProgressView) -> fmt::Result {
+    let tokens = ctx.tokens();
+    let look = tokens.get_live().resolve(LiveKind::Progress, tokens);
+    let elapsed = |f: &mut dyn fmt::Write| -> fmt::Result {
+        if look.show_elapsed {
+            let secs = format!("{:.1}s", view.elapsed.as_secs_f64());
+            write!(f, "  {}", ctx.paint(&look.elapsed_style, secs))?;
+        }
+        Ok(())
+    };
+    let kept = match view.state {
+        ProgressState::Finished(status) => {
+            format_message(f, ctx, &MessageView::new(status, view.text, 0))?;
+            return elapsed(f);
+        }
+        ProgressState::Running => false,
+        ProgressState::Kept => true,
+    };
+    // A job of nothing is done once it is kept.
+    let (value, total) = if view.total == 0 && kept {
+        (1, 1)
+    } else {
+        (view.value.min(view.total), view.total)
+    };
+    let (cells, percent) = if total == 0 {
+        (0, 0)
+    } else {
+        // 128 bits: `value * width` cannot overflow, whatever the total.
+        let scaled = |by: usize| (u128::from(value) * by as u128 / u128::from(total)) as usize;
+        (scaled(look.bar_width), scaled(100))
+    };
+    let glyphs = tokens.get_glyphs();
+    let head = if kept { 0 } else { look.head_width.min(cells) };
+    write!(f, "{}", " ".repeat(look.bar_indent))?;
+    for (style, glyph, count) in [
+        (&look.fill_style, GlyphName::BarFill, cells - head),
+        (&look.head_style, GlyphName::BarFill, head),
+        (
+            &look.track_style,
+            GlyphName::BarTrack,
+            look.bar_width - cells,
+        ),
+    ] {
+        // A bar needs cells: empty bar glyphs (`Glyphs::default()`) fall back to ASCII.
+        let cell = match (glyphs.get(glyph), glyph) {
+            ("", GlyphName::BarFill) => "=",
+            ("", _) => "-",
+            (cell, _) => cell,
+        };
+        let part = cell.repeat(count);
+        if !part.is_empty() {
+            write!(f, "{}", ctx.paint(style, part))?;
+        }
+    }
+    write!(f, " ")?;
+    if !view.text.is_empty() {
+        write!(f, "{}", ctx.paint(&look.label_style, view.text))?;
+    }
+    if look.show_percent {
+        write!(
+            f,
+            "  {}",
+            ctx.paint(&look.percent_style, format!("{percent}%"))
+        )?;
+    }
+    elapsed(f)
 }
 
 /// A step line under a task: the `step_indent` token as spaces, the nested glyph and
@@ -974,5 +1058,230 @@ mod tests {
         let look = plain.get_prompts().resolve(PromptKind::Select, &plain);
         assert_eq!(look.legend_back, ("esc", "back"));
         assert_eq!(look.legend_separator, "  ");
+    }
+
+    /// A progress line drawn with `tokens` for `state`, `value` out of `total`, after 1.5 s.
+    fn progress_line(
+        tokens: &Tokens,
+        state: crate::theme::ProgressState,
+        value: u64,
+        total: u64,
+    ) -> String {
+        let ctx = Context::new(tokens, Stream::Stderr);
+        let view = ProgressView::new(
+            "Working",
+            state,
+            value,
+            total,
+            std::time::Duration::from_millis(1500),
+        );
+        let mut out = String::new();
+        format_progress(&mut out, &ctx, &view).unwrap();
+        out
+    }
+
+    #[test]
+    fn empty_bar_glyphs_fall_back_to_ascii() {
+        let tokens = Tokens::default().live(|l| l.progress(|p| p.bar_width(4)));
+        let out = progress_line(&tokens, crate::theme::ProgressState::Kept, 1, 2);
+        assert_eq!(out, "==-- Working  50%");
+    }
+
+    /// Small bars: 10 cells, a 2-cell head.
+    fn bar_tokens() -> Tokens {
+        Tokens::plain().live(|l| l.progress(|p| p.bar_width(10).head_width(2)))
+    }
+
+    /// The same, every part in its own forced colour.
+    fn coloured_tokens() -> Tokens {
+        let force = |style: Style| style.force_styling(true);
+        Tokens::plain().live(|l| {
+            l.progress(|p| {
+                p.bar_width(10)
+                    .head_width(2)
+                    .fill_style(force(Style::new().red()))
+                    .head_style(force(Style::new().green()))
+                    .track_style(force(Style::new().blue()))
+                    .label_style(force(Style::new().yellow()))
+                    .percent_style(force(Style::new().magenta()))
+            })
+        })
+    }
+
+    #[test]
+    fn a_running_bar_is_fill_track_label_and_percent() {
+        use crate::theme::ProgressState::Running;
+        let tokens = bar_tokens();
+        assert_eq!(
+            progress_line(&tokens, Running, 5, 10),
+            "=====----- Working  50%"
+        );
+        assert_eq!(
+            progress_line(&tokens, Running, 0, 10),
+            "---------- Working  0%"
+        );
+        // The percentage is an integer: 1/3 is 33%, 3 cells of 10.
+        assert_eq!(
+            progress_line(&tokens, Running, 1, 3),
+            "===------- Working  33%"
+        );
+        // A value past the total reads as the total.
+        assert_eq!(
+            progress_line(&tokens, Running, 99, 10),
+            "========== Working  100%"
+        );
+        // Defaults: 30 cells, no head, no indent.
+        let default = Tokens::plain();
+        assert_eq!(
+            progress_line(&default, Running, 15, 30),
+            format!("{}{} Working  50%", "=".repeat(15), "-".repeat(15))
+        );
+    }
+
+    #[test]
+    fn the_head_is_the_last_cells_of_the_fill_while_running() {
+        use crate::theme::ProgressState::{Kept, Running};
+        let tokens = coloured_tokens();
+        // Each part is one span, and the label and percentage are spans of their own.
+        assert_eq!(
+            progress_line(&tokens, Running, 6, 10),
+            "\x1b[31m====\x1b[0m\x1b[32m==\x1b[0m\x1b[34m----\x1b[0m \x1b[33mWorking\x1b[0m  \x1b[35m60%\x1b[0m"
+        );
+        // The head is longer than the fill: it takes what there is, and the empty fill
+        // writes nothing (no empty escape pair).
+        assert_eq!(
+            progress_line(&tokens, Running, 1, 10),
+            "\x1b[32m=\x1b[0m\x1b[34m---------\x1b[0m \x1b[33mWorking\x1b[0m  \x1b[35m10%\x1b[0m"
+        );
+        // Nothing filled: only the track.
+        assert_eq!(
+            progress_line(&tokens, Running, 0, 10),
+            "\x1b[34m----------\x1b[0m \x1b[33mWorking\x1b[0m  \x1b[35m0%\x1b[0m"
+        );
+        // Kept: no head, the whole fill is one span.
+        assert_eq!(
+            progress_line(&tokens, Kept, 6, 10),
+            "\x1b[31m======\x1b[0m\x1b[34m----\x1b[0m \x1b[33mWorking\x1b[0m  \x1b[35m60%\x1b[0m"
+        );
+        // Kept and full: the track is empty and writes nothing.
+        assert_eq!(
+            progress_line(&tokens, Kept, 10, 10),
+            "\x1b[31m==========\x1b[0m \x1b[33mWorking\x1b[0m  \x1b[35m100%\x1b[0m"
+        );
+    }
+
+    #[test]
+    fn a_kept_bar_shows_the_real_value_without_a_head() {
+        use crate::theme::ProgressState::Kept;
+        let tokens = bar_tokens();
+        assert_eq!(
+            progress_line(&tokens, Kept, 5, 10),
+            "=====----- Working  50%"
+        );
+        assert_eq!(
+            progress_line(&tokens, Kept, 10, 10),
+            "========== Working  100%"
+        );
+    }
+
+    #[test]
+    fn a_total_of_zero_is_empty_while_running_and_full_once_kept() {
+        use crate::theme::ProgressState::{Kept, Running};
+        let tokens = bar_tokens();
+        assert_eq!(
+            progress_line(&tokens, Running, 0, 0),
+            "---------- Working  0%"
+        );
+        assert_eq!(
+            progress_line(&tokens, Kept, 0, 0),
+            "========== Working  100%"
+        );
+    }
+
+    #[test]
+    fn the_percentage_the_indent_and_the_elapsed_time_are_tokens() {
+        use crate::theme::ProgressState::Running;
+        let tokens = Tokens::plain()
+            .live(|l| l.progress(|p| p.bar_width(10).show_percent(false).bar_indent(2)));
+        assert_eq!(
+            progress_line(&tokens, Running, 5, 10),
+            "  =====----- Working"
+        );
+        let tokens = Tokens::plain().live(|l| l.progress(|p| p.bar_width(10).show_elapsed(true)));
+        assert_eq!(
+            progress_line(&tokens, Running, 5, 10),
+            "=====----- Working  50%  1.5s"
+        );
+        let tokens = Tokens::plain()
+            .live(|l| l.progress(|p| p.bar_width(10).show_percent(false).show_elapsed(true)));
+        assert_eq!(
+            progress_line(&tokens, Running, 5, 10),
+            "=====----- Working  1.5s"
+        );
+        // The family base reaches the bar; a task's elapsed time is on by default, a
+        // bar's is not.
+        let tokens = Tokens::plain().live(|l| l.base(|b| b.bar_width(4)));
+        assert_eq!(progress_line(&tokens, Running, 2, 4), "==-- Working  50%");
+        let look = |kind| Tokens::plain().get_live().resolve(kind, &Tokens::plain());
+        assert!(look(LiveKind::Task).show_elapsed);
+        assert!(!look(LiveKind::Progress).show_elapsed);
+    }
+
+    #[test]
+    fn a_finished_bar_is_a_task_result_line() {
+        use crate::theme::ProgressState::Finished;
+        let tokens = Tokens::plain();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        for status in [Status::Success, Status::Warning, Status::Error] {
+            let view = ProgressView::new(
+                "Done",
+                Finished(status),
+                7,
+                10,
+                std::time::Duration::from_millis(1500),
+            );
+            let mut bar = String::new();
+            format_progress(&mut bar, &ctx, &view).unwrap();
+            let task = TaskView::new(
+                "Done",
+                TaskState::Finished(status),
+                std::time::Duration::from_millis(1500),
+                0,
+            );
+            let mut line = String::new();
+            format_task(&mut line, &ctx, &task).unwrap();
+            // The same line, but the bar shows the elapsed time only when its own
+            // token asks for it.
+            assert_eq!(line.strip_suffix("  1.5s"), Some(bar.as_str()));
+        }
+        let tokens = Tokens::plain().live(|l| l.progress(|p| p.show_elapsed(true)));
+        assert_eq!(
+            progress_line(&tokens, Finished(Status::Success), 10, 10),
+            "success: Working  1.5s"
+        );
+    }
+
+    #[test]
+    fn bar_glyphs_differ_in_every_glyph_set() {
+        use crate::theme::Glyphs;
+        for glyphs in [
+            Glyphs::none(),
+            Glyphs::ascii(),
+            Glyphs::ascii_frames(),
+            Glyphs::unicode(),
+        ] {
+            let (fill, track) = (
+                glyphs.get(GlyphName::BarFill),
+                glyphs.get(GlyphName::BarTrack),
+            );
+            assert!(!fill.is_empty() && !track.is_empty());
+            assert_ne!(fill, track);
+            assert_eq!(console::measure_text_width(fill), 1);
+            assert_eq!(console::measure_text_width(track), 1);
+        }
+        assert_eq!(Glyphs::none().get(GlyphName::BarFill), "=");
+        assert_eq!(Glyphs::none().get(GlyphName::BarTrack), "-");
+        assert_eq!(Glyphs::unicode().get(GlyphName::BarFill), "█");
+        assert_eq!(Glyphs::unicode().get(GlyphName::BarTrack), "░");
     }
 }

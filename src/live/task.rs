@@ -4,7 +4,7 @@ use std::{sync::Arc, time::Duration};
 use console::Term;
 
 use crate::{
-    live::engine::{Region, Spec},
+    live::engine::{Body, Leave, Region, Spec},
     output::message::Status,
     terminal::Stream,
     theme::{app, LiveKind, Theme},
@@ -151,7 +151,7 @@ impl Task {
             term: term.clone(),
             stream,
             theme: self.theme.unwrap_or_else(app::current),
-            label: self.label,
+            body: Body::task(self.label),
             motion,
             frame_ms,
         })?;
@@ -189,7 +189,7 @@ impl RunningTask {
     /// returns the elapsed time.
     pub fn finish(mut self, status: Status, text: impl Into<String>) -> Result<Duration> {
         self.finished = true;
-        Ok(self.region.finish(Some((status, &text.into())))?)
+        Ok(self.region.finish(Leave::Result(status, &text.into()))?)
     }
 
     /// `finish(Status::Success, text)`.
@@ -210,14 +210,14 @@ impl RunningTask {
     /// Stops the spinner and erases its line, printing no result; step lines stay.
     pub fn clear(mut self) -> Result<Duration> {
         self.finished = true;
-        Ok(self.region.finish(None)?)
+        Ok(self.region.finish(Leave::Nothing)?)
     }
 }
 
 impl Drop for RunningTask {
     fn drop(&mut self) {
         if !self.finished {
-            let _ = self.region.finish(None);
+            let _ = self.region.finish(Leave::Nothing);
         }
     }
 }
@@ -376,7 +376,7 @@ mod tests {
             term: term.clone(),
             stream: Stream::Stderr,
             theme: Arc::new(SimpleTheme),
-            label: "Working".into(),
+            body: Body::task("Working".into()),
             motion: true,
             frame_ms: 5,
         })

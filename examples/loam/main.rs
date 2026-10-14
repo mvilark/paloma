@@ -1,7 +1,7 @@
 //! Loam, a cozy garden journal: a second full example app beside Ultraviolet, built only
 //! from what paloma offers. It has no UI code of its own (no escape codes, no styled
 //! text, no layout): `theme.rs` builds the design as tokens, everything shown is a
-//! paloma prompt, flow, message, block or task. All data is canned and lives in memory.
+//! paloma prompt, flow, message, block, task or progress bar. All data is canned and lives in memory.
 //!
 //! Run with: `cargo run --example loam --all-features -- <command>`
 //! Commands: init, plant, water, harvest, journal, status, almanac, seeds.
@@ -14,7 +14,7 @@ use std::env;
 
 use paloma::{
     terminal::{self, Stream},
-    theme::SimpleTheme,
+    theme::{SimpleTheme, Theme},
     Message, Options,
 };
 use theme::LoamTheme;
@@ -84,7 +84,11 @@ fn main() {
     args.motion = caps.is_tty() && env::var_os("CI").is_none();
 
     if args.plain {
-        paloma::set_theme(SimpleTheme);
+        // Paloma's own look, except that a bar ends in a result line with the time, as
+        // a task does (a bar's default is not to), so the app reads the same.
+        paloma::set_theme(
+            SimpleTheme.restyle(|t| t.live(|l| l.progress(|p| p.show_elapsed(true)))),
+        );
     } else {
         paloma::set_theme(LoamTheme::new(args.night, caps.depth(), args.ascii));
     }

@@ -2,9 +2,11 @@
 //!
 //! Run with: `cargo run --example ultraviolet --all-features -- <command>`
 //! Commands: setup, connect, favorites, disconnect, status, servers, about.
+//!
+//! Everything it shows is a paloma component: `theme.rs` holds the design system's tokens
+//! and hooks, and the Serrallonga icon and wordmark, the app's own brand art.
 mod flows;
 mod theme;
-mod ui;
 
 use std::env;
 
@@ -138,7 +140,7 @@ fn main() {
     let command = match args.command.as_deref() {
         Some(c) => c.to_string(),
         None => {
-            ui::wordmark_with_icon("a fake vpn, themed with Ultraviolet");
+            theme::wordmark_with_icon("a fake vpn, themed with Ultraviolet");
             eprintln!();
             "setup".into()
         }

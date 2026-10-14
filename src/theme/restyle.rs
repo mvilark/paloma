@@ -4,8 +4,8 @@ use std::{borrow::Cow, fmt};
 use crate::theme::{
     AnsweredView, ConfirmButtonsView, ConfirmPromptView, Context, FlowSummaryView,
     FuzzySelectPromptView, InputPromptView, ItemView, KeyValueView, LegendView, MessageView,
-    PanelView, PromptMessageView, PromptView, SectionView, TableView, TaskStepView, TaskView,
-    Theme, Tokens,
+    PanelView, ProgressView, PromptMessageView, PromptView, SectionView, TableView, TaskStepView,
+    TaskView, Theme, Tokens,
 };
 
 /// A theme drawn with other tokens. Every hook is the wrapped theme's own; only
@@ -53,6 +53,7 @@ impl<T: Theme> Theme for Restyled<T> {
         fn format_panel(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &PanelView) -> fmt::Result;
         fn format_task(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &TaskView) -> fmt::Result;
         fn format_task_step(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &TaskStepView) -> fmt::Result;
+        fn format_progress(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &ProgressView) -> fmt::Result;
         fn format_prompt(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &PromptView) -> fmt::Result;
         fn format_input_prompt(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &InputPromptView) -> fmt::Result;
         fn format_confirm_prompt(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &ConfirmPromptView) -> fmt::Result;

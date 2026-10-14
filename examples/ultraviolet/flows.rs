@@ -1,12 +1,13 @@
-//! One function per command, with canned data.
-use std::time::Duration;
+//! One function per command, with canned data, and the fake work that stands in for the
+//! real thing. Everything shown is a paloma component.
+use std::{thread, time::Duration};
 
 use paloma::{
     terminal::Stream, text::link, Confirm, Flow, FuzzySelect, Input, KeyValue, Message,
     MultiSelect, Panel, PanelRow, Password, Result, Select, Sort, Status, Table,
 };
 
-use crate::{ui, Args};
+use crate::{theme, Args};
 
 /// id, place, load in percent, ping in ms
 const SERVERS: [(&str, &str, u8, u16); 6] = [
@@ -35,15 +36,28 @@ fn valid_email(s: &String) -> std::result::Result<(), String> {
     }
 }
 
+/// Fake work: waits `ms` when there is motion. Without motion nothing waits, so every
+/// duration reads `0.0s`.
+fn pause(ms: u64) {
+    if theme::cfg().motion {
+        thread::sleep(Duration::from_millis(ms));
+    }
+}
+
+/// Fake work: waits `secs` in total, split into `parts` pauses, when there is motion.
+fn work(secs: f32, parts: usize) {
+    pause((secs * 1000.0) as u64 / parts.max(1) as u64);
+}
+
 /// Runs a task whose work is faked: the steps print along the way and the whole thing
 /// takes about `secs` when there is motion. Returns the time it took.
 fn task(running: &str, steps: &[&str], done: &str, secs: f32) -> Result<Duration> {
     let task = paloma::task(running).start()?;
     for step in steps {
-        ui::work(secs, steps.len() + 1);
+        work(secs, steps.len() + 1);
         task.step(*step)?;
     }
-    ui::work(secs, steps.len() + 1);
+    work(secs, steps.len() + 1);
     task.success(done)
 }
 
@@ -236,7 +250,14 @@ pub fn connect(args: &Args) -> Result<i32> {
         &format!("Connected to {id}"),
         1.4,
     )?;
-    ui::progress("Exchanging keys");
+    // 32 cells, each a little slower than the one before (eased: fast at first, slower
+    // toward the end); the bar eases between them and stays on screen when done.
+    let bar = paloma::progress("Exchanging keys", 32).start()?;
+    for cell in 0..32 {
+        pause(45 + cell * 40 / 32);
+        bar.inc(1)?;
+    }
+    bar.keep()?;
     let mut panel = Panel::new("Connected")
         .row(
             PanelRow::new(format!("{place} · {ping} ms · {load}% load"))
@@ -321,7 +342,7 @@ pub fn servers(_: &Args) -> Result<i32> {
 }
 
 pub fn about(_: &Args) -> Result<i32> {
-    ui::wordmark_with_icon("A fake VPN, themed with Ultraviolet");
+    theme::wordmark_with_icon("A fake VPN, themed with Ultraviolet");
     eprintln!();
     KeyValue::new()
         .row("Version", env!("CARGO_PKG_VERSION"))

@@ -98,17 +98,10 @@ $ loam plant --yes
 --- exit 0
 --- stdout
 --- stderr
-  ⤷ fetched seeds 1-10
-  ⤷ fetched seeds 11-20
-  ⤷ fetched seeds 21-30
-  ⤷ fetched seeds 31-40
 ✓ fetched 40 seeds  0.0s
 ❀ which seed? — basil
 ❀ anything beside the basil? — marigold, nasturtium
 ❀ sow them in bed 2? — yes
-  ⤷ sowed basil
-  ⤷ sowed marigold
-  ⤷ sowed nasturtium
 ✓ sowed 3 seeds  0.0s
 
 ·┈ sown ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈·
@@ -128,8 +121,6 @@ bed               plants              last watered   moisture
 5 bean teepee     runner beans        9 days ago     18%     
 6 cold frame      spinach, chard      yesterday      55%     
 --- stderr
-  ⤷ watered 2 herb spiral (5 litres)
-  ⤷ watered 5 bean teepee (10 litres)
 ✓ watered 2 beds, 15 litres  0.0s
 ◦ the rain barrel is half full
 

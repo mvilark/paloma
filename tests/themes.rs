@@ -18,7 +18,10 @@ use paloma::{
         PromptView,
     },
     theme::{ColorfulTheme, Context, MessageView, SimpleTheme, Status, Theme},
-    theme::{KeyValueView, PanelView, SectionView, TableView, TaskState, TaskStepView, TaskView},
+    theme::{
+        KeyValueView, PanelView, ProgressState, ProgressView, SectionView, TableView, TaskState,
+        TaskStepView, TaskView,
+    },
     PanelRow,
 };
 
@@ -416,6 +419,53 @@ fn task_sheet(theme: &dyn Theme) -> String {
     s.line("task_step(Generated device key)", |f| {
         theme.format_task_step(f, &ctx, &TaskStepView::new("Generated device key"))
     });
+    // The progress bar (PAL-011) shares the live sheet.
+    for (state, value, total) in [
+        (ProgressState::Running, 0, 30),
+        (ProgressState::Running, 12, 30),
+        (ProgressState::Running, 30, 30),
+        (ProgressState::Running, 0, 0),
+        (ProgressState::Kept, 12, 30),
+        (ProgressState::Kept, 30, 30),
+        (ProgressState::Kept, 0, 0),
+    ] {
+        s.line(
+            &format!("progress(Downloading, {state:?}, {value}/{total})"),
+            |f| {
+                let view = ProgressView::new("Downloading", state, value, total, elapsed);
+                theme.format_progress(f, &ctx, &view)
+            },
+        );
+    }
+    for status in [Status::Success, Status::Warning, Status::Error] {
+        s.line(&format!("progress(Text, Finished({status:?}))"), |f| {
+            let view = ProgressView::new("Text", ProgressState::Finished(status), 30, 30, elapsed);
+            theme.format_progress(f, &ctx, &view)
+        });
+    }
+    // What `restyle(|t| t.live(|l| l.progress(..)))` changes: a head glint, a
+    // narrower bar, the elapsed time, no percentage.
+    let styled = tokens.clone().into_owned().live(|l| {
+        l.progress(|p| {
+            p.bar_width(10)
+                .bar_indent(2)
+                .head_width(3)
+                .show_elapsed(true)
+                .show_percent(false)
+        })
+    });
+    let styled_ctx = Context::new(&styled, Stream::Stderr);
+    for state in [ProgressState::Running, ProgressState::Kept] {
+        s.line(
+            &format!(
+                "progress(Downloading, {state:?}, 6/10, head 3, indent 2, elapsed, no percent)"
+            ),
+            |f| {
+                let view = ProgressView::new("Downloading", state, 6, 10, elapsed);
+                theme.format_progress(f, &styled_ctx, &view)
+            },
+        );
+    }
     s.0
 }
 
@@ -451,6 +501,18 @@ fn built_in_themes_render_unchanged() {
     };
     assert!(running_line(&colorful).contains("1.0s"));
     assert!(!running_line(&quiet).contains("1.0s"));
+    // ... and the progress tokens: a bar of 5 cells.
+    let narrow = SimpleTheme.restyle(|t| t.live(|l| l.progress(|p| p.bar_width(5))));
+    let bar_line = |theme: &dyn Theme| {
+        let tokens = theme.tokens();
+        let ctx = Context::new(&tokens, Stream::Stderr);
+        let view = ProgressView::new("Working", ProgressState::Running, 1, 2, Duration::ZERO);
+        let mut out = String::new();
+        theme.format_progress(&mut out, &ctx, &view).unwrap();
+        out
+    };
+    assert_eq!(bar_line(&narrow), "==--- Working  50%");
+    assert_eq!(bar_line(&SimpleTheme).matches('=').count(), 15);
     #[cfg(feature = "password")]
     {
         common::assert_snapshot("theme-simple-password", &password_sheet(&SimpleTheme));

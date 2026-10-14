@@ -98,17 +98,10 @@ $ loam plant --yes
 --- exit 0
 --- stdout
 --- stderr
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 1-10␛[0m
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 11-20␛[0m
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 21-30␛[0m
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102mfetched seeds 31-40␛[0m
 ␛[38;5;65m✓␛[0m ␛[38;5;236mfetched 40 seeds␛[0m  ␛[38;5;187m0.0s␛[0m
 ␛[38;5;102m❀␛[0m ␛[38;5;240mwhich seed?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mbasil␛[0m
 ␛[38;5;102m❀␛[0m ␛[38;5;240manything beside the basil?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236mmarigold␛[0m␛[38;5;102m, ␛[0m␛[38;5;236mnasturtium␛[0m
 ␛[38;5;102m❀␛[0m ␛[38;5;240msow them in bed 2?␛[0m ␛[38;5;187m—␛[0m ␛[38;5;236myes␛[0m
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102msowed basil␛[0m
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102msowed marigold␛[0m
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102msowed nasturtium␛[0m
 ␛[38;5;65m✓␛[0m ␛[38;5;236msowed 3 seeds␛[0m  ␛[38;5;187m0.0s␛[0m
 
 ␛[38;5;187m·␛[0m␛[38;5;187m┈␛[0m ␛[38;5;64msown␛[0m ␛[38;5;187m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;187m·␛[0m
@@ -128,8 +121,6 @@ $ loam water --yes
 ␛[38;5;236m5 bean teepee  ␛[0m   ␛[38;5;236mrunner beans     ␛[0m   ␛[38;5;236m9 days ago  ␛[0m   ␛[38;5;236m18%     ␛[0m
 ␛[38;5;236m6 cold frame   ␛[0m   ␛[38;5;236mspinach, chard   ␛[0m   ␛[38;5;236myesterday   ␛[0m   ␛[38;5;236m55%     ␛[0m
 --- stderr
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102mwatered 2 herb spiral (5 litres)␛[0m
-  ␛[38;5;187m⤷␛[0m ␛[38;5;102mwatered 5 bean teepee (10 litres)␛[0m
 ␛[38;5;65m✓␛[0m ␛[38;5;236mwatered 2 beds, 15 litres␛[0m  ␛[38;5;187m0.0s␛[0m
 ␛[38;5;66m◦␛[0m ␛[38;5;236mthe rain barrel is half full␛[0m
 

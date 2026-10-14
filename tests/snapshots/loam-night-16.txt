@@ -98,17 +98,10 @@ $ loam plant --yes
 --- exit 0
 --- stdout
 --- stderr
-  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 1-10␛[0m
-  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 11-20␛[0m
-  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 21-30␛[0m
-  ␛[38;5;8m⤷␛[0m ␛[2mfetched seeds 31-40␛[0m
 ␛[32m✓␛[0m fetched 40 seeds  ␛[38;5;8m0.0s␛[0m
 ␛[2m❀␛[0m which seed? ␛[38;5;8m—␛[0m basil
 ␛[2m❀␛[0m anything beside the basil? ␛[38;5;8m—␛[0m marigold␛[2m, ␛[0mnasturtium
 ␛[2m❀␛[0m sow them in bed 2? ␛[38;5;8m—␛[0m yes
-  ␛[38;5;8m⤷␛[0m ␛[2msowed basil␛[0m
-  ␛[38;5;8m⤷␛[0m ␛[2msowed marigold␛[0m
-  ␛[38;5;8m⤷␛[0m ␛[2msowed nasturtium␛[0m
 ␛[32m✓␛[0m sowed 3 seeds  ␛[38;5;8m0.0s␛[0m
 
 ␛[38;5;8m·␛[0m␛[38;5;8m┈␛[0m ␛[32msown␛[0m ␛[38;5;8m┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈␛[0m␛[38;5;8m·␛[0m
@@ -128,8 +121,6 @@ $ loam water --yes
 5 bean teepee     runner beans        9 days ago     18%     
 6 cold frame      spinach, chard      yesterday      55%     
 --- stderr
-  ␛[38;5;8m⤷␛[0m ␛[2mwatered 2 herb spiral (5 litres)␛[0m
-  ␛[38;5;8m⤷␛[0m ␛[2mwatered 5 bean teepee (10 litres)␛[0m
 ␛[32m✓␛[0m watered 2 beds, 15 litres  ␛[38;5;8m0.0s␛[0m
 ␛[36m◦␛[0m the rain barrel is half full
 

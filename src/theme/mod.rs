@@ -18,7 +18,10 @@ mod restyle;
 mod simple;
 mod tokens;
 
-pub use crate::live::task::{TaskState, TaskStepView, TaskView};
+pub use crate::live::{
+    progress::{ProgressState, ProgressView},
+    task::{TaskState, TaskStepView, TaskView},
+};
 pub use crate::output::{
     key_value::KeyValueView,
     message::{MessageView, Status},
@@ -113,6 +116,18 @@ pub trait Theme {
     /// [`defaults::format_task`].
     fn format_task(&self, f: &mut dyn fmt::Write, ctx: &Context, view: &TaskView) -> fmt::Result {
         defaults::format_task(f, ctx, view)
+    }
+
+    /// Formats the line of a progress bar (see [`Progress`](crate::Progress)): the bar,
+    /// label and percentage while it runs or once it is kept, the result line once it
+    /// has finished. The default is [`defaults::format_progress`].
+    fn format_progress(
+        &self,
+        f: &mut dyn fmt::Write,
+        ctx: &Context,
+        view: &ProgressView,
+    ) -> fmt::Result {
+        defaults::format_progress(f, ctx, view)
     }
 
     /// Formats a nested step line under a running task. The default is
