@@ -2,7 +2,7 @@
 //!
 //! Themes decide how things look; options decide how they work. Settings are grouped
 //! by component family (`prompts`, `messages`, `blocks`, `live`), with one group per
-//! member underneath (`confirm`, `select`, …, `error`, `warning`, …, `task`):
+//! member underneath (`confirm`, `select`, …, `error`, `warning`, …, `task`, `progress`):
 //!
 //! ```rust,no_run
 //! use paloma::{terminal::Stream, Done, Options};
@@ -180,13 +180,15 @@ settings! {
 }
 
 settings! {
-    /// Settings for live components ([`Task`](crate::Task)): the `live` family group
-    /// and the group of each component (`task`).
+    /// Settings for live components ([`Task`](crate::Task),
+    /// [`Progress`](crate::Progress)): the `live` family group and the group of each
+    /// component (`task`, `progress`).
     pub struct LiveOptions {
         /// Whether live components redraw (spinners turn). Default: on when the stream
         /// is a terminal and `CI` is not set. Never on when the stream is not a terminal.
         motion: bool,
-        /// Milliseconds between frames. Default 80.
+        /// Milliseconds between frames. Default 80 for tasks and 40 for progress bars
+        /// (smoother easing).
         frame_ms: u64,
         /// Where live components draw. Default stderr.
         stream: Stream,
@@ -219,6 +221,7 @@ pub struct Options {
     pub(crate) panel: BlockOptions,
     pub(crate) live: LiveOptions,
     pub(crate) task: LiveOptions,
+    pub(crate) progress: LiveOptions,
     pub(crate) flows: FlowOptions,
 }
 
@@ -283,6 +286,8 @@ groups! {
     live: LiveOptions,
     /// Settings for [`Task`](crate::Task).
     task: LiveOptions,
+    /// Settings for [`Progress`](crate::Progress).
+    progress: LiveOptions,
     /// Settings for every [`Flow`](crate::Flow).
     flows: FlowOptions,
 }
@@ -332,6 +337,7 @@ impl Options {
     pub(crate) fn live_member(&self, kind: LiveKind) -> &LiveOptions {
         match kind {
             LiveKind::Task => &self.task,
+            LiveKind::Progress => &self.progress,
         }
     }
 
@@ -423,5 +429,12 @@ mod tests {
         assert_eq!(member.frame_ms.or(o.live.frame_ms), Some(40));
         assert_eq!(member.motion.or(o.live.motion), Some(false));
         assert_eq!(member.stream.or(o.live.stream), None);
+
+        // Progress bars have a group of their own beside the task's.
+        let o = o.progress(|p| p.frame_ms(20));
+        let bar = o.live_member(LiveKind::Progress);
+        assert_eq!(bar.frame_ms.or(o.live.frame_ms), Some(20));
+        assert_eq!(bar.motion.or(o.live.motion), Some(false));
+        assert_eq!(o.live_member(LiveKind::Task).frame_ms, Some(40));
     }
 }

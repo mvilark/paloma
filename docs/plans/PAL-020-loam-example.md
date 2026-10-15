@@ -63,6 +63,7 @@ Flags:
 - `--plain`: draw with `SimpleTheme`, to show that the app has no look of its own.
 - `--name <garden>`, `--zone <zone>`: presets for `init`.
 - `--json` for `status`.
+- `--help` / `-h`: the `help` command, wherever it stands on the line.
 
 Exit codes: 0 done, 1 a command failed (a message says why), 2 unknown command, 130 cancelled (paloma's default; Loam sets `cancel_message` to a hint-style `put your trowel down · nothing was changed` line).
 
@@ -118,6 +119,8 @@ After the flow: a `section("your garden")`, a `KeyValue` of the answers, and `pa
 - `text::link` to the paloma repository.
 
 **`seeds`:** a `Table` of the catalogue on stdout.
+
+**`help`** (also `--help` / `-h` anywhere, which wins over any command): sections `usage`, `commands`, `options` and `environment`, each a `KeyValue` of rows from const tables in `commands.rs`. The unknown command and flag hint is `run: loam help`.
 
 Coverage check: every prompt type, each confirm layout, presets and unattended mode, `done` in all three modes (Collapse default, Keep in `journal`, Erase for the transient "which beds?" via `step_done` or the prompt's own `done`), `Esc` back, `back_to`, `step_if`, `keep_last`, the flow summary, the counter, the message row (description, `on_change` with and without delay, `pending`, validation), placeholders, legends, rich items, paging, history, completion, the editor, masks and confirmation, cursor shape, every message status with nesting, every block, link, gradient, tasks with steps / every finish status / `clear` / a prompt during a task, `Options` (app-wide and per group), `terminal::capabilities` (to pick ASCII and colour depth), `restyle` (`--plain` and the day palette), and the cancel defaults (exit 130 with `cancel_message`). List any feature you could not use, with the reason, in the Status notes.
 

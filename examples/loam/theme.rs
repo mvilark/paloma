@@ -1,6 +1,6 @@
 //! Loam's look: a warm earth palette, floral glyphs, dotted rules. The whole design is
 //! tokens: `LoamTheme` implements `Theme::tokens` and nothing else, so paloma draws
-//! every prompt, message, block and spinner. See docs/design/loam.md.
+//! every prompt, message, block, spinner and progress bar. See docs/design/loam.md.
 use std::borrow::Cow;
 
 use console::{Color, Style};
@@ -123,6 +123,10 @@ pub struct Set {
     pub mask: &'static str,
     pub section: &'static str,
     pub nested: &'static str,
+    /// The filled cells of a progress bar.
+    pub bar_fill: &'static str,
+    /// The unfilled cells of a progress bar.
+    pub bar_track: &'static str,
     pub info: &'static str,
     pub success: &'static str,
     pub warning: &'static str,
@@ -150,6 +154,8 @@ impl Set {
                 mask: "*",
                 section: "#",
                 nested: "-",
+                bar_fill: "=",
+                bar_track: "-",
                 info: "i",
                 success: "+",
                 warning: "!",
@@ -174,6 +180,8 @@ impl Set {
                 mask: "⁎",
                 section: "❦",
                 nested: "⤷",
+                bar_fill: "━",
+                bar_track: "┈",
                 info: "◦",
                 success: "✓",
                 warning: "☂",
@@ -203,6 +211,8 @@ impl Set {
             self.mask,
             self.section,
             self.nested,
+            self.bar_fill,
+            self.bar_track,
             self.info,
             self.success,
             self.warning,
@@ -259,6 +269,8 @@ impl Theme for LoamTheme {
             .error(g.error)
             .section(g.section)
             .nested(g.nested)
+            .bar_fill(g.bar_fill)
+            .bar_track(g.bar_track)
             .spinner(g.spinner)
             .box_h(g.rule_h)
             .box_v(g.rule_v)
@@ -345,6 +357,20 @@ impl Theme for LoamTheme {
                 .elapsed_style(s(Faint))
                 .step_indent(2)
         });
+        // The progress bar: a slim line of 24 cells with a one-cell sprout at its head.
+        // Like a task it ends in a result line with the elapsed time in `faint`, and it
+        // shows the time while it runs too (a bar's default is not to).
+        let live = live.progress(|b| {
+            b.bar_width(24)
+                .head_width(1)
+                .show_elapsed(true)
+                .elapsed_style(s(Faint))
+                .fill_style(s(Accent))
+                .head_style(s(Strong))
+                .track_style(s(Faint))
+                .label_style(s(Muted))
+                .percent_style(s(Subtle))
+        });
 
         Cow::Owned(
             Tokens::default()
@@ -364,8 +390,8 @@ mod tests {
     use paloma::{
         terminal::Stream,
         theme::{
-            Answer, AnsweredView, BlockKind, Context, MessageView, PromptKind, SectionView, Status,
-            TaskState, TaskStepView, TaskView,
+            Answer, AnsweredView, BlockKind, Context, MessageView, ProgressState, ProgressView,
+            PromptKind, SectionView, Status, TaskState, TaskStepView, TaskView,
         },
     };
     use std::time::Duration;
@@ -479,6 +505,32 @@ mod tests {
         let mut out = String::new();
         theme.format_answered(&mut out, &ctx, &view).unwrap();
         assert_eq!(out, "o name - the back plot");
+    }
+
+    #[test]
+    fn bars_are_slim_lines_with_a_dotted_track() {
+        for (ascii, fill, track) in [(false, "━", "┈"), (true, "=", "-")] {
+            let theme = plain(ascii);
+            let tokens = theme.tokens();
+            let ctx = Context::new(&tokens, Stream::Stderr);
+            let mut out = String::new();
+            let view = ProgressView::new(
+                "watering the back bed...",
+                ProgressState::Running,
+                6,
+                24,
+                Duration::ZERO,
+            );
+            theme.format_progress(&mut out, &ctx, &view).unwrap();
+            assert_eq!(
+                out,
+                format!(
+                    "{}{} watering the back bed...  25%  0.0s",
+                    fill.repeat(6),
+                    track.repeat(18)
+                )
+            );
+        }
     }
 
     #[test]

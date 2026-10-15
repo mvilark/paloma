@@ -98,17 +98,10 @@ $ loam plant --yes --ascii
 --- exit 0
 --- stdout
 --- stderr
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106mfetched seeds 1-10␛[0m
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106mfetched seeds 11-20␛[0m
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106mfetched seeds 21-30␛[0m
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106mfetched seeds 31-40␛[0m
 ␛[38;2;163;201;143m+␛[0m ␛[38;2;237;227;209mfetched 40 seeds␛[0m  ␛[38;2;90;80;69m0.0s␛[0m
 ␛[38;2;140;126;106mo␛[0m ␛[38;2;184;169;146mwhich seed?␛[0m ␛[38;2;90;80;69m-␛[0m ␛[38;2;237;227;209mbasil␛[0m
 ␛[38;2;140;126;106mo␛[0m ␛[38;2;184;169;146manything beside the basil?␛[0m ␛[38;2;90;80;69m-␛[0m ␛[38;2;237;227;209mmarigold␛[0m␛[38;2;140;126;106m, ␛[0m␛[38;2;237;227;209mnasturtium␛[0m
 ␛[38;2;140;126;106mo␛[0m ␛[38;2;184;169;146msow them in bed 2?␛[0m ␛[38;2;90;80;69m-␛[0m ␛[38;2;237;227;209myes␛[0m
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106msowed basil␛[0m
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106msowed marigold␛[0m
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106msowed nasturtium␛[0m
 ␛[38;2;163;201;143m+␛[0m ␛[38;2;237;227;209msowed 3 seeds␛[0m  ␛[38;2;90;80;69m0.0s␛[0m
 
 ␛[38;2;90;80;69m.␛[0m␛[38;2;90;80;69m-␛[0m ␛[38;2;157;191;122msown␛[0m ␛[38;2;90;80;69m---------------------------------------------------␛[0m␛[38;2;90;80;69m.␛[0m
@@ -128,8 +121,6 @@ $ loam water --yes --ascii
 ␛[38;2;237;227;209m5 bean teepee  ␛[0m   ␛[38;2;237;227;209mrunner beans     ␛[0m   ␛[38;2;237;227;209m9 days ago  ␛[0m   ␛[38;2;237;227;209m18%     ␛[0m
 ␛[38;2;237;227;209m6 cold frame   ␛[0m   ␛[38;2;237;227;209mspinach, chard   ␛[0m   ␛[38;2;237;227;209myesterday   ␛[0m   ␛[38;2;237;227;209m55%     ␛[0m
 --- stderr
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106mwatered 2 herb spiral (5 litres)␛[0m
-  ␛[38;2;90;80;69m-␛[0m ␛[38;2;140;126;106mwatered 5 bean teepee (10 litres)␛[0m
 ␛[38;2;163;201;143m+␛[0m ␛[38;2;237;227;209mwatered 2 beds, 15 litres␛[0m  ␛[38;2;90;80;69m0.0s␛[0m
 ␛[38;2;158;195;201mi␛[0m ␛[38;2;237;227;209mthe rain barrel is half full␛[0m
 
@@ -254,12 +245,84 @@ $ loam nope --ascii
 --- stdout
 --- stderr
 ␛[38;2;217;120;91mx␛[0m ␛[38;2;237;227;209mi do not know nope␛[0m
-  ␛[38;2;140;126;106m␛[3mtip␛[0m  ␛[38;2;140;126;106m␛[3mloam almanac␛[0m
+  ␛[38;2;140;126;106m␛[3mtip␛[0m  ␛[38;2;140;126;106m␛[3mrun: loam help␛[0m
 
 $ loam status --nope --ascii
 --- exit 2
 --- stdout
 --- stderr
 ␛[38;2;217;120;91mx␛[0m ␛[38;2;237;227;209mi do not know --nope␛[0m
-  ␛[38;2;140;126;106m␛[3mtip␛[0m  ␛[38;2;140;126;106m␛[3mloam almanac␛[0m
+  ␛[38;2;140;126;106m␛[3mtip␛[0m  ␛[38;2;140;126;106m␛[3mrun: loam help␛[0m
+
+$ loam help --ascii
+--- exit 0
+--- stdout
+␛[38;2;184;169;146mloam <command> [options]␛[0m   ␛[38;2;237;227;209mrun a command␛[0m
+␛[38;2;184;169;146mloam␛[0m                       ␛[38;2;237;227;209mthe first run: the wordmark, then init␛[0m
+␛[38;2;184;169;146minit␛[0m      ␛[38;2;237;227;209mplant a new garden: name, zone, beds and sun␛[0m
+␛[38;2;184;169;146mplant␛[0m     ␛[38;2;237;227;209msow seeds from the catalogue␛[0m
+␛[38;2;184;169;146mwater␛[0m     ␛[38;2;237;227;209mwater the beds, the dry ones first␛[0m
+␛[38;2;184;169;146mharvest␛[0m   ␛[38;2;237;227;209mpick what is ripe, in the order you choose␛[0m
+␛[38;2;184;169;146mjournal␛[0m   ␛[38;2;237;227;209mwrite a note in the garden journal␛[0m
+␛[38;2;184;169;146mstatus␛[0m    ␛[38;2;237;227;209msee how the garden is doing today␛[0m
+␛[38;2;184;169;146malmanac␛[0m   ␛[38;2;237;227;209mthis week's weather, with frost dates␛[0m
+␛[38;2;184;169;146mseeds␛[0m     ␛[38;2;237;227;209mlist every seed in the catalogue␛[0m
+␛[38;2;184;169;146mhelp␛[0m      ␛[38;2;237;227;209mshow this help␛[0m
+␛[38;2;184;169;146m--yes, -y␛[0m       ␛[38;2;237;227;209maccept every default and ask nothing␛[0m
+␛[38;2;184;169;146m--name <name>␛[0m   ␛[38;2;237;227;209mthe garden's name, for init␛[0m
+␛[38;2;184;169;146m--zone <zone>␛[0m   ␛[38;2;237;227;209mthe climate zone, for init: temperate, cool, mediterranean, tropical or arid␛[0m
+␛[38;2;184;169;146m--long␛[0m          ␛[38;2;237;227;209mwrite the journal note in your editor␛[0m
+␛[38;2;184;169;146m--json␛[0m          ␛[38;2;237;227;209mprint status as json␛[0m
+␛[38;2;184;169;146m--day␛[0m           ␛[38;2;237;227;209muse the day colours␛[0m
+␛[38;2;184;169;146m--night␛[0m         ␛[38;2;237;227;209muse the night colours (the default)␛[0m
+␛[38;2;184;169;146m--plain␛[0m         ␛[38;2;237;227;209mdraw with paloma's plain theme␛[0m
+␛[38;2;184;169;146m--ascii␛[0m         ␛[38;2;237;227;209muse plain ascii instead of glyphs␛[0m
+␛[38;2;184;169;146m--help, -h␛[0m      ␛[38;2;237;227;209mshow this help␛[0m
+␛[38;2;184;169;146mLOAM_THEME␛[0m   ␛[38;2;237;227;209mday for the day colours, anything else for night␛[0m
+␛[38;2;184;169;146mCI␛[0m           ␛[38;2;237;227;209mwhen set, nothing waits and spinners stay still␛[0m
+--- stderr
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160musage␛[0m
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160mcommands␛[0m
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160moptions␛[0m
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160menvironment␛[0m
+
+$ loam init --yes --help --ascii
+--- exit 0
+--- stdout
+␛[38;2;184;169;146mloam <command> [options]␛[0m   ␛[38;2;237;227;209mrun a command␛[0m
+␛[38;2;184;169;146mloam␛[0m                       ␛[38;2;237;227;209mthe first run: the wordmark, then init␛[0m
+␛[38;2;184;169;146minit␛[0m      ␛[38;2;237;227;209mplant a new garden: name, zone, beds and sun␛[0m
+␛[38;2;184;169;146mplant␛[0m     ␛[38;2;237;227;209msow seeds from the catalogue␛[0m
+␛[38;2;184;169;146mwater␛[0m     ␛[38;2;237;227;209mwater the beds, the dry ones first␛[0m
+␛[38;2;184;169;146mharvest␛[0m   ␛[38;2;237;227;209mpick what is ripe, in the order you choose␛[0m
+␛[38;2;184;169;146mjournal␛[0m   ␛[38;2;237;227;209mwrite a note in the garden journal␛[0m
+␛[38;2;184;169;146mstatus␛[0m    ␛[38;2;237;227;209msee how the garden is doing today␛[0m
+␛[38;2;184;169;146malmanac␛[0m   ␛[38;2;237;227;209mthis week's weather, with frost dates␛[0m
+␛[38;2;184;169;146mseeds␛[0m     ␛[38;2;237;227;209mlist every seed in the catalogue␛[0m
+␛[38;2;184;169;146mhelp␛[0m      ␛[38;2;237;227;209mshow this help␛[0m
+␛[38;2;184;169;146m--yes, -y␛[0m       ␛[38;2;237;227;209maccept every default and ask nothing␛[0m
+␛[38;2;184;169;146m--name <name>␛[0m   ␛[38;2;237;227;209mthe garden's name, for init␛[0m
+␛[38;2;184;169;146m--zone <zone>␛[0m   ␛[38;2;237;227;209mthe climate zone, for init: temperate, cool, mediterranean, tropical or arid␛[0m
+␛[38;2;184;169;146m--long␛[0m          ␛[38;2;237;227;209mwrite the journal note in your editor␛[0m
+␛[38;2;184;169;146m--json␛[0m          ␛[38;2;237;227;209mprint status as json␛[0m
+␛[38;2;184;169;146m--day␛[0m           ␛[38;2;237;227;209muse the day colours␛[0m
+␛[38;2;184;169;146m--night␛[0m         ␛[38;2;237;227;209muse the night colours (the default)␛[0m
+␛[38;2;184;169;146m--plain␛[0m         ␛[38;2;237;227;209mdraw with paloma's plain theme␛[0m
+␛[38;2;184;169;146m--ascii␛[0m         ␛[38;2;237;227;209muse plain ascii instead of glyphs␛[0m
+␛[38;2;184;169;146m--help, -h␛[0m      ␛[38;2;237;227;209mshow this help␛[0m
+␛[38;2;184;169;146mLOAM_THEME␛[0m   ␛[38;2;237;227;209mday for the day colours, anything else for night␛[0m
+␛[38;2;184;169;146mCI␛[0m           ␛[38;2;237;227;209mwhen set, nothing waits and spinners stay still␛[0m
+--- stderr
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160musage␛[0m
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160mcommands␛[0m
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160moptions␛[0m
+
+␛[38;2;157;191;122m#␛[0m ␛[38;2;198;227;160menvironment␛[0m
 

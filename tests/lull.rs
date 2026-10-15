@@ -77,6 +77,9 @@ fn day() {
         ("2026-10-11T14:00", FILE, &["week"]),
         ("2026-10-11T14:00", FILE, &["nope"]),
         ("2026-10-11T14:00", MISSING, &["today"]),
+        // Help needs no schedule file.
+        ("2026-10-11T14:00", MISSING, &["help"]),
+        ("2026-10-11T14:00", MISSING, &["today", "--help"]),
     ];
     common::assert_snapshot("lull-day", &transcript(ALL_COLORS, cases));
 }

@@ -155,6 +155,11 @@ glyphs! {
     box_br,
     /// Before a nested step line of a task.
     nested,
+    /// The filled cells of a progress bar. One column wide, and different from
+    /// `bar_track`: without colour nothing else tells them apart.
+    bar_fill,
+    /// The unfilled cells of a progress bar. One column wide.
+    bar_track,
     /// Before the question of an open prompt.
     prompt,
     /// Before the question of an answered prompt.
@@ -195,9 +200,11 @@ impl Glyphs {
         self.spinner
     }
 
-    /// No glyphs: messages carry words instead (`error: …`).
+    /// No status glyphs: messages carry words instead (`error: …`). A progress bar
+    /// still has cells (`=` filled, `-` unfilled), because without colour they are
+    /// all that tells the fill from the track.
     pub fn none() -> Self {
-        Self::default()
+        Self::default().bar_fill("=").bar_track("-")
     }
 
     /// Unicode symbols.
@@ -211,6 +218,8 @@ impl Glyphs {
             .box_bl("╰")
             .box_br("╯")
             .nested("↳")
+            .bar_fill("█")
+            .bar_track("░")
             .spinner(SPINNER_UNICODE)
             .prompt("?")
             .answered("✔")
@@ -276,6 +285,8 @@ impl Glyphs {
             GlyphName::BoxBl => self.box_bl,
             GlyphName::BoxBr => self.box_br,
             GlyphName::Nested => self.nested,
+            GlyphName::BarFill => self.bar_fill,
+            GlyphName::BarTrack => self.bar_track,
             GlyphName::Prompt => self.prompt,
             GlyphName::Answered => self.answered,
             GlyphName::PromptSuffix => self.prompt_suffix,
@@ -322,6 +333,10 @@ pub enum GlyphName {
     BoxBr,
     /// Before a nested step line of a task.
     Nested,
+    /// The filled cells of a progress bar.
+    BarFill,
+    /// The unfilled cells of a progress bar.
+    BarTrack,
     /// Before the question of an open prompt.
     Prompt,
     /// Before the question of an answered prompt.
@@ -628,8 +643,8 @@ impl BlockTokens {
 }
 
 settings! {
-    /// How a live component (a spinner) looks. Unset fields fall back to the family
-    /// base, then to the built-in defaults and the palette roles.
+    /// How a live component (a spinner, a progress bar) looks. Unset fields fall back
+    /// to the family base, then to the built-in defaults and the palette roles.
     pub struct LiveStyle {
         /// The spinner glyph. Default: `accent`.
         spinner_style: Style,
@@ -643,8 +658,26 @@ settings! {
         elapsed_style: Style,
         /// Columns a step line is indented by. Default 4.
         step_indent: usize,
-        /// Whether the elapsed time is shown. Default true.
+        /// Whether the elapsed time is shown. Default: true for tasks, false for
+        /// progress bars.
         show_elapsed: bool,
+        /// Cells in a progress bar. Default 30.
+        bar_width: usize,
+        /// Columns before a progress bar. Default 0.
+        bar_indent: usize,
+        /// Cells of the head glint at the end of a running bar's fill. Default 0 (no
+        /// glint).
+        head_width: usize,
+        /// The filled cells of a progress bar, apart from the head. Default: `accent`.
+        fill_style: Style,
+        /// The head glint of a running progress bar. Default: `accent_strong`.
+        head_style: Style,
+        /// The unfilled cells of a progress bar. Default: `faint`.
+        track_style: Style,
+        /// The percentage after a progress bar. Default: `subtle`.
+        percent_style: Style,
+        /// Whether the percentage is shown after a progress bar. Default true.
+        show_percent: bool,
     }
 }
 
@@ -654,6 +687,8 @@ settings! {
 pub enum LiveKind {
     /// [`Task`](crate::Task).
     Task,
+    /// [`Progress`](crate::Progress).
+    Progress,
 }
 
 /// Component tokens for live components: a base for every one, and one group per
@@ -662,6 +697,7 @@ pub enum LiveKind {
 pub struct LiveTokens {
     base: LiveStyle,
     task: LiveStyle,
+    progress: LiveStyle,
 }
 
 macro_rules! live_groups {
@@ -682,7 +718,9 @@ live_groups! {
     /// Settings for every live component.
     base,
     /// Tasks.
-    task
+    task,
+    /// Progress bars.
+    progress
 }
 
 /// The final look of one live component, after the fallbacks.
@@ -703,6 +741,22 @@ pub struct LiveLook {
     pub step_indent: usize,
     /// Whether the elapsed time is shown.
     pub show_elapsed: bool,
+    /// Cells in a progress bar.
+    pub bar_width: usize,
+    /// Columns before a progress bar.
+    pub bar_indent: usize,
+    /// Cells of the head glint at the end of a running bar's fill.
+    pub head_width: usize,
+    /// The filled cells of a progress bar, apart from the head.
+    pub fill_style: Style,
+    /// The head glint of a running progress bar.
+    pub head_style: Style,
+    /// The unfilled cells of a progress bar.
+    pub track_style: Style,
+    /// The percentage after a progress bar.
+    pub percent_style: Style,
+    /// Whether the percentage is shown after a progress bar.
+    pub show_percent: bool,
 }
 
 impl LiveTokens {
@@ -710,6 +764,7 @@ impl LiveTokens {
     pub fn resolve(&self, kind: LiveKind, tokens: &Tokens) -> LiveLook {
         let member = match kind {
             LiveKind::Task => &self.task,
+            LiveKind::Progress => &self.progress,
         };
         let s = member.merged(&self.base);
         let role = |r: Role| tokens.palette.get(r).clone();
@@ -720,7 +775,15 @@ impl LiveTokens {
             nested_style: s.nested_style.unwrap_or_else(|| role(Role::faint)),
             elapsed_style: s.elapsed_style.unwrap_or_else(|| role(Role::subtle)),
             step_indent: s.step_indent.unwrap_or(4),
-            show_elapsed: s.show_elapsed.unwrap_or(true),
+            show_elapsed: s.show_elapsed.unwrap_or(kind == LiveKind::Task),
+            bar_width: s.bar_width.unwrap_or(30),
+            bar_indent: s.bar_indent.unwrap_or(0),
+            head_width: s.head_width.unwrap_or(0),
+            fill_style: s.fill_style.unwrap_or_else(|| role(Role::accent)),
+            head_style: s.head_style.unwrap_or_else(|| role(Role::accent_strong)),
+            track_style: s.track_style.unwrap_or_else(|| role(Role::faint)),
+            percent_style: s.percent_style.unwrap_or_else(|| role(Role::subtle)),
+            show_percent: s.show_percent.unwrap_or(true),
         }
     }
 }
@@ -1389,6 +1452,41 @@ mod tests {
             Tokens::plain().messages(|m| m.base(|b| b.word_gap(3)).hint(|h| h.word_gap(2)));
         assert_eq!(tokens.messages.resolve(Status::Hint, &tokens).word_gap, 2);
         assert_eq!(tokens.messages.resolve(Status::Error, &tokens).word_gap, 3);
+    }
+
+    #[test]
+    fn live_look_falls_back_from_member_to_base_to_roles_and_per_kind_defaults() {
+        let tokens = Tokens::colorful();
+        let task = tokens.live.resolve(LiveKind::Task, &tokens);
+        let bar = tokens.live.resolve(LiveKind::Progress, &tokens);
+        // The elapsed time is on for a task and off for a bar.
+        assert!(task.show_elapsed && !bar.show_elapsed);
+        assert_eq!(
+            (
+                bar.bar_width,
+                bar.bar_indent,
+                bar.head_width,
+                bar.show_percent
+            ),
+            (30, 0, 0, true)
+        );
+        assert_eq!(bar.fill_style, *tokens.palette.get(Role::accent));
+        assert_eq!(bar.head_style, *tokens.palette.get(Role::accent_strong));
+        assert_eq!(bar.track_style, *tokens.palette.get(Role::faint));
+        assert_eq!(bar.percent_style, *tokens.palette.get(Role::subtle));
+        assert_eq!(bar.label_style, *tokens.palette.get(Role::muted));
+
+        // The member wins over the base, the base over the defaults, and a base
+        // `show_elapsed` reaches both kinds.
+        let tokens = Tokens::colorful().live(|l| {
+            l.base(|b| b.bar_width(20).head_width(3).show_elapsed(true))
+                .progress(|p| p.bar_width(24))
+        });
+        let bar = tokens.live.resolve(LiveKind::Progress, &tokens);
+        assert_eq!(
+            (bar.bar_width, bar.head_width, bar.show_elapsed),
+            (24, 3, true)
+        );
     }
 
     #[test]

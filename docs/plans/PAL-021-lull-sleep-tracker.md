@@ -45,8 +45,9 @@ Name: **Lull**. Binary name in copy and hints: `lull`. Copy is calm and short, i
 | `lull log` | Morning check-in for last night (a `Flow`): bedtime, wake time, how rested, which habits were kept. |
 | `lull week` | The last 7 logged nights and how steady they were. |
 | `lull forget` | Deletes the file after a `Confirm` (default no). |
+| `lull help` | Also `--help` / `-h` anywhere, which wins over any command. Sections `Usage`, `Commands`, `Options` and `Environment`, each a `KeyValue` (content only). Needs no schedule file and ignores a bad `LULL_NOW`. |
 
-Anything else: error `I do not know <arg>` with nested hint `Try lull setup, today, park, log, week or forget`, exit 2. There are no flags. Exit codes: 0, 1 (a message says why), 2 (unknown command); `Ctrl+C` exits 130 by paloma's default.
+Anything else: error `I do not know <arg>` with nested hint `Run lull help to see every command`, exit 2. The only flags are `--help` / `-h`. Exit codes: 0, 1 (a message says why), 2 (unknown command); `Ctrl+C` exits 130 by paloma's default.
 
 The "no schedule" error, used by `today`, `park`, `log` and `week` when the file does not exist: `paloma::error("No sleep schedule yet")` with nested `Message::hint("Run: lull setup")`, exit 1. An unreadable file: `paloma::error(format!("{path} could not be read: {err}"))`, exit 1 (never overwrite it).
 

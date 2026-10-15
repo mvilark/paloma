@@ -98,17 +98,10 @@ $ loam plant --yes
 --- exit 0
 --- stdout
 --- stderr
-  ⤷ fetched seeds 1-10
-  ⤷ fetched seeds 11-20
-  ⤷ fetched seeds 21-30
-  ⤷ fetched seeds 31-40
 ✓ fetched 40 seeds  0.0s
 ❀ which seed? — basil
 ❀ anything beside the basil? — marigold, nasturtium
 ❀ sow them in bed 2? — yes
-  ⤷ sowed basil
-  ⤷ sowed marigold
-  ⤷ sowed nasturtium
 ✓ sowed 3 seeds  0.0s
 
 ·┈ sown ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈·
@@ -128,8 +121,6 @@ bed               plants              last watered   moisture
 5 bean teepee     runner beans        9 days ago     18%     
 6 cold frame      spinach, chard      yesterday      55%     
 --- stderr
-  ⤷ watered 2 herb spiral (5 litres)
-  ⤷ watered 5 bean teepee (10 litres)
 ✓ watered 2 beds, 15 litres  0.0s
 ◦ the rain barrel is half full
 
@@ -254,12 +245,84 @@ $ loam nope
 --- stdout
 --- stderr
 ✗ i do not know nope
-  tip  loam almanac
+  tip  run: loam help
 
 $ loam status --nope
 --- exit 2
 --- stdout
 --- stderr
 ✗ i do not know --nope
-  tip  loam almanac
+  tip  run: loam help
+
+$ loam help
+--- exit 0
+--- stdout
+loam <command> [options]   run a command
+loam                       the first run: the wordmark, then init
+init      plant a new garden: name, zone, beds and sun
+plant     sow seeds from the catalogue
+water     water the beds, the dry ones first
+harvest   pick what is ripe, in the order you choose
+journal   write a note in the garden journal
+status    see how the garden is doing today
+almanac   this week's weather, with frost dates
+seeds     list every seed in the catalogue
+help      show this help
+--yes, -y       accept every default and ask nothing
+--name <name>   the garden's name, for init
+--zone <zone>   the climate zone, for init: temperate, cool, mediterranean, tropical or arid
+--long          write the journal note in your editor
+--json          print status as json
+--day           use the day colours
+--night         use the night colours (the default)
+--plain         draw with paloma's plain theme
+--ascii         use plain ascii instead of glyphs
+--help, -h      show this help
+LOAM_THEME   day for the day colours, anything else for night
+CI           when set, nothing waits and spinners stay still
+--- stderr
+
+❦ usage
+
+❦ commands
+
+❦ options
+
+❦ environment
+
+$ loam init --yes --help
+--- exit 0
+--- stdout
+loam <command> [options]   run a command
+loam                       the first run: the wordmark, then init
+init      plant a new garden: name, zone, beds and sun
+plant     sow seeds from the catalogue
+water     water the beds, the dry ones first
+harvest   pick what is ripe, in the order you choose
+journal   write a note in the garden journal
+status    see how the garden is doing today
+almanac   this week's weather, with frost dates
+seeds     list every seed in the catalogue
+help      show this help
+--yes, -y       accept every default and ask nothing
+--name <name>   the garden's name, for init
+--zone <zone>   the climate zone, for init: temperate, cool, mediterranean, tropical or arid
+--long          write the journal note in your editor
+--json          print status as json
+--day           use the day colours
+--night         use the night colours (the default)
+--plain         draw with paloma's plain theme
+--ascii         use plain ascii instead of glyphs
+--help, -h      show this help
+LOAM_THEME   day for the day colours, anything else for night
+CI           when set, nothing waits and spinners stay still
+--- stderr
+
+❦ usage
+
+❦ commands
+
+❦ options
+
+❦ environment
 

@@ -1,7 +1,9 @@
-//! Ultraviolet palette, glyphs and the `Theme` implementation.
-use std::{borrow::Cow, fmt, sync::OnceLock};
+//! Ultraviolet palette, glyphs and the `Theme` implementation, plus the brand art that is
+//! the app's own content: the Serrallonga icon and the wordmark.
+use std::{borrow::Cow, fmt, io::Write, sync::OnceLock};
 
-use console::{Color, Style};
+use console::{Color, Style, Term};
+use paloma::text::gradient;
 use paloma::theme::{
     BlockTokens, ConfirmButtonsView, ConfirmPromptView, Context, CursorShape,
     FuzzySelectPromptView, InputPromptView, LiveTokens, MessageTokens, PromptKind, PromptLook,
@@ -85,7 +87,7 @@ impl Palette {
         }
     }
 
-    /// Text in a token, styled for stderr (the icon and the progress bar).
+    /// Text in a token, styled for stderr (the icon and the wordmark's side text).
     pub fn e(&self, tok: Tok, text: impl fmt::Display) -> String {
         self.style(tok).for_stderr().apply_to(text).to_string()
     }
@@ -209,6 +211,62 @@ pub fn cfg() -> &'static Config {
     CONFIG.get().expect("theme config is set at startup")
 }
 
+fn eprint_line(line: impl std::fmt::Display) {
+    let _ = writeln!(Term::stderr(), "{line}");
+}
+
+/// The app name in `title`, with a gradient from `wordmark-from` to `wordmark-to` where
+/// 24-bit colour is shown and `accent-strong` elsewhere.
+fn wordmark() -> String {
+    let c = cfg();
+    let (from, to) = c.pal.wordmark();
+    gradient("Ultraviolet", from, to)
+        .style(Style::new().bold())
+        .fallback(c.pal.style(Tok::Strong).bold())
+        .to_string()
+}
+
+/// The wordmark with the Serrallonga icon beside it (our own 8-line drawing).
+pub fn wordmark_with_icon(tagline: &str) {
+    let c = cfg();
+    let icon: [&str; 8] = if c.g.ascii {
+        [
+            r"   ___   ",
+            r"  /###\  ",
+            r" (=o o=) ",
+            r"  \ ~ /  ",
+            r" /|x x|\ ",
+            r"/ |x x| \",
+            r"  |   |  ",
+            r"  d   b  ",
+        ]
+    } else {
+        [
+            "  ▄████▄  ",
+            " ▐██████▌ ",
+            " ▐▀◉  ◉▀▌ ",
+            "  ▝▄▂▂▄▘  ",
+            " ╱▓▚▞▚▞▓╲ ",
+            "╱ ▓▞▚▞▚▓ ╲",
+            "  ▐▌  ▐▌  ",
+            "  ▀▀  ▀▀  ",
+        ]
+    };
+    let side = [
+        String::new(),
+        String::new(),
+        String::new(),
+        wordmark(),
+        c.pal.e(Tok::Muted, tagline),
+        String::new(),
+        String::new(),
+        String::new(),
+    ];
+    for (art, text) in icon.iter().zip(side) {
+        eprint_line(format!("{}  {}", c.pal.e(Tok::Accent, art), text));
+    }
+}
+
 /// The theme the app runs with, for drawing lines the way a prompt would.
 pub fn app_theme() -> UltravioletTheme {
     UltravioletTheme::new(cfg().clone())
@@ -280,6 +338,9 @@ impl Theme for UltravioletTheme {
             .error(g.err)
             .section("#")
             .nested(g.nested)
+            // The bar is one glyph; the fill and the track differ by colour only.
+            .bar_fill(g.bar)
+            .bar_track(g.bar)
             .spinner(g.spinner)
             .box_h(g.box_h)
             .box_v(g.box_v)
@@ -379,6 +440,17 @@ impl Theme for UltravioletTheme {
                 .nested_style(p.style(Tok::Faint))
                 .elapsed_style(p.style(Tok::Subtle))
                 .step_indent(4)
+        });
+        // The progress bar: 32 cells, the last two of the fill are the glint, then the
+        // label and the percentage.
+        let live = live.progress(|b| {
+            b.bar_width(32)
+                .head_width(2)
+                .fill_style(p.style(Tok::Accent))
+                .head_style(p.style(Tok::Strong))
+                .track_style(p.style(Tok::Faint))
+                .label_style(p.style(Tok::Muted))
+                .percent_style(p.style(Tok::Subtle))
         });
         Cow::Owned(
             Tokens::default()
@@ -508,8 +580,9 @@ mod tests {
     use paloma::{
         terminal::Stream,
         theme::{
-            Answer, AnsweredView, BlockKind, MessageSource, MessageView, PromptMessageView,
-            SectionView, Status, TaskState, TaskStepView, TaskView,
+            Answer, AnsweredView, BlockKind, LiveKind, MessageSource, MessageView, ProgressState,
+            ProgressView, PromptMessageView, SectionView, Status, TaskState, TaskStepView,
+            TaskView,
         },
     };
     use std::time::Duration;
@@ -674,6 +747,45 @@ mod tests {
         );
         theme.format_task(&mut done, &ctx, &finished).unwrap();
         assert_eq!(done, "✓ Connected  1.4s");
+    }
+
+    #[test]
+    fn the_progress_bar_is_one_glyph_with_a_glint_and_a_percentage() {
+        for (ascii, bar) in [(false, "━"), (true, "=")] {
+            let theme = plain(config(ascii));
+            let tokens = theme.tokens();
+            let ctx = Context::new(&tokens, Stream::Stderr);
+            let line = |state, value| {
+                let mut out = String::new();
+                let view = ProgressView::new("Exchanging keys", state, value, 32, Duration::ZERO);
+                theme.format_progress(&mut out, &ctx, &view).unwrap();
+                out
+            };
+            // 32 cells whatever the progress; the percentage follows the label.
+            assert_eq!(
+                line(ProgressState::Running, 16),
+                format!("{} Exchanging keys  50%", bar.repeat(32))
+            );
+            assert_eq!(
+                line(ProgressState::Kept, 32),
+                format!("{} Exchanging keys  100%", bar.repeat(32))
+            );
+            let look = tokens.get_live().resolve(LiveKind::Progress, &tokens);
+            assert_eq!(
+                (look.bar_width, look.head_width, look.show_elapsed),
+                (32, 2, false)
+            );
+        }
+        // The fill, the glint and the track are three colours of the same glyph.
+        let p = Palette::new(true, Depth::True);
+        let theme = plain(config(false));
+        let tokens = theme.tokens();
+        let look = tokens.get_live().resolve(LiveKind::Progress, &tokens);
+        assert_eq!(look.fill_style, p.style(Tok::Accent));
+        assert_eq!(look.head_style, p.style(Tok::Strong));
+        assert_eq!(look.track_style, p.style(Tok::Faint));
+        assert_eq!(look.label_style, p.style(Tok::Muted));
+        assert_eq!(look.percent_style, p.style(Tok::Subtle));
     }
 
     #[test]

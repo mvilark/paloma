@@ -1,5 +1,5 @@
 //! One function per command. Everything shown goes through paloma: prompts, flows,
-//! messages, blocks and tasks.
+//! messages, blocks, tasks and progress bars.
 use std::{thread, time::Duration};
 
 use paloma::{
@@ -32,48 +32,49 @@ fn count(n: usize, one: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------------
-// Progress seams: three places where a progress bar (PAL-011) is the right component.
-// Each is one small function that takes the units and runs a task with one step per
-// unit. When progress bars land, only these functions change.
+// Progress: three places where work takes time in units, so a bar shows how far it is.
+// Each is one small function that takes the units and runs a progress bar.
 // ---------------------------------------------------------------------------------
 
-/// PAL-011: a progress bar "sowing" over `seeds.len()`, its label naming the seed being
-/// sown, instead of this task.
+/// A bar over the seeds, one unit per seed; its label names the seed being sown. It ends
+/// in a success line that replaces the bar.
 fn sow(args: &Args, seeds: &[&str]) -> Result {
-    let task = paloma::task("sowing...").start()?;
+    let bar = paloma::progress("sowing...", seeds.len() as u64).start()?;
     for seed in seeds {
+        bar.label(format!("sowing {seed}..."))?;
         pause(args, 450);
-        task.step(format!("sowed {seed}"))?;
+        bar.inc(1)?;
     }
-    task.success(format!("sowed {}", count(seeds.len(), "seed")))?;
+    bar.success(format!("sowed {}", count(seeds.len(), "seed")))?;
     Ok(())
 }
 
-/// PAL-011: a progress bar per bed, or one over the total litres, instead of this task.
+/// A bar over the total litres, labelled with the bed being watered and moved on by each
+/// bed's litres. It ends in a success line that replaces the bar.
 fn water_beds(args: &Args, beds: &[&Bed]) -> Result {
-    let task = paloma::task("watering...").start()?;
-    let mut litres = 0;
+    let total: u32 = beds.iter().map(|bed| u32::from(bed.litres)).sum();
+    let bar = paloma::progress("watering...", u64::from(total)).start()?;
     for bed in beds {
+        bar.label(format!("watering {}...", bed.name))?;
         pause(args, 500);
-        litres += u32::from(bed.litres);
-        task.step(format!("watered {} ({} litres)", bed.name, bed.litres))?;
+        bar.inc(u64::from(bed.litres))?;
     }
-    task.success(format!(
-        "watered {}, {litres} litres",
+    bar.success(format!(
+        "watered {}, {total} litres",
         count(beds.len(), "bed")
     ))?;
     Ok(())
 }
 
-/// PAL-011: a progress bar over the 40 seeds, eased, instead of this task (one step per
-/// ten seeds).
+/// A bar over the 40 seeds of the catalogue, moved on by ten at each pause. It ends in a
+/// success line that replaces the bar.
 fn fetch_catalogue(args: &Args) -> Result {
-    let task = paloma::task("fetching the seed catalogue...").start()?;
-    for from in (1..=SEEDS.len()).step_by(10) {
+    let bar = paloma::progress("fetching the seed catalogue...", SEEDS.len() as u64).start()?;
+    for _ in (1..=SEEDS.len()).step_by(10) {
         pause(args, 300);
-        task.step(format!("fetched seeds {from}-{}", from + 9))?;
+        bar.inc(10)?;
     }
-    task.success(format!("fetched {} seeds", SEEDS.len()))?;
+    bar.success(format!("fetched {} seeds", SEEDS.len()))?;
     Ok(())
 }
 
@@ -586,5 +587,63 @@ pub fn seeds(_: &Args) -> Result<i32> {
                 .map(|s| [s.name.to_string(), s.season.to_string(), s.sprouts_in()]),
         )
         .print()?;
+    Ok(0)
+}
+
+// help: the one place that lists the commands, options and environment variables.
+// keep it in sync with `parse_args` and `main` in `main.rs`.
+
+const USAGE: [(&str, &str); 2] = [
+    ("loam <command> [options]", "run a command"),
+    ("loam", "the first run: the wordmark, then init"),
+];
+
+const HELP_COMMANDS: [(&str, &str); 9] = [
+    ("init", "plant a new garden: name, zone, beds and sun"),
+    ("plant", "sow seeds from the catalogue"),
+    ("water", "water the beds, the dry ones first"),
+    ("harvest", "pick what is ripe, in the order you choose"),
+    ("journal", "write a note in the garden journal"),
+    ("status", "see how the garden is doing today"),
+    ("almanac", "this week's weather, with frost dates"),
+    ("seeds", "list every seed in the catalogue"),
+    ("help", "show this help"),
+];
+
+const HELP_OPTIONS: [(&str, &str); 10] = [
+    ("--yes, -y", "accept every default and ask nothing"),
+    ("--name <name>", "the garden's name, for init"),
+    (
+        "--zone <zone>",
+        "the climate zone, for init: temperate, cool, mediterranean, tropical or arid",
+    ),
+    ("--long", "write the journal note in your editor"),
+    ("--json", "print status as json"),
+    ("--day", "use the day colours"),
+    ("--night", "use the night colours (the default)"),
+    ("--plain", "draw with paloma's plain theme"),
+    ("--ascii", "use plain ascii instead of glyphs"),
+    ("--help, -h", "show this help"),
+];
+
+const HELP_ENVIRONMENT: [(&str, &str); 2] = [
+    (
+        "LOAM_THEME",
+        "day for the day colours, anything else for night",
+    ),
+    ("CI", "when set, nothing waits and spinners stay still"),
+];
+
+pub fn help(_: &Args) -> Result<i32> {
+    let groups: [(&str, &[(&str, &str)]); 4] = [
+        ("usage", &USAGE),
+        ("commands", &HELP_COMMANDS),
+        ("options", &HELP_OPTIONS),
+        ("environment", &HELP_ENVIRONMENT),
+    ];
+    for (title, rows) in groups {
+        paloma::section(title).print()?;
+        KeyValue::new().rows(rows.iter().copied()).print()?;
+    }
     Ok(0)
 }

@@ -1,10 +1,13 @@
 //! A fake VPN CLI themed with the Ultraviolet design system (docs/design/ultraviolet.md).
 //!
 //! Run with: `cargo run --example ultraviolet --all-features -- <command>`
-//! Commands: setup, connect, favorites, disconnect, status, servers, about.
+//! Commands: setup, connect, favorites, disconnect, status, servers, about, help.
+//! `help` (or `--help` / `-h` anywhere) lists every command, option and environment variable.
+//!
+//! Everything it shows is a paloma component: `theme.rs` holds the design system's tokens
+//! and hooks, and the Serrallonga icon and wordmark, the app's own brand art.
 mod flows;
 mod theme;
-mod ui;
 
 use std::env;
 
@@ -44,6 +47,10 @@ fn parse_args() -> Args {
             _ if !key.starts_with('-') && args.command.is_none() => args.command = Some(key),
             _ => {}
         }
+    }
+    // The help flag wins over any command, wherever it stands on the line.
+    if env::args().skip(1).any(|a| a == "--help" || a == "-h") {
+        args.command = Some("help".into());
     }
     args
 }
@@ -138,7 +145,7 @@ fn main() {
     let command = match args.command.as_deref() {
         Some(c) => c.to_string(),
         None => {
-            ui::wordmark_with_icon("a fake vpn, themed with Ultraviolet");
+            theme::wordmark_with_icon("a fake vpn, themed with Ultraviolet");
             eprintln!();
             "setup".into()
         }
@@ -151,9 +158,10 @@ fn main() {
         "status" => flows::status(&args),
         "servers" => flows::servers(&args),
         "about" => flows::about(&args),
+        "help" => flows::help(&args),
         other => {
             let _ = paloma::error(format!("Unknown command {other}"))
-                .nest(paloma::Message::hint("ultraviolet about"))
+                .nest(paloma::Message::hint("ultraviolet help"))
                 .print();
             std::process::exit(2);
         }
