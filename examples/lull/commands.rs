@@ -450,3 +450,45 @@ pub fn forget(path: &Path) -> R {
     }
     Ok(())
 }
+
+// Help: the one place that lists the commands, options and environment variables.
+// Keep it in sync with the dispatch in `main.rs`.
+
+const USAGE: [(&str, &str); 2] = [
+    ("lull <command>", "Run a command"),
+    (
+        "lull",
+        "Same as today, or setup when there is no schedule yet",
+    ),
+];
+
+const COMMANDS: [(&str, &str); 7] = [
+    ("setup", "Choose your sleep schedule and habits"),
+    ("today", "Tonight's plan and where you are in it"),
+    ("park", "Write down where you stopped, so stopping is safe"),
+    ("log", "Morning check-in for last night"),
+    ("week", "Your last 7 logged nights and how steady they were"),
+    ("forget", "Delete your schedule file after asking"),
+    ("help", "Show this help"),
+];
+
+const OPTIONS: [(&str, &str); 1] = [("--help, -h", "Show this help")];
+
+const ENVIRONMENT: [(&str, &str); 2] = [
+    ("LULL_FILE", "The schedule file; default is ~/.lull.json"),
+    ("LULL_NOW", "Pretend it is this time, as YYYY-MM-DDTHH:MM"),
+];
+
+pub fn help() -> R {
+    let groups: [(&str, &[(&str, &str)]); 4] = [
+        ("Usage", &USAGE),
+        ("Commands", &COMMANDS),
+        ("Options", &OPTIONS),
+        ("Environment", &ENVIRONMENT),
+    ];
+    for (title, rows) in groups {
+        paloma::section(title).print()?;
+        KeyValue::new().rows(rows.iter().copied()).print()?;
+    }
+    Ok(())
+}

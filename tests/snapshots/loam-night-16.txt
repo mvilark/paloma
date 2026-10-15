@@ -245,12 +245,84 @@ $ loam nope
 --- stdout
 --- stderr
 ␛[31m✗␛[0m i do not know nope
-  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mloam almanac␛[0m
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mrun: loam help␛[0m
 
 $ loam status --nope
 --- exit 2
 --- stdout
 --- stderr
 ␛[31m✗␛[0m i do not know --nope
-  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mloam almanac␛[0m
+  ␛[2m␛[3mtip␛[0m  ␛[2m␛[3mrun: loam help␛[0m
+
+$ loam help
+--- exit 0
+--- stdout
+loam <command> [options]   run a command
+loam                       the first run: the wordmark, then init
+init      plant a new garden: name, zone, beds and sun
+plant     sow seeds from the catalogue
+water     water the beds, the dry ones first
+harvest   pick what is ripe, in the order you choose
+journal   write a note in the garden journal
+status    see how the garden is doing today
+almanac   this week's weather, with frost dates
+seeds     list every seed in the catalogue
+help      show this help
+--yes, -y       accept every default and ask nothing
+--name <name>   the garden's name, for init
+--zone <zone>   the climate zone, for init: temperate, cool, mediterranean, tropical or arid
+--long          write the journal note in your editor
+--json          print status as json
+--day           use the day colours
+--night         use the night colours (the default)
+--plain         draw with paloma's plain theme
+--ascii         use plain ascii instead of glyphs
+--help, -h      show this help
+LOAM_THEME   day for the day colours, anything else for night
+CI           when set, nothing waits and spinners stay still
+--- stderr
+
+␛[32m❦␛[0m ␛[38;5;10musage␛[0m
+
+␛[32m❦␛[0m ␛[38;5;10mcommands␛[0m
+
+␛[32m❦␛[0m ␛[38;5;10moptions␛[0m
+
+␛[32m❦␛[0m ␛[38;5;10menvironment␛[0m
+
+$ loam init --yes --help
+--- exit 0
+--- stdout
+loam <command> [options]   run a command
+loam                       the first run: the wordmark, then init
+init      plant a new garden: name, zone, beds and sun
+plant     sow seeds from the catalogue
+water     water the beds, the dry ones first
+harvest   pick what is ripe, in the order you choose
+journal   write a note in the garden journal
+status    see how the garden is doing today
+almanac   this week's weather, with frost dates
+seeds     list every seed in the catalogue
+help      show this help
+--yes, -y       accept every default and ask nothing
+--name <name>   the garden's name, for init
+--zone <zone>   the climate zone, for init: temperate, cool, mediterranean, tropical or arid
+--long          write the journal note in your editor
+--json          print status as json
+--day           use the day colours
+--night         use the night colours (the default)
+--plain         draw with paloma's plain theme
+--ascii         use plain ascii instead of glyphs
+--help, -h      show this help
+LOAM_THEME   day for the day colours, anything else for night
+CI           when set, nothing waits and spinners stay still
+--- stderr
+
+␛[32m❦␛[0m ␛[38;5;10musage␛[0m
+
+␛[32m❦␛[0m ␛[38;5;10mcommands␛[0m
+
+␛[32m❦␛[0m ␛[38;5;10moptions␛[0m
+
+␛[32m❦␛[0m ␛[38;5;10menvironment␛[0m
 

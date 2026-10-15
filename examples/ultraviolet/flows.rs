@@ -360,3 +360,69 @@ pub fn about(_: &Args) -> Result<i32> {
         .print()?;
     Ok(0)
 }
+
+// ---------------------------------------------------------------------------------
+// Help: the one place that lists the commands, options and environment variables.
+// Keep it in sync with `parse_args` and `main` in `main.rs`.
+
+const USAGE: [(&str, &str); 2] = [
+    ("ultraviolet <command> [options]", "Run a command"),
+    ("ultraviolet", "Same as setup, after the wordmark"),
+];
+
+const HELP_COMMANDS: [(&str, &str); 8] = [
+    ("setup", "Sign in and choose your protocol and features"),
+    ("connect", "Pick a server and connect to it"),
+    ("favorites", "Put your favourite servers in order"),
+    ("disconnect", "Close the connection"),
+    ("status", "Show the state of the connection"),
+    ("servers", "List the servers with their load and ping"),
+    ("about", "Show the version and the docs link"),
+    ("help", "Show this help"),
+];
+
+const HELP_OPTIONS: [(&str, &str); 8] = [
+    ("--yes, -y", "Accept every default and ask nothing"),
+    ("--email <email>", "Account email for setup"),
+    (
+        "--protocol <name>",
+        "Protocol for setup: WireGuard, OpenVPN UDP or OpenVPN TCP",
+    ),
+    ("--server <id>", "Server for connect, such as es-bcn-01"),
+    ("--json", "Print status as JSON"),
+    (
+        "--theme <dark|light>",
+        "Colours for a dark or a light terminal",
+    ),
+    ("--ascii", "Draw with ASCII characters only"),
+    ("--help, -h", "Show this help"),
+];
+
+const HELP_ENVIRONMENT: [(&str, &str); 6] = [
+    (
+        "ULTRAVIOLET_THEME",
+        "dark or light, when --theme is not given",
+    ),
+    ("ULTRAVIOLET_MOTION", "0 keeps spinners and bars still"),
+    ("COLORFGBG", "Tells a light terminal from a dark one"),
+    ("COLORTERM", "truecolor or 24bit draws in 24-bit colour"),
+    (
+        "TERM",
+        "256color draws in 256 colours; linux draws in ASCII",
+    ),
+    ("CI", "When set, spinners and bars stay still"),
+];
+
+pub fn help(_: &Args) -> Result<i32> {
+    let groups: [(&str, &[(&str, &str)]); 4] = [
+        ("Usage", &USAGE),
+        ("Commands", &HELP_COMMANDS),
+        ("Options", &HELP_OPTIONS),
+        ("Environment", &HELP_ENVIRONMENT),
+    ];
+    for (title, rows) in groups {
+        paloma::section(title).print()?;
+        KeyValue::new().rows(rows.iter().copied()).print()?;
+    }
+    Ok(0)
+}

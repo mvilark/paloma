@@ -134,5 +134,42 @@ $ ultraviolet nope
 --- stdout
 --- stderr
 ␛[31m✕␛[0m Unknown command nope
-  ␛[2m␛[3mHint␛[0m  ␛[38;5;13m␛[1multraviolet about␛[0m
+  ␛[2m␛[3mHint␛[0m  ␛[38;5;13m␛[1multraviolet help␛[0m
+
+$ ultraviolet help
+--- exit 0
+--- stdout
+ultraviolet <command> [options]   Run a command
+ultraviolet                       Same as setup, after the wordmark
+setup        Sign in and choose your protocol and features
+connect      Pick a server and connect to it
+favorites    Put your favourite servers in order
+disconnect   Close the connection
+status       Show the state of the connection
+servers      List the servers with their load and ping
+about        Show the version and the docs link
+help         Show this help
+--yes, -y              Accept every default and ask nothing
+--email <email>        Account email for setup
+--protocol <name>      Protocol for setup: WireGuard, OpenVPN UDP or OpenVPN TCP
+--server <id>          Server for connect, such as es-bcn-01
+--json                 Print status as JSON
+--theme <dark|light>   Colours for a dark or a light terminal
+--ascii                Draw with ASCII characters only
+--help, -h             Show this help
+ULTRAVIOLET_THEME    dark or light, when --theme is not given
+ULTRAVIOLET_MOTION   0 keeps spinners and bars still
+COLORFGBG            Tells a light terminal from a dark one
+COLORTERM            truecolor or 24bit draws in 24-bit colour
+TERM                 256color draws in 256 colours; linux draws in ASCII
+CI                   When set, spinners and bars stay still
+--- stderr
+
+␛[38;5;13m#␛[0m ␛[1mUsage␛[0m
+
+␛[38;5;13m#␛[0m ␛[1mCommands␛[0m
+
+␛[38;5;13m#␛[0m ␛[1mOptions␛[0m
+
+␛[38;5;13m#␛[0m ␛[1mEnvironment␛[0m
 

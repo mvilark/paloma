@@ -134,5 +134,42 @@ $ ultraviolet nope
 --- stdout
 --- stderr
 ␛[38;5;161m✕␛[0m ␛[38;5;234mUnknown command nope␛[0m
-  ␛[38;5;60m␛[3mHint␛[0m  ␛[38;5;55multraviolet about␛[0m
+  ␛[38;5;60m␛[3mHint␛[0m  ␛[38;5;55multraviolet help␛[0m
+
+$ ultraviolet help
+--- exit 0
+--- stdout
+␛[38;5;60multraviolet <command> [options]␛[0m   ␛[38;5;234mRun a command␛[0m
+␛[38;5;60multraviolet␛[0m                       ␛[38;5;234mSame as setup, after the wordmark␛[0m
+␛[38;5;60msetup␛[0m        ␛[38;5;234mSign in and choose your protocol and features␛[0m
+␛[38;5;60mconnect␛[0m      ␛[38;5;234mPick a server and connect to it␛[0m
+␛[38;5;60mfavorites␛[0m    ␛[38;5;234mPut your favourite servers in order␛[0m
+␛[38;5;60mdisconnect␛[0m   ␛[38;5;234mClose the connection␛[0m
+␛[38;5;60mstatus␛[0m       ␛[38;5;234mShow the state of the connection␛[0m
+␛[38;5;60mservers␛[0m      ␛[38;5;234mList the servers with their load and ping␛[0m
+␛[38;5;60mabout␛[0m        ␛[38;5;234mShow the version and the docs link␛[0m
+␛[38;5;60mhelp␛[0m         ␛[38;5;234mShow this help␛[0m
+␛[38;5;60m--yes, -y␛[0m              ␛[38;5;234mAccept every default and ask nothing␛[0m
+␛[38;5;60m--email <email>␛[0m        ␛[38;5;234mAccount email for setup␛[0m
+␛[38;5;60m--protocol <name>␛[0m      ␛[38;5;234mProtocol for setup: WireGuard, OpenVPN UDP or OpenVPN TCP␛[0m
+␛[38;5;60m--server <id>␛[0m          ␛[38;5;234mServer for connect, such as es-bcn-01␛[0m
+␛[38;5;60m--json␛[0m                 ␛[38;5;234mPrint status as JSON␛[0m
+␛[38;5;60m--theme <dark|light>␛[0m   ␛[38;5;234mColours for a dark or a light terminal␛[0m
+␛[38;5;60m--ascii␛[0m                ␛[38;5;234mDraw with ASCII characters only␛[0m
+␛[38;5;60m--help, -h␛[0m             ␛[38;5;234mShow this help␛[0m
+␛[38;5;60mULTRAVIOLET_THEME␛[0m    ␛[38;5;234mdark or light, when --theme is not given␛[0m
+␛[38;5;60mULTRAVIOLET_MOTION␛[0m   ␛[38;5;234m0 keeps spinners and bars still␛[0m
+␛[38;5;60mCOLORFGBG␛[0m            ␛[38;5;234mTells a light terminal from a dark one␛[0m
+␛[38;5;60mCOLORTERM␛[0m            ␛[38;5;234mtruecolor or 24bit draws in 24-bit colour␛[0m
+␛[38;5;60mTERM␛[0m                 ␛[38;5;234m256color draws in 256 colours; linux draws in ASCII␛[0m
+␛[38;5;60mCI␛[0m                   ␛[38;5;234mWhen set, spinners and bars stay still␛[0m
+--- stderr
+
+␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mUsage␛[0m
+
+␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mCommands␛[0m
+
+␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mOptions␛[0m
+
+␛[38;5;99m#␛[0m ␛[38;5;234m␛[1mEnvironment␛[0m
 

@@ -589,3 +589,61 @@ pub fn seeds(_: &Args) -> Result<i32> {
         .print()?;
     Ok(0)
 }
+
+// help: the one place that lists the commands, options and environment variables.
+// keep it in sync with `parse_args` and `main` in `main.rs`.
+
+const USAGE: [(&str, &str); 2] = [
+    ("loam <command> [options]", "run a command"),
+    ("loam", "the first run: the wordmark, then init"),
+];
+
+const HELP_COMMANDS: [(&str, &str); 9] = [
+    ("init", "plant a new garden: name, zone, beds and sun"),
+    ("plant", "sow seeds from the catalogue"),
+    ("water", "water the beds, the dry ones first"),
+    ("harvest", "pick what is ripe, in the order you choose"),
+    ("journal", "write a note in the garden journal"),
+    ("status", "see how the garden is doing today"),
+    ("almanac", "this week's weather, with frost dates"),
+    ("seeds", "list every seed in the catalogue"),
+    ("help", "show this help"),
+];
+
+const HELP_OPTIONS: [(&str, &str); 10] = [
+    ("--yes, -y", "accept every default and ask nothing"),
+    ("--name <name>", "the garden's name, for init"),
+    (
+        "--zone <zone>",
+        "the climate zone, for init: temperate, cool, mediterranean, tropical or arid",
+    ),
+    ("--long", "write the journal note in your editor"),
+    ("--json", "print status as json"),
+    ("--day", "use the day colours"),
+    ("--night", "use the night colours (the default)"),
+    ("--plain", "draw with paloma's plain theme"),
+    ("--ascii", "use plain ascii instead of glyphs"),
+    ("--help, -h", "show this help"),
+];
+
+const HELP_ENVIRONMENT: [(&str, &str); 2] = [
+    (
+        "LOAM_THEME",
+        "day for the day colours, anything else for night",
+    ),
+    ("CI", "when set, nothing waits and spinners stay still"),
+];
+
+pub fn help(_: &Args) -> Result<i32> {
+    let groups: [(&str, &[(&str, &str)]); 4] = [
+        ("usage", &USAGE),
+        ("commands", &HELP_COMMANDS),
+        ("options", &HELP_OPTIONS),
+        ("environment", &HELP_ENVIRONMENT),
+    ];
+    for (title, rows) in groups {
+        paloma::section(title).print()?;
+        KeyValue::new().rows(rows.iter().copied()).print()?;
+    }
+    Ok(0)
+}

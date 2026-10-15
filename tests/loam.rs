@@ -34,6 +34,8 @@ const COMMANDS: &[&[&str]] = &[
     &["seeds"],
     &["nope"],
     &["status", "--nope"],
+    &["help"],
+    &["init", "--yes", "--help"],
 ];
 
 /// Builds the example once and returns its path.

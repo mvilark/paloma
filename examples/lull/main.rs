@@ -3,7 +3,9 @@
 //! writes content and two themes: the night one from the wind-down until the wake time.
 //!
 //! Run with: `cargo run --example lull --features fuzzy-select -- <command>`
-//! Commands: setup, today, park, log, week, forget. Environment: LULL_FILE, LULL_NOW.
+//! Commands: setup, today, park, log, week, forget, help. Environment: LULL_FILE, LULL_NOW.
+//! `help` (or `--help` / `-h` anywhere) lists every command, option and environment variable;
+//! it works without a schedule file.
 mod cities;
 mod commands;
 mod schedule;
@@ -30,11 +32,25 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
+    // Help needs neither a valid LULL_NOW nor a readable schedule file; it is still drawn
+    // by the theme the schedule picks, when there is one.
+    let args: Vec<String> = env::args().skip(1).collect();
+    let help = args.first().is_some_and(|a| a == "help")
+        || args.iter().any(|a| a == "--help" || a == "-h");
     let now = env::var("LULL_NOW").unwrap_or_else(|_| Local::now().format(NOW).to_string());
-    let now = NaiveDateTime::parse_from_str(&now, NOW).map_err(|e| format!("LULL_NOW: {e}"))?;
+    let now = NaiveDateTime::parse_from_str(&now, NOW).or_else(|e| {
+        if help {
+            Ok(Local::now().naive_local())
+        } else {
+            Err(format!("LULL_NOW: {e}"))
+        }
+    })?;
     let path = schedule::path();
-    let data =
-        schedule::load(&path).map_err(|e| format!("{} could not be read: {e}", path.display()))?;
+    let data = match schedule::load(&path) {
+        Ok(data) => data,
+        Err(_) if help => None,
+        Err(e) => return Err(format!("{} could not be read: {e}", path.display()).into()),
+    };
 
     // Without a schedule yet, the default one decides the theme.
     let caps = terminal::capabilities(terminal::Stream::Stderr);
@@ -54,6 +70,9 @@ fn run() -> Result<(), Box<dyn Error>> {
     } else {
         "today"
     };
+    if help {
+        return commands::help();
+    }
     match (env::args().nth(1).as_deref().unwrap_or(default), data) {
         ("setup", data) => commands::setup(data, &path, now),
         ("today" | "park" | "log" | "week" | "forget", None) => fail(
@@ -66,7 +85,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         ("week", Some(data)) => commands::week(&data),
         ("forget", Some(_)) => commands::forget(&path),
         (other, _) => {
-            let hint = Message::hint("Try lull setup, today, park, log, week or forget");
+            let hint = Message::hint("Run lull help to see every command");
             fail(
                 paloma::error(format!("I do not know {other}")).nest(hint),
                 2,

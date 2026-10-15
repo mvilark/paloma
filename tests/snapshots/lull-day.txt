@@ -33,7 +33,7 @@ $ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull.json lull nope
 --- stdout
 --- stderr
 ␛[38;5;167m✘␛[0m ␛[31mI do not know nope␛[0m
-  ␛[38;5;244m›␛[0m ␛[38;5;244mTry lull setup, today, park, log, week or forget␛[0m
+  ␛[38;5;244m›␛[0m ␛[38;5;244mRun lull help to see every command␛[0m
 
 $ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull-missing.json lull today
 --- exit 1
@@ -41,4 +41,46 @@ $ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull-missing.json lull toda
 --- stderr
 ␛[38;5;167m✘␛[0m ␛[31mNo sleep schedule yet␛[0m
   ␛[38;5;244m›␛[0m ␛[38;5;244mRun: lull setup␛[0m
+
+$ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull-missing.json lull help
+--- exit 0
+--- stdout
+lull <command>   Run a command
+lull             Same as today, or setup when there is no schedule yet
+setup    Choose your sleep schedule and habits
+today    Tonight's plan and where you are in it
+park     Write down where you stopped, so stopping is safe
+log      Morning check-in for last night
+week     Your last 7 logged nights and how steady they were
+forget   Delete your schedule file after asking
+help     Show this help
+--help, -h   Show this help
+LULL_FILE   The schedule file; default is ~/.lull.json
+LULL_NOW    Pretend it is this time, as YYYY-MM-DDTHH:MM
+--- stderr
+␛[38;5;214m☼␛[0m Usage
+␛[38;5;214m☼␛[0m Commands
+␛[38;5;214m☼␛[0m Options
+␛[38;5;214m☼␛[0m Environment
+
+$ LULL_NOW=2026-10-11T14:00 LULL_FILE=tests/fixtures/lull-missing.json lull today --help
+--- exit 0
+--- stdout
+lull <command>   Run a command
+lull             Same as today, or setup when there is no schedule yet
+setup    Choose your sleep schedule and habits
+today    Tonight's plan and where you are in it
+park     Write down where you stopped, so stopping is safe
+log      Morning check-in for last night
+week     Your last 7 logged nights and how steady they were
+forget   Delete your schedule file after asking
+help     Show this help
+--help, -h   Show this help
+LULL_FILE   The schedule file; default is ~/.lull.json
+LULL_NOW    Pretend it is this time, as YYYY-MM-DDTHH:MM
+--- stderr
+␛[38;5;214m☼␛[0m Usage
+␛[38;5;214m☼␛[0m Commands
+␛[38;5;214m☼␛[0m Options
+␛[38;5;214m☼␛[0m Environment
 

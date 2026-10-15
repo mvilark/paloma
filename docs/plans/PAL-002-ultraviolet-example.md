@@ -24,6 +24,7 @@ Out of scope, as agreed: background colours (`selection-bg`, badge fills, `term-
 | `status [--json]` | key/value rows on stdout, or JSON with `--json` | |
 | `servers` | a table with a bold header row | |
 | `about` | wordmark (gradient) and the Serrallonga icon | |
+| `help` (or `--help` / `-h` anywhere) | `Usage`, `Commands`, `Options` and `Environment` sections of key/value rows, from one const table in `flows.rs`; the unknown-command hint is `ultraviolet help` | |
 
 Failure paths are part of the demo: `connect --server xx-nowhere-01` prints `✕ Server xx-nowhere-01 not found` and a `hint` line with a command to paste; an outro with the kill switch off shows a `▲` line.
 

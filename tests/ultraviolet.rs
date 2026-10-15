@@ -20,6 +20,7 @@ const COMMANDS: &[&[&str]] = &[
     &["servers"],
     &["about"],
     &["nope"],
+    &["help"],
 ];
 
 /// Builds the example once and returns its path.

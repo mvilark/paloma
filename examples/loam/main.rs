@@ -4,8 +4,9 @@
 //! paloma prompt, flow, message, block, task or progress bar. All data is canned and lives in memory.
 //!
 //! Run with: `cargo run --example loam --all-features -- <command>`
-//! Commands: init, plant, water, harvest, journal, status, almanac, seeds.
-//! Flags: --yes, --ascii, --day, --night, --plain, --name, --zone, --json, --long.
+//! Commands: init, plant, water, harvest, journal, status, almanac, seeds, help.
+//! Flags: --yes, --ascii, --day, --night, --plain, --name, --zone, --json, --long, --help.
+//! `help` (or `--help` / `-h` anywhere) lists every command, flag and environment variable.
 mod commands;
 mod data;
 mod theme;
@@ -67,6 +68,11 @@ fn parse_args() -> Args {
             _ => args.unknown.push(key),
         }
     }
+    // The help flag wins over any command and any unknown flag, wherever it stands.
+    if env::args().skip(1).any(|a| a == "--help" || a == "-h") {
+        args.command = Some("help".into());
+        args.unknown.clear();
+    }
     args
 }
 
@@ -111,7 +117,7 @@ fn main() {
 
     if let Some(flag) = args.unknown.first() {
         let _ = paloma::error(format!("i do not know {flag}"))
-            .nest(Message::hint("loam almanac"))
+            .nest(Message::hint("run: loam help"))
             .print();
         std::process::exit(2);
     }
@@ -134,9 +140,10 @@ fn main() {
         "status" => commands::status(&args),
         "almanac" => commands::almanac(&args),
         "seeds" => commands::seeds(&args),
+        "help" => commands::help(&args),
         other => {
             let _ = paloma::error(format!("i do not know {other}"))
-                .nest(Message::hint("loam almanac"))
+                .nest(Message::hint("run: loam help"))
                 .print();
             std::process::exit(2);
         }

@@ -134,5 +134,42 @@ $ ultraviolet nope --ascii
 --- stdout
 --- stderr
 ␛[38;2;255;127;158mx␛[0m ␛[38;2;232;230;240mUnknown command nope␛[0m
-  ␛[38;2;125;120;148m␛[3mHint␛[0m  ␛[38;2;213;198;255multraviolet about␛[0m
+  ␛[38;2;125;120;148m␛[3mHint␛[0m  ␛[38;2;213;198;255multraviolet help␛[0m
+
+$ ultraviolet help --ascii
+--- exit 0
+--- stdout
+␛[38;2;169;164;189multraviolet <command> [options]␛[0m   ␛[38;2;232;230;240mRun a command␛[0m
+␛[38;2;169;164;189multraviolet␛[0m                       ␛[38;2;232;230;240mSame as setup, after the wordmark␛[0m
+␛[38;2;169;164;189msetup␛[0m        ␛[38;2;232;230;240mSign in and choose your protocol and features␛[0m
+␛[38;2;169;164;189mconnect␛[0m      ␛[38;2;232;230;240mPick a server and connect to it␛[0m
+␛[38;2;169;164;189mfavorites␛[0m    ␛[38;2;232;230;240mPut your favourite servers in order␛[0m
+␛[38;2;169;164;189mdisconnect␛[0m   ␛[38;2;232;230;240mClose the connection␛[0m
+␛[38;2;169;164;189mstatus␛[0m       ␛[38;2;232;230;240mShow the state of the connection␛[0m
+␛[38;2;169;164;189mservers␛[0m      ␛[38;2;232;230;240mList the servers with their load and ping␛[0m
+␛[38;2;169;164;189mabout␛[0m        ␛[38;2;232;230;240mShow the version and the docs link␛[0m
+␛[38;2;169;164;189mhelp␛[0m         ␛[38;2;232;230;240mShow this help␛[0m
+␛[38;2;169;164;189m--yes, -y␛[0m              ␛[38;2;232;230;240mAccept every default and ask nothing␛[0m
+␛[38;2;169;164;189m--email <email>␛[0m        ␛[38;2;232;230;240mAccount email for setup␛[0m
+␛[38;2;169;164;189m--protocol <name>␛[0m      ␛[38;2;232;230;240mProtocol for setup: WireGuard, OpenVPN UDP or OpenVPN TCP␛[0m
+␛[38;2;169;164;189m--server <id>␛[0m          ␛[38;2;232;230;240mServer for connect, such as es-bcn-01␛[0m
+␛[38;2;169;164;189m--json␛[0m                 ␛[38;2;232;230;240mPrint status as JSON␛[0m
+␛[38;2;169;164;189m--theme <dark|light>␛[0m   ␛[38;2;232;230;240mColours for a dark or a light terminal␛[0m
+␛[38;2;169;164;189m--ascii␛[0m                ␛[38;2;232;230;240mDraw with ASCII characters only␛[0m
+␛[38;2;169;164;189m--help, -h␛[0m             ␛[38;2;232;230;240mShow this help␛[0m
+␛[38;2;169;164;189mULTRAVIOLET_THEME␛[0m    ␛[38;2;232;230;240mdark or light, when --theme is not given␛[0m
+␛[38;2;169;164;189mULTRAVIOLET_MOTION␛[0m   ␛[38;2;232;230;240m0 keeps spinners and bars still␛[0m
+␛[38;2;169;164;189mCOLORFGBG␛[0m            ␛[38;2;232;230;240mTells a light terminal from a dark one␛[0m
+␛[38;2;169;164;189mCOLORTERM␛[0m            ␛[38;2;232;230;240mtruecolor or 24bit draws in 24-bit colour␛[0m
+␛[38;2;169;164;189mTERM␛[0m                 ␛[38;2;232;230;240m256color draws in 256 colours; linux draws in ASCII␛[0m
+␛[38;2;169;164;189mCI␛[0m                   ␛[38;2;232;230;240mWhen set, spinners and bars stay still␛[0m
+--- stderr
+
+␛[38;2;163;130;255m#␛[0m ␛[38;2;232;230;240m␛[1mUsage␛[0m
+
+␛[38;2;163;130;255m#␛[0m ␛[38;2;232;230;240m␛[1mCommands␛[0m
+
+␛[38;2;163;130;255m#␛[0m ␛[38;2;232;230;240m␛[1mOptions␛[0m
+
+␛[38;2;163;130;255m#␛[0m ␛[38;2;232;230;240m␛[1mEnvironment␛[0m
 
